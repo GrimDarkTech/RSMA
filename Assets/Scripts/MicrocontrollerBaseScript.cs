@@ -4,5 +4,13 @@ using UnityEngine;
 
 public class MicrocontrollerBaseScript : ModuleBaseScript
 {
+    private void Start()
+    {
+        MicroStart();
+    }
+    private void MicroStart()
+    {
+
+    }
 
 }
