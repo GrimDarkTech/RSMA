@@ -4,12 +4,7 @@ public class ModuleBaseScript : MonoBehaviour
 {
     void Start()
     {
-        Rigidbody rigidbody = gameObject.AddComponent<Rigidbody>();
-    }
-
-    void Update()
-    {
-        
+        //Rigidbody rigidbody = gameObject.AddComponent<Rigidbody>();
     }
 
 }
