@@ -5,7 +5,7 @@ using UnityEngine;
 public class MicrocontrollerBaseScript : ModuleBaseScript
 {
     public bool isActive;
-    private bool isLoop = false;
+    protected bool isLoop = false;
     private bool isLoopEnd = false;
     [SerializeField] private GPIOBaseScript GPIO;
     private void Start()

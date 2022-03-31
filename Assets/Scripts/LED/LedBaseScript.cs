@@ -1,19 +1,22 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class LedBaseScript : MonoBehaviour
 {
-    public bool mode;
+    protected bool mode;
     [SerializeField] private Material activeLEDMaterial;
     [SerializeField] private Material disabledLEDMaterial;
+    public GameObject GPIO;
+    public int portID;
+    private GPIOBaseScript GPIOScript;
     private Renderer LEDRenderer;
     private void Start()
     {
         LEDRenderer = gameObject.GetComponent<Renderer>();
+        GPIOScript = GPIO.GetComponent<GPIOBaseScript>();
     }
     private void Update()
     {
+        mode = GPIOScript.getDigitalPort(portID);
         if (mode)
         {
             LEDRenderer.material = activeLEDMaterial;
@@ -23,8 +26,8 @@ public class LedBaseScript : MonoBehaviour
             LEDRenderer.material = disabledLEDMaterial;
         }
     }
-    private void getModeRaw(GameObject device, bool mode)
+    public bool getMode()
     {
-        //device 
+        return mode;
     }
 }
