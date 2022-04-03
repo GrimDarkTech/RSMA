@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class MicrocontrollerBaseScript : ModuleBaseScript
+public class MicrocontrollerBaseScript : MonoBehaviour
 {
     public bool isActive;
     protected bool isLoop = false;

@@ -11,8 +11,10 @@ public class MotorBaseScript : MonoBehaviour
     public float maxVelocity = 0;
     public void motorInit()
     {
-        rigidbody = gameObject.AddComponent<Rigidbody>();
-        hingeJoint = gameObject.AddComponent<HingeJoint>();
+        if (!gameObject.TryGetComponent<Rigidbody>(out rigidbody))
+            rigidbody = gameObject.AddComponent<Rigidbody>();
+        if (!gameObject.TryGetComponent<HingeJoint>(out hingeJoint))
+            hingeJoint = gameObject.AddComponent<HingeJoint>();
     }
     public void setMotorAxis(Vector3 newMotorAxis)
     {

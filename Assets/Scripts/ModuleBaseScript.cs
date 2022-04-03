@@ -2,9 +2,21 @@ using UnityEngine;
 
 public class ModuleBaseScript : MonoBehaviour
 {
+    private Rigidbody rigidbody;
+    private FixedJoint fixedJoint;
+    public Rigidbody connectedBody;
     void Start()
     {
-        //Rigidbody rigidbody = gameObject.AddComponent<Rigidbody>();
+        if(!gameObject.TryGetComponent<Rigidbody>(out rigidbody))
+            rigidbody = gameObject.AddComponent<Rigidbody>();
+        if (!gameObject.TryGetComponent<FixedJoint>(out fixedJoint))
+            fixedJoint = gameObject.AddComponent<FixedJoint>();
+        if (connectedBody != null)
+            setConnectedBody(connectedBody);
+    }
+    public void setConnectedBody(Rigidbody newConnectedBody)
+    {
+        fixedJoint.connectedBody = newConnectedBody;
     }
 
 }
