@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class MotorBaseScript : MonoBehaviour
@@ -8,6 +6,9 @@ public class MotorBaseScript : MonoBehaviour
     private JointMotor hingeJointMotor;
     private Rigidbody rigidbody;
     public Rigidbody rotor;
+    public MotorDriverScript motorDriver;
+    private float input = 0;
+    public float maxVelocity = 0;
     public void motorInit()
     {
         rigidbody = gameObject.AddComponent<Rigidbody>();
@@ -51,6 +52,7 @@ public class MotorBaseScript : MonoBehaviour
     }
     void Update()
     {
-        
+        input = motorDriver.getOutput();
+        setVelocity(maxVelocity * input);
     }
 }

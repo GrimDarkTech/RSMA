@@ -1,12 +1,10 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class GPIOBaseScript : MonoBehaviour
 {
     [SerializeField] private bool[] digitalPort = new bool[500];
     [SerializeField] private float[] PWMPort = new float[500];
-
+   
     public void setDigitalPort(int portId, bool value)
     {
             if (portId < 500)
