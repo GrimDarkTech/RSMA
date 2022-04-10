@@ -1,13 +1,9 @@
 using UnityEngine;
 
-public class RangeFinderBaseScript : MonoBehaviour
+public class RangeFinderBaseScript : I2CSlaveScript
 {
     public float maxRange;
-    public float measureSignalSpeed;
-    public bool trigPortID;
-    public bool echoPortID;
-    public GPIOBaseScript GPIOScript;
-    private int trigValue = 0;
+    [ContextMenu("measureRange")]
     private float measureRange()
     {
         float range = 0;
@@ -15,10 +11,22 @@ public class RangeFinderBaseScript : MonoBehaviour
         Ray ray = new Ray(gameObject.transform.position, gameObject.transform.forward);
         if(Physics.Raycast(ray, out hit, maxRange))
         {
+            Debug.DrawLine(gameObject.transform.position, hit.point);
             range = hit.distance;
             return range;
         }
         else
-            return 0;
+        {
+            return maxRange;
+        }
+            
+    }
+    public override string sendData()
+    {
+        return (""+measureRange());
+    }
+    private void Start()
+    {
+        gameObject.layer = 2;
     }
 }

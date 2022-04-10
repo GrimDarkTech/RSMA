@@ -1,5 +1,4 @@
 using UnityEngine;
-
 public class MotorBaseScript : MonoBehaviour
 {
     private HingeJoint hingeJoint;
@@ -50,7 +49,7 @@ public class MotorBaseScript : MonoBehaviour
         setMotorActive(true);
         setRotor(rotor);
         setVelocity(360);
-        setForce(60);
+        setForce(120);
     }
     void Update()
     {

@@ -4,46 +4,45 @@ using UnityEngine;
 
 public class SSTM33 : MicrocontrollerBaseScript
 {
-    [SerializeField] private GameObject powerLED;
-    [SerializeField] private GameObject debugLED;
-    [SerializeField] private Material activeLEDMaterial;
-    [SerializeField] private Material greenLEDMaterial;
-    [SerializeField] private Material disabledLEDMaterial;
-    private Renderer powerLEDRenderer;
-    private Renderer debugLEDRenderer;
-    private void Start()
-    {
-        powerLEDRenderer = powerLED.GetComponent<Renderer>();
-        debugLEDRenderer = debugLED.GetComponent<Renderer>();
-        MicroStart();
-    }
+    private float range;
     private void Update()
     {
-        if (isActive)
+        if (!isLoop)
         {
-            powerLEDRenderer.material = activeLEDMaterial;
-            if (!isLoop)
-            {
-                MicroStart();
-            }
+            StartCoroutine(MicroLoop());
         }
-        else
-        {
-            powerLEDRenderer.material = disabledLEDMaterial;
-            isLoop = false;
-        }
-    }
-
-    private void MicroStart()
-    {
-        Debug.Log("Started");
-        isLoop = true;
-        StartCoroutine(MicroLoop());
     }
     private IEnumerator MicroLoop()
     {
-        Debug.Log("Time is 0");
-        yield return new WaitForSeconds(5);
-        Debug.Log("Time is 5");
+        isLoop = true;
+        yield return new WaitForSeconds(0.1f);
+        I2CBus.reciveData(0);
+        range = float.Parse(I2CBus.getData());
+        I2CBus.sendData(1);
+
+        if (range < 4f)
+        {
+            if (GPIO.getDigitalPort(1) && !GPIO.getDigitalPort(2))
+            {
+                GPIO.setDigitalPort(3, true);
+                GPIO.setPWMPort(1, 0.2f);
+                GPIO.setDigitalPort(1, false);
+                GPIO.setDigitalPort(2, true);
+            }
+            else
+            {
+                GPIO.setDigitalPort(3, true);
+                GPIO.setPWMPort(1, 0.2f);
+                GPIO.setDigitalPort(1, true);
+                GPIO.setDigitalPort(2, false);
+            }
+
+        }
+        else
+        {
+            GPIO.setDigitalPort(3, false);
+            GPIO.setPWMPort(1, 0.8f);
+        }
+        isLoop = false;
     }
 }

@@ -6,24 +6,25 @@ public class MicrocontrollerBaseScript : MonoBehaviour
 {
     public bool isActive;
     protected bool isLoop = false;
-    private bool isLoopEnd = false;
-    [SerializeField] private GPIOBaseScript GPIO;
-    private void Start()
+    protected bool isLoopEnd = false;
+    [SerializeField] protected GPIOBaseScript GPIO;
+    [SerializeField] protected I2CMasterScript I2CBus;
+    protected void Start()
     {
         if(isActive)
         MicroStart();
     }
-    private void Update()
+    protected void Update()
     {
         if(!isLoopEnd && isLoop)
             StartCoroutine(MicroLoop());
     }
-    private void MicroStart()
+    protected void MicroStart()
     {
         StartCoroutine(MicroLoop());
         isLoop = true;
     }
-    private IEnumerator MicroLoop()
+    protected IEnumerator MicroLoop()
     {
         yield return new WaitForSeconds(.1f);
         isLoopEnd = false;
