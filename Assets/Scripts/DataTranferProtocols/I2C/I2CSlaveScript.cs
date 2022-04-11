@@ -2,8 +2,8 @@ using UnityEngine;
 
 public class I2CSlaveScript : MonoBehaviour
 {
-    private string data;
-    private string deviceName;
+    protected string data;
+    protected string deviceName;
     public  void setDeviceName(string newDeviceName)
     {
         deviceName = newDeviceName;

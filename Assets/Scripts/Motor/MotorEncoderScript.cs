@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class MotorEncoderScript : MonoBehaviour
+public class MotorEncoderScript : MotorBaseScript
 {
     // Start is called before the first frame update
     void Start()

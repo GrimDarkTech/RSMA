@@ -5,6 +5,7 @@ using UnityEngine;
 public class SSTM33 : MicrocontrollerBaseScript
 {
     private float range;
+    private string keyBoardCode;
     private void Update()
     {
         if (!isLoop)
@@ -19,30 +20,48 @@ public class SSTM33 : MicrocontrollerBaseScript
         I2CBus.reciveData(0);
         range = float.Parse(I2CBus.getData());
         I2CBus.sendData(1);
-
+        I2CBus.reciveData(2);
+        keyBoardCode = I2CBus.getData();
+        if(keyBoardCode == "W")
+        {
+            GPIO.setDigitalPort(4, true);
+            GPIO.setDigitalPort(5, false);
+            GPIO.setDigitalPort(6, false);
+            GPIO.setDigitalPort(7, true);
+        }
+        else if(keyBoardCode == "S")
+        {
+            GPIO.setDigitalPort(4, false);
+            GPIO.setDigitalPort(5, true);
+            GPIO.setDigitalPort(6, true);
+            GPIO.setDigitalPort(7, false);
+        }
+        else if (keyBoardCode == "A")
+        {
+            GPIO.setDigitalPort(4, false);
+            GPIO.setDigitalPort(5, true);
+            GPIO.setDigitalPort(6, false);
+            GPIO.setDigitalPort(7, true);
+        }
+        else if (keyBoardCode == "D")
+        {
+            GPIO.setDigitalPort(4, true);
+            GPIO.setDigitalPort(5, false);
+            GPIO.setDigitalPort(6, true);
+            GPIO.setDigitalPort(7, false);
+        }
+        else if (keyBoardCode == "Space")
+        {
+            GPIO.setDigitalPort(4, false);
+            GPIO.setDigitalPort(5, false);
+            GPIO.setDigitalPort(6, false);
+            GPIO.setDigitalPort(7, false);
+        }
         if (range < 4f)
-        {
-            if (GPIO.getDigitalPort(1) && !GPIO.getDigitalPort(2))
-            {
-                GPIO.setDigitalPort(3, true);
-                GPIO.setPWMPort(1, 0.2f);
-                GPIO.setDigitalPort(1, false);
-                GPIO.setDigitalPort(2, true);
-            }
-            else
-            {
-                GPIO.setDigitalPort(3, true);
-                GPIO.setPWMPort(1, 0.2f);
-                GPIO.setDigitalPort(1, true);
-                GPIO.setDigitalPort(2, false);
-            }
-
-        }
+            GPIO.setDigitalPort(3, true);
         else
-        {
             GPIO.setDigitalPort(3, false);
-            GPIO.setPWMPort(1, 0.8f);
-        }
+
         isLoop = false;
     }
 }
