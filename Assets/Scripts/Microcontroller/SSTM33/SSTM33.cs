@@ -57,6 +57,22 @@ public class SSTM33 : MicrocontrollerBaseScript
             GPIO.setDigitalPort(6, false);
             GPIO.setDigitalPort(7, false);
         }
+        else if (keyBoardCode == "LeftArrow")
+        {
+            GPIO.setDigitalPort(1, true);
+            GPIO.setDigitalPort(2, false);
+        }
+        else if (keyBoardCode == "RightArrow")
+        {
+            GPIO.setDigitalPort(1, false);
+            GPIO.setDigitalPort(2, true);
+        }
+        else if (keyBoardCode == "UpArrow")
+        {
+            GPIO.setDigitalPort(1, false);
+            GPIO.setDigitalPort(2, false);
+        }
+
         if (range < 4f)
             GPIO.setDigitalPort(3, true);
         else
