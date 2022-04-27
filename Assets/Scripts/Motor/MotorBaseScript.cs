@@ -6,6 +6,7 @@ public class MotorBaseScript : MonoBehaviour
     private Rigidbody rigidbody;
     public Rigidbody rotor;
     public MotorDriverScript motorDriver;
+    public Vector3 startMotorAxis;
     private float input = 0;
     public float maxVelocity = 0;
     public void motorInit()
@@ -23,6 +24,10 @@ public class MotorBaseScript : MonoBehaviour
     {
         Vector3 newMotorAxis = new Vector3(newMotorX, newMotorY, newMotorZ);
         hingeJoint.axis = newMotorAxis;
+    }
+    public void setMotorAnchor(Vector3 newMotorAnchor)
+    {
+        hingeJoint.anchor = newMotorAnchor;
     }
     public void setMotorActive(bool isMotorActive)
     {
@@ -45,7 +50,8 @@ public class MotorBaseScript : MonoBehaviour
     void Start()
     {
         motorInit();
-        setMotorAxis(0, 1, 0);
+        setMotorAxis(startMotorAxis);
+        setMotorAnchor(new Vector3(0, 0, 0));
         setMotorActive(true);
         setRotor(rotor);
         setVelocity(360);
