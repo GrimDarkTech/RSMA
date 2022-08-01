@@ -31,7 +31,7 @@ _______
 ___
 # Дополнительно
 ## Установка и сборка
-1. ```git clone https://github.com/kms0207/TheMHRT``
+1. ```git clone https://github.com/kms0207/TheMHRT```
 2. Сборка в Unity
 ## Запланировано
 1. Менеджмент бранчей
