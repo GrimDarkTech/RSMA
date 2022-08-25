@@ -22,7 +22,7 @@ _____
 ### Настройка мотора:
 ![Pasted image 20220801170519](https://user-images.githubusercontent.com/38568309/182213563-7a36ee9b-d76c-4677-b3a4-57a863d1204c.png)
 
-### Настройка драйвера для мотора
+### Настройка драйвера для мотора: 
 ![Pasted image 20220801170527](https://user-images.githubusercontent.com/38568309/182213581-8d10cf85-e1f6-4e61-aa6a-d3716c30fa66.png)
 ### Настройка сервопривода:
 ![Pasted image 20220801170543](https://user-images.githubusercontent.com/38568309/182213605-65552723-1f74-4a96-9283-7b15dc9dc889.png)
