@@ -2,10 +2,19 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class SSTM33 : MicrocontrollerBaseScript
+public class SSTM33 : MicrocontrollerBase
 {
     private float range;
     private string keyBoardCode;
+    private string avAT;
+    private string avHM;
+    private float time = 0;
+    private IEnumerator Start()
+    {
+        yield return new WaitForSeconds(.1f);
+        dataBus.SetData("CustomMotor; HingeJointMotor; Time");
+        dataBus.SendData(3);
+    }
     private void Update()
     {
         if (!isLoop)
@@ -16,67 +25,75 @@ public class SSTM33 : MicrocontrollerBaseScript
     private IEnumerator MicroLoop()
     {
         isLoop = true;
-        yield return new WaitForSeconds(0.1f);
-        I2CBus.reciveData(0);
-        range = float.Parse(I2CBus.getData());
-        I2CBus.sendData(1);
-        I2CBus.reciveData(2);
-        keyBoardCode = I2CBus.getData();
+        yield return new WaitForSeconds(0.2f);
+        time = time + 0.2f;
+        dataBus.ReciveData(5);
+        avAT = dataBus.GetData();
+        dataBus.ReciveData(4);
+        avHM = dataBus.GetData();
+        dataBus.SetData(avAT + ";"+ avHM + ";" + time);
+        dataBus.SendData(3);
+
+        dataBus.ReciveData(0);
+        range = float.Parse(dataBus.GetData());
+        dataBus.SendData(1);
+        dataBus.ReciveData(2);
+        keyBoardCode = dataBus.GetData();
         if(keyBoardCode == "W")
         {
-            GPIO.setDigitalPort(4, true);
-            GPIO.setDigitalPort(5, false);
-            GPIO.setDigitalPort(6, false);
-            GPIO.setDigitalPort(7, true);
+            GPIO.SetDigitalPort(4, true);
+            GPIO.SetDigitalPort(5, false);
+            GPIO.SetDigitalPort(6, false);
+            GPIO.SetDigitalPort(7, true);
         }
         else if(keyBoardCode == "S")
         {
-            GPIO.setDigitalPort(4, false);
-            GPIO.setDigitalPort(5, true);
-            GPIO.setDigitalPort(6, true);
-            GPIO.setDigitalPort(7, false);
+            GPIO.SetDigitalPort(4, false);
+            GPIO.SetDigitalPort(5, true);
+            GPIO.SetDigitalPort(6, true);
+            GPIO.SetDigitalPort(7, false);
         }
         else if (keyBoardCode == "A")
         {
-            GPIO.setDigitalPort(4, false);
-            GPIO.setDigitalPort(5, true);
-            GPIO.setDigitalPort(6, false);
-            GPIO.setDigitalPort(7, true);
+            GPIO.SetDigitalPort(4, false);
+            GPIO.SetDigitalPort(5, true);
+            GPIO.SetDigitalPort(6, false);
+            GPIO.SetDigitalPort(7, true);
         }
         else if (keyBoardCode == "D")
         {
-            GPIO.setDigitalPort(4, true);
-            GPIO.setDigitalPort(5, false);
-            GPIO.setDigitalPort(6, true);
-            GPIO.setDigitalPort(7, false);
+            GPIO.SetDigitalPort(4, true);
+            GPIO.SetDigitalPort(5, false);
+            GPIO.SetDigitalPort(6, true);
+            GPIO.SetDigitalPort(7, false);
         }
         else if (keyBoardCode == "Space")
         {
-            GPIO.setDigitalPort(4, false);
-            GPIO.setDigitalPort(5, false);
-            GPIO.setDigitalPort(6, false);
-            GPIO.setDigitalPort(7, false);
+            GPIO.SetDigitalPort(4, false);
+            GPIO.SetDigitalPort(5, false);
+            GPIO.SetDigitalPort(6, false);
+            GPIO.SetDigitalPort(7, false);
         }
         else if (keyBoardCode == "LeftArrow")
         {
-            GPIO.setDigitalPort(1, true);
-            GPIO.setDigitalPort(2, false);
+            GPIO.SetDigitalPort(1, true);
+            GPIO.SetDigitalPort(2, false);
         }
         else if (keyBoardCode == "RightArrow")
         {
-            GPIO.setDigitalPort(1, false);
-            GPIO.setDigitalPort(2, true);
+            GPIO.SetDigitalPort(1, false);
+            GPIO.SetDigitalPort(2, true);
         }
         else if (keyBoardCode == "UpArrow")
         {
-            GPIO.setDigitalPort(1, false);
-            GPIO.setDigitalPort(2, false);
+            GPIO.SetDigitalPort(1, false);
+            GPIO.SetDigitalPort(2, false);
         }
 
         if (range < 4f)
-            GPIO.setDigitalPort(3, true);
+            GPIO.SetDigitalPort(3, true);
         else
-            GPIO.setDigitalPort(3, false);
+            GPIO.SetDigitalPort(3, false);
 
         isLoop = false;
     }

@@ -338,6 +338,9 @@ MonoBehaviour:
   motorDriver: {fileID: 4351648463501449472}
   startMotorAxis: {x: 0, y: 0, z: -1}
   maxVelocity: 720
+  maxForce: 1
+  springForce: 1
+  springDumper: 1
 --- !u!114 &4351648462817183000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -851,6 +854,9 @@ MonoBehaviour:
   motorDriver: {fileID: 4351648463410496531}
   startMotorAxis: {x: 0, y: 0, z: 1}
   maxVelocity: 720
+  maxForce: 1
+  springForce: 1
+  springDumper: 1
 --- !u!114 &4351648463853526502
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -978,6 +984,9 @@ MonoBehaviour:
   motorDriver: {fileID: 4351648464245608946}
   startMotorAxis: {x: 0, y: 0, z: -1}
   maxVelocity: 720
+  maxForce: 1
+  springForce: 1
+  springDumper: 1
 --- !u!114 &4351648463996776670
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1105,6 +1114,9 @@ MonoBehaviour:
   motorDriver: {fileID: 4351648464094702298}
   startMotorAxis: {x: 0, y: 0, z: 1}
   maxVelocity: 720
+  maxForce: 1
+  springForce: 1
+  springDumper: 1
 --- !u!114 &4351648464074594953
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2023,7 +2035,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   isActive: 1
   GPIO: {fileID: 4351648464590090661}
-  I2CBus: {fileID: 4351648464590090660}
+  dataBus: {fileID: 4351648464590090660}
 --- !u!114 &4351648464590090660
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2036,7 +2048,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 81b46bd5130100049919b32efcf7910c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  busI2C:
+  dataBus:
   - {fileID: 4351648463403392290}
   - {fileID: 4351648463630669087}
 --- !u!114 &4351648464590090661

@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class testMicro3 : MicrocontrollerBaseScript
+public class testMicro3 : MicrocontrollerBase
 {
     private void Start()
     {
