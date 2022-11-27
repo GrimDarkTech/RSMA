@@ -21,7 +21,7 @@ public class SimpleEncoderDataTransfer : DataTransgerSlaveScript
     {
         angularVelocity = rotorRigidbody.angularVelocity - motorRigidbody.angularVelocity;
         angularVelocityOut = angularVelocity.magnitude;
-        data = "" + angularVelocityOut;
+        data = angularVelocityOut.ToString();
     }
     public override string SendData()
     {
