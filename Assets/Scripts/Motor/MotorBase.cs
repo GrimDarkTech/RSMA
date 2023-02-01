@@ -1,70 +1,23 @@
 using UnityEngine;
+
+[RequireComponent(typeof(Rigidbody))]
+[RequireComponent(typeof(HingeJoint))]
 public class MotorBase : MonoBehaviour
 {
-    private HingeJoint hingeJoint;
+    private HingeJoint motorHingeJoint;
     private JointMotor hingeJointMotor;
     private JointSpring hingeJointSpring;
-    private Rigidbody rigidbody;
+    private float input = 0;
+
     public Rigidbody rotor;
     public MotorDriver motorDriver;
     public Vector3 startMotorAxis;
-    private float input = 0;
+    
     public float maxVelocity = 1;
     public float maxForce = 1;
     public float springForce = 1;
     public float springDumper = 1;
-    public void MotorInit()
-    {
-        if (!gameObject.TryGetComponent<Rigidbody>(out rigidbody))
-            rigidbody = gameObject.AddComponent<Rigidbody>();
-        if (!gameObject.TryGetComponent<HingeJoint>(out hingeJoint))
-            hingeJoint = gameObject.AddComponent<HingeJoint>();
-    }
-    public void SetMotorAxis(Vector3 newMotorAxis)
-    {
-        hingeJoint.axis = newMotorAxis;
-    }
-    public void SetMotorAxis(float newMotorX, float newMotorY, float newMotorZ)
-    {
-        Vector3 newMotorAxis = new Vector3(newMotorX, newMotorY, newMotorZ);
-        hingeJoint.axis = newMotorAxis;
-    }
-    public void SetMotorAnchor(Vector3 newMotorAnchor)
-    {
-        hingeJoint.anchor = newMotorAnchor;
-    }
-    public void SetMotorActive(bool isMotorActive)
-    {
-        hingeJoint.useMotor = isMotorActive;
-    }
-    public void SetSpringActive(bool isSpringActive)
-    {
-        hingeJoint.useSpring = isSpringActive;
-    }
-    public void SetRotor(Rigidbody newRotor)
-    {
-        hingeJoint.connectedBody = newRotor;
-    }
-    public void SetVelocity(float newVelocity)
-    {
-        hingeJointMotor.targetVelocity = newVelocity;
-        hingeJoint.motor = hingeJointMotor;
-    }
-    public void SetForce(float newForce)
-    {
-        hingeJointMotor.force = newForce;
-        hingeJoint.motor = hingeJointMotor;
-    }
-    public void SetSpringForce(float newSpringForce)
-    {
-        hingeJointSpring.spring = newSpringForce;
-        hingeJoint.spring = hingeJointSpring;
-    }
-    public void SetSpringDamper(float newSpringDamper)
-    {
-        hingeJointSpring.damper = newSpringDamper;
-        hingeJoint.spring = hingeJointSpring;
-    }
+
     void Start()
     {
         MotorInit();
@@ -85,5 +38,55 @@ public class MotorBase : MonoBehaviour
         SetForce(maxForce);
         SetSpringForce(springForce);
         SetSpringDamper(springDumper);
+    }
+
+    public void MotorInit()
+    {
+        motorHingeJoint = gameObject.GetComponent<HingeJoint>();
+    }
+    public void SetMotorAxis(Vector3 newMotorAxis)
+    {
+        motorHingeJoint.axis = newMotorAxis;
+    }
+    public void SetMotorAxis(float newMotorX, float newMotorY, float newMotorZ)
+    {
+        Vector3 newMotorAxis = new Vector3(newMotorX, newMotorY, newMotorZ);
+        motorHingeJoint.axis = newMotorAxis;
+    }
+    public void SetMotorAnchor(Vector3 newMotorAnchor)
+    {
+        motorHingeJoint.anchor = newMotorAnchor;
+    }
+    public void SetMotorActive(bool isMotorActive)
+    {
+        motorHingeJoint.useMotor = isMotorActive;
+    }
+    public void SetSpringActive(bool isSpringActive)
+    {
+        motorHingeJoint.useSpring = isSpringActive;
+    }
+    public void SetRotor(Rigidbody newRotor)
+    {
+        motorHingeJoint.connectedBody = newRotor;
+    }
+    public void SetVelocity(float newVelocity)
+    {
+        hingeJointMotor.targetVelocity = newVelocity;
+        motorHingeJoint.motor = hingeJointMotor;
+    }
+    public void SetForce(float newForce)
+    {
+        hingeJointMotor.force = newForce;
+        motorHingeJoint.motor = hingeJointMotor;
+    }
+    public void SetSpringForce(float newSpringForce)
+    {
+        hingeJointSpring.spring = newSpringForce;
+        motorHingeJoint.spring = hingeJointSpring;
+    }
+    public void SetSpringDamper(float newSpringDamper)
+    {
+        hingeJointSpring.damper = newSpringDamper;
+        motorHingeJoint.spring = hingeJointSpring;
     }
 }

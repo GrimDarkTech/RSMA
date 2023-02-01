@@ -23,7 +23,6 @@ public class TractorMicro : MicrocontrollerBase
         yield return new WaitForSeconds(0.05f);
         dataBus.ReciveData(0);
         key = dataBus.GetData();
-        Debug.Log(key);
         if (key == "W" && gear >= 0 && gear < 100)
         {
             gear = gear + 1;

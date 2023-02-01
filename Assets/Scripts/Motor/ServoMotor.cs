@@ -1,7 +1,7 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
+[RequireComponent(typeof(Rigidbody))]
+[RequireComponent(typeof(HingeJoint))]
 public class ServoMotor : MonoBehaviour
 {
 
@@ -15,74 +15,13 @@ public class ServoMotor : MonoBehaviour
     public float damper = 0.5f;
     public bool isUseLimit;
 
-    protected HingeJoint hingeJoint;
-    protected Rigidbody rigidbody;
+    protected HingeJoint motorHingeJoint;
+    protected Rigidbody motorRigidbody;
     protected float input = 0;
 
     private JointSpring spring;
     private JointLimits limit;
 
-
-    public void MotorInit()
-    {
-        if (!gameObject.TryGetComponent<Rigidbody>(out rigidbody))
-            rigidbody = gameObject.AddComponent<Rigidbody>();
-        if (!gameObject.TryGetComponent<HingeJoint>(out hingeJoint))
-            hingeJoint = gameObject.AddComponent<HingeJoint>();
-        spring = hingeJoint.spring;
-        limit = hingeJoint.limits;
-    }
-    public void SetMotorAxis(Vector3 newMotorAxis)
-    {
-        hingeJoint.axis = newMotorAxis;
-    }
-    public Vector3 GetMotorAxis()
-    {
-        return hingeJoint.axis;
-    }
-    public void SetMotorAxis(float newMotorX, float newMotorY, float newMotorZ)
-    {
-        Vector3 newMotorAxis = new Vector3(newMotorX, newMotorY, newMotorZ);
-        hingeJoint.axis = newMotorAxis;
-    }
-    public void SetMotorAnchor(Vector3 newMotorAnchor)
-    {
-        hingeJoint.anchor = newMotorAnchor;
-    }
-
-    public void SetSpringActive(bool isSpringActive)
-    {
-        hingeJoint.useSpring = isSpringActive;
-    }
-    public void SetLimitsActive(bool isLimitsActive)
-    {
-        hingeJoint.useLimits = isLimitsActive;
-    }
-    public void SetRotor(Rigidbody newRotor)
-    {
-        hingeJoint.connectedBody = newRotor;
-    }
-    public void SetTargetAngle(float targetAngle)
-    {
-        spring.targetPosition = targetAngle-maxAngle/2;
-        hingeJoint.spring = spring;
-    }
-    public void SetTorque(float newTorque)
-    {
-        spring.spring = newTorque;
-        hingeJoint.spring = spring;
-    }
-    public void SetDamper(float newDamper)
-    {
-        spring.damper = newDamper;
-        hingeJoint.spring = spring;
-    }
-    public void SetLimits()
-    {
-        limit.min = limits.x;
-        limit.max = limits.y;
-        hingeJoint.limits = limit;
-    }
     void Start()
     {
         MotorInit();
@@ -94,10 +33,70 @@ public class ServoMotor : MonoBehaviour
     }
     void FixedUpdate()
     {
-        input = GPIOScript.GetPWMPort(portPWMId)+0.005f;
+        input = GPIOScript.GetPWMPort(portPWMId) + 0.005f;
         SetTargetAngle(input * maxAngle);
         SetDamper(damper);
         SetTorque(torque);
         SetLimits();
+    }
+
+    public void MotorInit()
+    {
+        motorHingeJoint = gameObject.GetComponent<HingeJoint>();
+        motorRigidbody = gameObject.GetComponent<Rigidbody>();
+
+        spring = motorHingeJoint.spring;
+        limit = motorHingeJoint.limits;
+    }
+    public void SetMotorAxis(Vector3 newMotorAxis)
+    {
+        motorHingeJoint.axis = newMotorAxis;
+    }
+    public Vector3 GetMotorAxis()
+    {
+        return motorHingeJoint.axis;
+    }
+    public void SetMotorAxis(float newMotorX, float newMotorY, float newMotorZ)
+    {
+        Vector3 newMotorAxis = new Vector3(newMotorX, newMotorY, newMotorZ);
+        motorHingeJoint.axis = newMotorAxis;
+    }
+    public void SetMotorAnchor(Vector3 newMotorAnchor)
+    {
+        motorHingeJoint.anchor = newMotorAnchor;
+    }
+
+    public void SetSpringActive(bool isSpringActive)
+    {
+        motorHingeJoint.useSpring = isSpringActive;
+    }
+    public void SetLimitsActive(bool isLimitsActive)
+    {
+        motorHingeJoint.useLimits = isLimitsActive;
+    }
+    public void SetRotor(Rigidbody newRotor)
+    {
+        motorHingeJoint.connectedBody = newRotor;
+    }
+    public void SetTargetAngle(float targetAngle)
+    {
+        spring.targetPosition = targetAngle-maxAngle/2;
+        motorHingeJoint.spring = spring;
+    }
+    public void SetTorque(float newTorque)
+    {
+        spring.spring = newTorque;
+        motorHingeJoint.spring = spring;
+    }
+    public void SetDamper(float newDamper)
+    {
+        spring.damper = newDamper;
+        motorHingeJoint.spring = spring;
+    }
+    public void SetLimits()
+    {
+        limit.min = limits.x;
+        limit.max = limits.y;
+        motorHingeJoint.limits = limit;
     }
 }

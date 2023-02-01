@@ -5,6 +5,7 @@ public class LedBase : MonoBehaviour
     protected bool mode;
     [SerializeField] private Material activeLEDMaterial;
     [SerializeField] private Material disabledLEDMaterial;
+
     public int portID;
     public GPIOBase GPIOScript;
     private Renderer LEDRenderer;

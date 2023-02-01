@@ -1,20 +1,24 @@
 using UnityEngine;
 
+[RequireComponent(typeof(Rigidbody))]
+[RequireComponent(typeof(FixedJoint))]
 public class ModuleBase : MonoBehaviour
 {
-    private Rigidbody rigidbody;
+    private Rigidbody moduleRigidbody;
     private FixedJoint fixedJoint;
     public Rigidbody connectedBody;
-    public float startMass;
     void Start()
     {
-        if(!gameObject.TryGetComponent<Rigidbody>(out rigidbody))
-            rigidbody = gameObject.AddComponent<Rigidbody>();
-        if (!gameObject.TryGetComponent<FixedJoint>(out fixedJoint))
-            fixedJoint = gameObject.AddComponent<FixedJoint>();
+        moduleRigidbody = GetComponent<Rigidbody>();
+        fixedJoint = GetComponent<FixedJoint>();
         if (connectedBody != null)
+        {
             SetConnectedBody(connectedBody);
-        rigidbody.mass = startMass;
+        }
+        else
+        {
+            Debug.LogError("ConnectedBody (ModuleBase in" + gameObject.name + ") is null.");
+        }
     }
     public void SetConnectedBody(Rigidbody newConnectedBody)
     {

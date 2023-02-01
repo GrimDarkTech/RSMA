@@ -3,21 +3,25 @@ using System.IO;
 
 public class ExcelLogger : MonoBehaviour
 {
-    string filename = "";
-    string path;
+    [SerializeField] string filename = "";
+    [SerializeField] string path;
 
+    void Start()
+    {
+        path = Application.dataPath + "/" + filename + ".csv";
+    }
     public void SetFilename(string newFilename)
     {
         filename = newFilename;
     }
-    public void WriteLine(string line, string head)
+    public void SetPath(string newPath)
     {
-        TextWriter textWriter = new StreamWriter(path, false);
+        path = newPath;
+    }
+    public void WriteHead(string head)
+    {
+        TextWriter textWriter = new StreamWriter(path, true);
         textWriter.WriteLine(head);
-        textWriter.Close();
-
-        textWriter = new StreamWriter(path, true);
-        textWriter.WriteLine(line);
         textWriter.Close();
     }
     public void WriteLine(string line)
@@ -25,14 +29,5 @@ public class ExcelLogger : MonoBehaviour
         TextWriter textWriter = new StreamWriter(path, true);
         textWriter.WriteLine(line);
         textWriter.Close();
-
-        textWriter = new StreamWriter(path, true);
-        textWriter.WriteLine(line);
-        textWriter.Close();
-    }
-
-    void Start()
-    {
-        path = Application.dataPath + "/" + filename + ".csv";
     }
 }
