@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class testMicro3 : MicrocontrollerBase
+public class testMicro3 : RSMAMicrocontroller
 {
     Vector2 imputValue;
     string[] axes = { "0", "0" };

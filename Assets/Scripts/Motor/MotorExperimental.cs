@@ -11,7 +11,7 @@ public class MotorExperimental : MonoBehaviour
     protected float input = 0;
 
     public Rigidbody rotor;
-    public MotorDriver motorDriver;
+    public RSMAMotorDriver motorDriver;
     public Vector3 startMotorAxis;
     
     public float torque = 1;

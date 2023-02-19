@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.45138627, g: 0.500913, b: 0.5725081, a: 1}
+  m_IndirectSpecularColor: {r: 0.44478792, g: 0.49433315, b: 0.57353413, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -1190,7 +1190,7 @@ HingeJoint:
   m_Anchor: {x: 0, y: 0.87235856, z: 0}
   m_Axis: {x: 1, y: 0, z: 0}
   m_AutoConfigureConnectedAnchor: 1
-  m_ConnectedAnchor: {x: 3.4878268, y: -20.6155, z: 68.8217}
+  m_ConnectedAnchor: {x: 7.0846944, y: -20.622292, z: 68.671555}
   m_UseSpring: 0
   m_Spring:
     spring: 0
@@ -1847,14 +1847,14 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 362419236}
-  m_LocalRotation: {x: -0.66251856, y: -0.32005775, z: -0.37683618, w: -0.562696}
+  m_LocalRotation: {x: 0.6432357, y: -0.2199224, z: -0.20052482, w: 0.70545864}
   m_LocalPosition: {x: 0, y: 3, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 0
-  m_LocalEulerAnglesHint: {x: 149.70999, y: 275.498, z: -79.19501}
+  m_LocalEulerAnglesHint: {x: 55.02, y: -82.406, z: -80.758}
 --- !u!1 &369688991
 GameObject:
   m_ObjectHideFlags: 0
@@ -2081,7 +2081,7 @@ HingeJoint:
   m_Anchor: {x: 0, y: 0.62691796, z: 0}
   m_Axis: {x: 1, y: 0, z: 0}
   m_AutoConfigureConnectedAnchor: 1
-  m_ConnectedAnchor: {x: 0, y: 0, z: 0}
+  m_ConnectedAnchor: {x: 8.555783, y: -20.85092, z: 66.003296}
   m_UseSpring: 0
   m_Spring:
     spring: 0
@@ -2248,7 +2248,7 @@ HingeJoint:
   m_Anchor: {x: 0, y: 0.62692356, z: 0}
   m_Axis: {x: 1, y: 0, z: 0}
   m_AutoConfigureConnectedAnchor: 1
-  m_ConnectedAnchor: {x: 7.0977135, y: -20.223995, z: 66.69161}
+  m_ConnectedAnchor: {x: 7.0977135, y: -20.223995, z: 66.691605}
   m_UseSpring: 0
   m_Spring:
     spring: 0
@@ -2699,7 +2699,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 490ddb40c193e214493dcf8543b648e0, type: 2}
+  - {fileID: 2100000, guid: 7d96c5d6539989840ae5dc3e32bb850e, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -3047,9 +3047,9 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 490ddb40c193e214493dcf8543b648e0, type: 2}
+  - {fileID: 2100000, guid: 7d96c5d6539989840ae5dc3e32bb850e, type: 2}
   - {fileID: -591911815429409460, guid: f87f9593cada1c146b8165a0ecda134a, type: 3}
-  - {fileID: -4279124226511786015, guid: f87f9593cada1c146b8165a0ecda134a, type: 3}
+  - {fileID: 2100000, guid: 99dc085145e1f7d41968ebffe2c7d698, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -3312,7 +3312,7 @@ HingeJoint:
   m_Anchor: {x: 0, y: 0.87238246, z: 0}
   m_Axis: {x: 1, y: 0, z: 0}
   m_AutoConfigureConnectedAnchor: 1
-  m_ConnectedAnchor: {x: 11.199373, y: -19.743126, z: 69.36918}
+  m_ConnectedAnchor: {x: 8.801462, y: -19.743126, z: 69.469284}
   m_UseSpring: 0
   m_Spring:
     spring: 0
@@ -3492,7 +3492,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 490ddb40c193e214493dcf8543b648e0, type: 2}
+  - {fileID: 2100000, guid: 7d96c5d6539989840ae5dc3e32bb850e, type: 2}
   - {fileID: 2100000, guid: cb04cea8a64b47d4fabe2eef3ec47c33, type: 2}
   - {fileID: 2100000, guid: ac0db686da132134faee903442429dd0, type: 2}
   - {fileID: 2100000, guid: 0dcc358fadb276f4cb8f560ef85b3ea4, type: 2}
@@ -9995,7 +9995,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 490ddb40c193e214493dcf8543b648e0, type: 2}
+  - {fileID: 2100000, guid: 7d96c5d6539989840ae5dc3e32bb850e, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -10069,7 +10069,7 @@ Terrain:
   m_TreeBillboardDistance: 50
   m_TreeCrossFadeLength: 5
   m_TreeMaximumFullLODCount: 50
-  m_DetailObjectDistance: 80
+  m_DetailObjectDistance: 137
   m_DetailObjectDensity: 1
   m_HeightmapPixelError: 5
   m_SplatMapDistance: 1000
@@ -10253,7 +10253,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 490ddb40c193e214493dcf8543b648e0, type: 2}
+  - {fileID: 2100000, guid: 7d96c5d6539989840ae5dc3e32bb850e, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -10391,7 +10391,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2107623744}
   m_LocalRotation: {x: -0, y: 0.020860214, z: -0, w: 0.9997824}
-  m_LocalPosition: {x: 7.91, y: -21.489, z: 68.35}
+  m_LocalPosition: {x: 7.852, y: -21.489, z: 66.961}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:

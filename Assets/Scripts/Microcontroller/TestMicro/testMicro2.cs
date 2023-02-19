@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class testMicro2 : MicrocontrollerBase
+public class testMicro2 : RSMAMicrocontroller
 {
     private float range;
     private float rangeR;

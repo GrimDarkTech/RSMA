@@ -1,7 +1,7 @@
 using UnityEngine;
 
 [RequireComponent(typeof(AudioSource))]
-public class SoundPitchDataTransfer : DataTransgerSlaveScript
+public class SoundPitchDataTransfer : RSMADataTransferSlave
 {
     public AudioSource audioSource;
     private void Start()

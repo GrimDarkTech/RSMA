@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class TractorMicro : MicrocontrollerBase
+public class TractorMicro : RSMAMicrocontroller
 {
     private string key;
     private int gear;
@@ -20,23 +20,23 @@ public class TractorMicro : MicrocontrollerBase
     private IEnumerator MicroLoop()
     {
         isLoop = true;
-        yield return new WaitForSeconds(0.05f);
-        dataBus.ReciveData(0);
-        key = dataBus.GetData();
-        if (key == "W" && gear >= 0 && gear < 100)
+        yield return new WaitForSeconds(0.05f); //задержка между циклами работы микроконтроллера
+        dataBus.ReciveData(0); //запрос данных от модуля виртуальной клавиатуры
+        key = dataBus.GetData(); //запись полученных из шины данных в память микроконтроллера
+        if (key == "W" && gear >= 0 && gear < 100) //проверка на нажатие клавиши "W"
         {
-            gear = gear + 1;
-            GPIO.SetPWMPort(4, gear / 100f);
-            GPIO.SetPWMPort(1, Mathf.Abs(gear / 100f));
-            GPIO.SetPWMPort(3, Mathf.Abs(gear / 100f));
-            GPIO.SetDigitalPort(1, true);
+            gear = gear + 1; //увеличение значения управляющего сигнала
+            GPIO.SetPWMPort(4, gear / 100f); //установка состояния PWM порта 4
+            GPIO.SetPWMPort(1, Mathf.Abs(gear / 100f)); //установка состояния PWM порта 1
+            GPIO.SetPWMPort(3, Mathf.Abs(gear / 100f)); //установка состояния PWM порта 3
+            GPIO.SetDigitalPort(1, true);  //установка состояния цифрового порта 1
             GPIO.SetDigitalPort(2, false);
             GPIO.SetDigitalPort(3, true);
             GPIO.SetDigitalPort(4, false);
             GPIO.SetDigitalPort(5, true);
             GPIO.SetDigitalPort(6, false);
             GPIO.SetDigitalPort(7, true);
-            GPIO.SetDigitalPort(8, false);
+            GPIO.SetDigitalPort(8, false); //установка состояния цифрового порта 8
         }
         else if (key == "S" && gear > 0 && gear <= 100)
         {

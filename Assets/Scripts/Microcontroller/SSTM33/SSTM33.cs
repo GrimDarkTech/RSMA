@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class SSTM33 : MicrocontrollerBase
+public class SSTM33 : RSMAMicrocontroller
 {
     private float range;
     private string keyBoardCode;
