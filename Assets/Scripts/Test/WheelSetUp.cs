@@ -5,6 +5,7 @@ using UnityEngine;
 [ExecuteAlways]
 public class WheelSetUp : MonoBehaviour
 {
+    public GameObject Wheel;
     public GameObject MiniWheel;
 
     [Range(0, 360)] public float Angle;
@@ -12,6 +13,9 @@ public class WheelSetUp : MonoBehaviour
     [Min(0)] public float Size;
     [Min(0)] public float Range;
 
+    private GameObject _check_wheel;
+
+    private GameObject _wheel;
     private int _count;
     private float _size;
     private float _range;
@@ -19,11 +23,31 @@ public class WheelSetUp : MonoBehaviour
 
     public void Update()
     {
-        if (!MiniWheel || Count == 0)
+        if (Application.isPlaying) return;
+
+        if (_check_wheel == null)
         {
-            ClearWheel();
+            _check_wheel = Wheel;
+        }
+
+        if (!Wheel || !MiniWheel)
+        {
+            int child_count = transform.childCount;
+            for (int i = child_count-1; i >= 0; i--)
+            {
+                DestroyImmediate(transform.GetChild(i).gameObject);
+            }
+
             return;
         }
+
+        if (_check_wheel != Wheel)
+        {
+            ClearWheel();
+            _check_wheel = Wheel;
+            _count = 0;
+        }
+
         if (_count != Count) SetUp();
         if (_range != Range) SetRange();
         if (_size != Size) SetSize();
@@ -37,7 +61,7 @@ public class WheelSetUp : MonoBehaviour
         List<GameObject> wheels = GetWheels();
         foreach (var wheel in wheels)
         {
-            wheel.transform.rotation = Quaternion.LookRotation((wheel.transform.position- transform.position).normalized, transform.forward);
+            wheel.transform.rotation = Quaternion.LookRotation((wheel.transform.position- _wheel.transform.position).normalized, _wheel.transform.forward);
             wheel.transform.Rotate(0, 0, Angle, Space.Self);
         }
 
@@ -51,7 +75,7 @@ public class WheelSetUp : MonoBehaviour
         for (int i = 0; i < wheels.Count; i++)
         {
             wheels[i].transform.localPosition = Vector3.zero;
-            wheels[i].transform.Translate(transform.forward * Range, Space.Self);
+            wheels[i].transform.Translate(_wheel.transform.forward * Range, Space.Self);
         }
 
         _range = Range;
@@ -73,9 +97,17 @@ public class WheelSetUp : MonoBehaviour
         ClearWheel();
 
         float angle_step = 360f / Count;
+
+        _wheel = Instantiate(Wheel, transform);
+        if (!_wheel.GetComponent<Rigidbody>())
+        {
+            _wheel.AddComponent<Rigidbody>();
+        }
+        _wheel.name = Wheel.name;
+
         for (int i = 0; i < Count; i++)
         {
-            GameObject wheel_obj = Instantiate(MiniWheel, transform.parent);
+            GameObject wheel_obj = Instantiate(MiniWheel, transform);
             wheel_obj.name = MiniWheel.name;
 
             AddJoints(wheel_obj);
@@ -83,7 +115,7 @@ public class WheelSetUp : MonoBehaviour
             float angle = angle_step * (i+1);
 
             wheel_obj.transform.localPosition += wheel_obj.transform.forward * 2;
-            wheel_obj.transform.RotateAround(transform.position, transform.up, angle);
+            wheel_obj.transform.RotateAround(_wheel.transform.position, _wheel.transform.up, angle);
         }
 
         SetRange();
@@ -95,25 +127,38 @@ public class WheelSetUp : MonoBehaviour
 
     private void ClearWheel()
     {
-        List<GameObject> wheels = GetWheels();
-        int wheel_count = wheels.Count;
-
-        for (int i = wheel_count-1; i >= 0; i--)
+        int child_count = transform.childCount;
+        for (int index = child_count-1; index >= 0; index--)
         {
-            DestroyImmediate(wheels[i]);
+            DestroyImmediate(transform.GetChild(index).gameObject);
+        }
+    }
+
+    private List<GameObject> GetBigWheels()
+    {
+        List<GameObject> result = new List<GameObject>();
+
+        int child_count = transform.childCount;
+        for (int index = 0; index < child_count; index++)
+        {
+            Transform obj_transform = transform.GetChild(index);
+            string obj_name = obj_transform.name;
+
+            if (obj_name != Wheel.name) continue;
+            result.Add(obj_transform.gameObject);
         }
 
-        wheels.Clear();
+        return result;
     }
 
     private List<GameObject> GetWheels()
     {
         List<GameObject> result = new List<GameObject>();
 
-        int child_count = transform.parent.childCount;
+        int child_count = transform.childCount;
         for (int index = 0; index < child_count; index++)
         {
-            Transform obj_transform = transform.parent.GetChild(index);
+            Transform obj_transform = transform.GetChild(index);
             string obj_name = obj_transform.name;
 
             if (obj_name != MiniWheel.name) continue;
@@ -136,7 +181,7 @@ public class WheelSetUp : MonoBehaviour
         }
 
         HingeJoint wheel_joint = wheel.GetComponent<HingeJoint>();
-        wheel_joint.connectedBody = GetComponent<Rigidbody>();
+        wheel_joint.connectedBody = _wheel.GetComponent<Rigidbody>();
         wheel_joint.anchor = wheel.transform.up;
         wheel_joint.axis = wheel.transform.up;
     }
