@@ -64,33 +64,29 @@ public class WheelSetUp : MonoBehaviour
 
     private void SetAngle()
     {
-        /*
         List<GameObject> wheels = GetWheels();
         foreach (var wheel in wheels)
         {
             wheel.transform.rotation = Quaternion.LookRotation((wheel.transform.position- _wheel.transform.position).normalized, _wheel.transform.forward);
             wheel.transform.Rotate(0, 0, Angle, Space.Self);
         }
-        */
-
+        
         _angle = Angle;
     }
 
     private void SetRange()
     {
-        
-         List<GameObject> wheels = GetWheels();
+        List<GameObject> wheels = GetWheels();
 
-        float angle_step = 360f / wheels.Count;
+        float angle_step = 360f / _count;
         for (int i = 0; i < wheels.Count; i++)
         {
-            float angle = angle_step * (i + 1);
             GameObject wheel_obj = wheels[i];
-            wheel_obj.transform.position = _wheel.transform.position;
-            wheel_obj.transform.localPosition += wheel_obj.transform.forward * Range;
-            Debug.Log($"Angle: {angle}");
-            wheel_obj.transform.RotateAround(_wheel.transform.position, _wheel.transform.up, angle);
+            wheel_obj.transform.rotation = _wheel.transform.rotation;
+            wheel_obj.transform.position = _wheel.transform.position + _wheel.transform.right * Range;
+            wheel_obj.transform.RotateAround(_wheel.transform.position, _wheel.transform.up, angle_step * (i+1));
         }
+        SetAngle();
 
         _range = Range;
     }
@@ -110,8 +106,6 @@ public class WheelSetUp : MonoBehaviour
     {
         ClearWheel();
 
-        float angle_step = 360f / Count;
-
         _wheel = Instantiate(Wheel, transform);
         if (!_wheel.GetComponent<Rigidbody>())
         {
@@ -125,11 +119,6 @@ public class WheelSetUp : MonoBehaviour
             wheel_obj.name = MiniWheel.name;
 
             AddJoints(wheel_obj);
-
-            float angle = angle_step * (i+1);
-
-            wheel_obj.transform.localPosition += wheel_obj.transform.forward * 2;
-            wheel_obj.transform.RotateAround(_wheel.transform.position, _wheel.transform.up, angle);
         }
 
         SetRange();
