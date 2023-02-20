@@ -71,7 +71,7 @@ public class WheelSetUp : MonoBehaviour
         List<GameObject> wheels = GetWheels();
         foreach (var wheel in wheels)
         {
-            wheel.transform.rotation = Quaternion.LookRotation((wheel.transform.position- _wheel.transform.position).normalized, _wheel.transform.forward);
+            wheel.transform.rotation = Quaternion.LookRotation((wheel.transform.position- _wheel.transform.position).normalized, GetDirectVector(WheelCus, _wheel, VecEnum.forward));
             wheel.transform.Rotate(0, 0, Angle, Space.Self);
         }
         
@@ -87,8 +87,8 @@ public class WheelSetUp : MonoBehaviour
         {
             GameObject wheel_obj = wheels[i];
             wheel_obj.transform.rotation = _wheel.transform.rotation;
-            wheel_obj.transform.position = _wheel.transform.position + _wheel.transform.right * Range;
-            wheel_obj.transform.RotateAround(_wheel.transform.position, _wheel.transform.up, angle_step * i);
+            wheel_obj.transform.position = _wheel.transform.position + GetDirectVector(WheelCus, _wheel, VecEnum.right) * Range;
+            wheel_obj.transform.RotateAround(_wheel.transform.position, GetDirectVector(WheelCus, _wheel, VecEnum.up), angle_step * i);
         }
         SetAngle();
 
@@ -173,25 +173,31 @@ public class WheelSetUp : MonoBehaviour
 
         HingeJoint wheel_joint = wheel.GetComponent<HingeJoint>();
         wheel_joint.connectedBody = _wheel.GetComponent<Rigidbody>();
-        wheel_joint.anchor = wheel.transform.up;
-        wheel_joint.axis = wheel.transform.up;
+        wheel_joint.anchor = GetDirectVector(MiniWheelCus, wheel, VecEnum.up);
+        wheel_joint.axis = GetDirectVector(MiniWheelCus, wheel, VecEnum.up);
     }
 
-    private Vector3 GetDirectVector(Vector3 side_vector, GameObject obj)
+    private Vector3 GetDirectVector(BetterVector side_vector, GameObject obj, VecEnum required)
     {
-        if (side_vector.x >= side_vector.y && side_vector.x >= side_vector.z)
+        if (required == VecEnum.forward)
         {
-            return obj.transform.right;
+            if (side_vector.forward == VecEnum.forward) return obj.transform.forward;
+            if (side_vector.forward == VecEnum.right) return obj.transform.right;
+            if (side_vector.forward == VecEnum.up) return obj.transform.up;
         }
 
-        if (side_vector.y >= side_vector.x && side_vector.y >= side_vector.z)
+        if (required == VecEnum.right)
         {
-            return obj.transform.up;
+            if (side_vector.right == VecEnum.forward) return obj.transform.forward;
+            if (side_vector.right == VecEnum.right) return obj.transform.right;
+            if (side_vector.right == VecEnum.up) return obj.transform.up;
         }
 
-        if (side_vector.z >= side_vector.x && side_vector.z >= side_vector.y)
+        if (required == VecEnum.up)
         {
-            return obj.transform.forward;
+            if (side_vector.up == VecEnum.forward) return obj.transform.forward;
+            if (side_vector.up == VecEnum.right) return obj.transform.right;
+            if (side_vector.up == VecEnum.up) return obj.transform.up;
         }
 
         return Vector3.zero;
