@@ -1,12 +1,16 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System;
 
 [ExecuteInEditMode]
 public class WheelSetUp : MonoBehaviour
 {
     public GameObject Wheel;
+    public BetterVector WheelCus;
+
     public GameObject MiniWheel;
+    public BetterVector MiniWheelCus;
 
     [Range(0, 360)] public float Angle;
     [Min(0)] public int Count;
@@ -78,13 +82,13 @@ public class WheelSetUp : MonoBehaviour
     {
         List<GameObject> wheels = GetWheels();
 
-        float angle_step = 360f / _count;
+        float angle_step = 360f / wheels.Count;
         for (int i = 0; i < wheels.Count; i++)
         {
             GameObject wheel_obj = wheels[i];
             wheel_obj.transform.rotation = _wheel.transform.rotation;
             wheel_obj.transform.position = _wheel.transform.position + _wheel.transform.right * Range;
-            wheel_obj.transform.RotateAround(_wheel.transform.position, _wheel.transform.up, angle_step * (i+1));
+            wheel_obj.transform.RotateAround(_wheel.transform.position, _wheel.transform.up, angle_step * i);
         }
         SetAngle();
 
@@ -192,4 +196,12 @@ public class WheelSetUp : MonoBehaviour
 
         return Vector3.zero;
     }
+}
+
+[Serializable]
+public struct BetterVector
+{
+    public VecEnum right;
+    public VecEnum forward;
+    public VecEnum up;
 }
