@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-[ExecuteAlways]
+[ExecuteInEditMode]
 public class WheelSetUp : MonoBehaviour
 {
     public GameObject Wheel;
@@ -14,7 +14,7 @@ public class WheelSetUp : MonoBehaviour
     [Min(0)] public float Range;
 
     private GameObject _check_wheel;
-
+    private GameObject _check_mini_wheel;
     private GameObject _wheel;
     private int _count;
     private float _size;
@@ -30,6 +30,11 @@ public class WheelSetUp : MonoBehaviour
             _check_wheel = Wheel;
         }
 
+        if (_check_mini_wheel == null)
+        {
+            _check_mini_wheel = MiniWheel;
+        }
+
         if (!Wheel || !MiniWheel)
         {
             int child_count = transform.childCount;
@@ -41,14 +46,15 @@ public class WheelSetUp : MonoBehaviour
             return;
         }
 
-        if (_check_wheel != Wheel)
+        if (_check_wheel != Wheel || _check_mini_wheel != MiniWheel)
         {
             ClearWheel();
             _check_wheel = Wheel;
-            _count = 0;
+            _check_mini_wheel = MiniWheel;
+            SetUp();
         }
 
-        if (_count != Count) SetUp();
+        if (_count != Count || _count == 0) SetUp();
         if (_range != Range) SetRange();
         if (_size != Size) SetSize();
         if (_angle != Angle) SetAngle();
@@ -58,24 +64,32 @@ public class WheelSetUp : MonoBehaviour
 
     private void SetAngle()
     {
+        /*
         List<GameObject> wheels = GetWheels();
         foreach (var wheel in wheels)
         {
             wheel.transform.rotation = Quaternion.LookRotation((wheel.transform.position- _wheel.transform.position).normalized, _wheel.transform.forward);
             wheel.transform.Rotate(0, 0, Angle, Space.Self);
         }
+        */
 
         _angle = Angle;
     }
 
     private void SetRange()
     {
-        List<GameObject> wheels = GetWheels();
+        
+         List<GameObject> wheels = GetWheels();
 
+        float angle_step = 360f / wheels.Count;
         for (int i = 0; i < wheels.Count; i++)
         {
-            wheels[i].transform.localPosition = Vector3.zero;
-            wheels[i].transform.Translate(_wheel.transform.forward * Range, Space.Self);
+            float angle = angle_step * (i + 1);
+            GameObject wheel_obj = wheels[i];
+            wheel_obj.transform.position = _wheel.transform.position;
+            wheel_obj.transform.localPosition += wheel_obj.transform.forward * Range;
+            Debug.Log($"Angle: {angle}");
+            wheel_obj.transform.RotateAround(_wheel.transform.position, _wheel.transform.up, angle);
         }
 
         _range = Range;
@@ -134,22 +148,6 @@ public class WheelSetUp : MonoBehaviour
         }
     }
 
-    private List<GameObject> GetBigWheels()
-    {
-        List<GameObject> result = new List<GameObject>();
-
-        int child_count = transform.childCount;
-        for (int index = 0; index < child_count; index++)
-        {
-            Transform obj_transform = transform.GetChild(index);
-            string obj_name = obj_transform.name;
-
-            if (obj_name != Wheel.name) continue;
-            result.Add(obj_transform.gameObject);
-        }
-
-        return result;
-    }
 
     private List<GameObject> GetWheels()
     {
@@ -184,5 +182,25 @@ public class WheelSetUp : MonoBehaviour
         wheel_joint.connectedBody = _wheel.GetComponent<Rigidbody>();
         wheel_joint.anchor = wheel.transform.up;
         wheel_joint.axis = wheel.transform.up;
+    }
+
+    private Vector3 GetDirectVector(Vector3 side_vector, GameObject obj)
+    {
+        if (side_vector.x >= side_vector.y && side_vector.x >= side_vector.z)
+        {
+            return obj.transform.right;
+        }
+
+        if (side_vector.y >= side_vector.x && side_vector.y >= side_vector.z)
+        {
+            return obj.transform.up;
+        }
+
+        if (side_vector.z >= side_vector.x && side_vector.z >= side_vector.y)
+        {
+            return obj.transform.forward;
+        }
+
+        return Vector3.zero;
     }
 }
