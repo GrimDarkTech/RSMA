@@ -5,6 +5,8 @@ using UnityEngine.SceneManagement;
 public class LightSensorScript : MonoBehaviour
 {
     public float LightIntensity;
+    [Range(0f,1f)]
+    public float LightCoefficient = 1f;
     private GameObject[] allGameObjects;
     Light[] lights;
 
@@ -34,13 +36,8 @@ public class LightSensorScript : MonoBehaviour
                     Debug.DrawRay(gameObject.transform.position, hit.point-transform.position, Color.blue);
                     float distance = (lightPos-transform.position).x*(lightPos-transform.position).x+(lightPos-transform.position).y*(lightPos-transform.position).y+(lightPos-transform.position).z*(lightPos-transform.position).z;
                     distance = Mathf.Sqrt(distance);
-                    float tuner = light.range-distance;
-                    Debug.Log(distance);
-                    if (tuner < 0)
-                    {
-                        tuner = 0;
-                    }
-                    LightIntensity += light.intensity*tuner;
+                    //Debug.Log(distance);
+                    LightIntensity += light.intensity*LightCoefficient/distance;
                 }
             }
         }
