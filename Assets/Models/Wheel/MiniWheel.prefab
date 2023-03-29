@@ -34,7 +34,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 2
+  m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 90}
 --- !u!33 &4000348374446782162
 MeshFilter:
@@ -125,10 +125,10 @@ HingeJoint:
   m_GameObject: {fileID: 4000348374446782166}
   m_ConnectedBody: {fileID: 0}
   m_ConnectedArticulationBody: {fileID: 0}
-  m_Anchor: {x: 0, y: 1, z: 0}
+  m_Anchor: {x: 0, y: 0, z: 0}
   m_Axis: {x: 0, y: 1, z: 0}
   m_AutoConfigureConnectedAnchor: 1
-  m_ConnectedAnchor: {x: 0.599001, y: -0.060001016, z: 0.20000076}
+  m_ConnectedAnchor: {x: -0.034756888, y: -0.12066889, z: -0.013364509}
   m_UseSpring: 0
   m_Spring:
     spring: 0

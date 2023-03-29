@@ -7,15 +7,15 @@ using System;
 public class WheelSetUp : MonoBehaviour
 {
     public GameObject Wheel;
-    public BetterVector WheelCus;
+    public BetterVector WheelDirections;
 
     public GameObject MiniWheel;
-    public BetterVector MiniWheelCus;
+    public BetterVector RollersDirections;
 
     [Range(0, 360)] public float Angle;
-    [Min(0)] public int Count;
-    [Min(0)] public float Size;
-    [Min(0)] public float Range;
+    [Min(0)] public int RollerCount;
+    [Min(0)] public float RollerSize;
+    [Min(0)] public float Radius;
 
     private GameObject _check_wheel;
     private GameObject _check_mini_wheel;
@@ -42,7 +42,7 @@ public class WheelSetUp : MonoBehaviour
         if (!Wheel || !MiniWheel)
         {
             int child_count = transform.childCount;
-            for (int i = child_count-1; i >= 0; i--)
+            for (int i = child_count - 1; i >= 0; i--)
             {
                 DestroyImmediate(transform.GetChild(i).gameObject);
             }
@@ -58,9 +58,9 @@ public class WheelSetUp : MonoBehaviour
             SetUp();
         }
 
-        if (_count != Count || _count == 0) SetUp();
-        if (_range != Range) SetRange();
-        if (_size != Size) SetSize();
+        if (_count != RollerCount || _count == 0) SetUp();
+        if (_range != Radius) SetRange();
+        if (_size != RollerSize) SetSize();
         if (_angle != Angle) SetAngle();
 
         return;
@@ -71,10 +71,10 @@ public class WheelSetUp : MonoBehaviour
         List<GameObject> wheels = GetWheels();
         foreach (var wheel in wheels)
         {
-            wheel.transform.rotation = Quaternion.LookRotation((wheel.transform.position- _wheel.transform.position).normalized, GetDirectVector(WheelCus, _wheel, VecEnum.forward));
+            wheel.transform.rotation = Quaternion.LookRotation((wheel.transform.position - _wheel.transform.position).normalized, GetDirectVector(WheelDirections, _wheel, VecEnum.forward));
             wheel.transform.Rotate(0, 0, Angle, Space.Self);
         }
-        
+
         _angle = Angle;
     }
 
@@ -87,12 +87,12 @@ public class WheelSetUp : MonoBehaviour
         {
             GameObject wheel_obj = wheels[i];
             wheel_obj.transform.rotation = _wheel.transform.rotation;
-            wheel_obj.transform.position = _wheel.transform.position + GetDirectVector(WheelCus, _wheel, VecEnum.right) * Range;
-            wheel_obj.transform.RotateAround(_wheel.transform.position, GetDirectVector(WheelCus, _wheel, VecEnum.up), angle_step * i);
+            wheel_obj.transform.position = _wheel.transform.position + GetDirectVector(WheelDirections, _wheel, VecEnum.right) * Radius;
+            wheel_obj.transform.RotateAround(_wheel.transform.position, GetDirectVector(WheelDirections, _wheel, VecEnum.up), angle_step * i);
         }
         SetAngle();
 
-        _range = Range;
+        _range = Radius;
     }
 
     private void SetSize()
@@ -100,10 +100,10 @@ public class WheelSetUp : MonoBehaviour
         List<GameObject> wheels = GetWheels();
         foreach (var wheel in wheels)
         {
-            wheel.transform.localScale = new Vector3(Size, Size, Size);
+            wheel.transform.localScale = new Vector3(RollerSize, RollerSize, RollerSize);
         }
 
-        _size = Size;
+        _size = RollerSize;
     }
 
     private void SetUp()
@@ -117,25 +117,26 @@ public class WheelSetUp : MonoBehaviour
         }
         _wheel.name = Wheel.name;
 
-        for (int i = 0; i < Count; i++)
+        for (int i = 0; i < RollerCount; i++)
         {
             GameObject wheel_obj = Instantiate(MiniWheel, transform);
             wheel_obj.name = MiniWheel.name;
 
             AddJoints(wheel_obj);
+
+            HingeJoint joint = wheel_obj.GetComponent<HingeJoint>();
         }
 
         SetRange();
         SetSize();
         SetAngle();
-
-        _count = Count;
+        _count = RollerCount;
     }
 
     private void ClearWheel()
     {
         int child_count = transform.childCount;
-        for (int index = child_count-1; index >= 0; index--)
+        for (int index = child_count - 1; index >= 0; index--)
         {
             DestroyImmediate(transform.GetChild(index).gameObject);
         }
@@ -173,8 +174,6 @@ public class WheelSetUp : MonoBehaviour
 
         HingeJoint wheel_joint = wheel.GetComponent<HingeJoint>();
         wheel_joint.connectedBody = _wheel.GetComponent<Rigidbody>();
-        wheel_joint.anchor = GetDirectVector(MiniWheelCus, wheel, VecEnum.up);
-        wheel_joint.axis = GetDirectVector(MiniWheelCus, wheel, VecEnum.up);
     }
 
     private Vector3 GetDirectVector(BetterVector side_vector, GameObject obj, VecEnum required)
