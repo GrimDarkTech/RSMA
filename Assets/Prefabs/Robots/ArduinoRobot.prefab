@@ -1143,7 +1143,7 @@ Transform:
   - {fileID: 7588984781897650648}
   - {fileID: 107485428781640396}
   m_Father: {fileID: 0}
-  m_RootOrder: 1
+  m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1424900607951875339
 GameObject:
@@ -1963,6 +1963,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxRange: 30
+  angle: 60
+  numberOfRays: 5
 --- !u!1 &2265982030979433745
 GameObject:
   m_ObjectHideFlags: 0

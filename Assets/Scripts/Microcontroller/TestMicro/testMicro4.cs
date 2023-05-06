@@ -33,17 +33,17 @@ public class testMicro4 : RSMAMicrocontroller
         GPIO.SetDigitalPort(3, false);
         GPIO.SetDigitalPort(6, false);
         GPIO.SetDigitalPort(7, false);
-        yield return new WaitForSeconds(0.3f);
+        yield return new WaitForSeconds(0.15f);
         GPIO.SetPWMPort(9, 0f);
-        yield return new WaitForSeconds(0.8f);
+        yield return new WaitForSeconds(0.4f);
         dataBus.ReciveData(0);
         rangeR = float.Parse(dataBus.GetData());
         GPIO.SetPWMPort(9, 0.5f);
-        yield return new WaitForSeconds(0.8f);
+        yield return new WaitForSeconds(0.4f);
         dataBus.ReciveData(0);
         range = float.Parse(dataBus.GetData());
         GPIO.SetPWMPort(9, 1f);
-        yield return new WaitForSeconds(0.8f);
+        yield return new WaitForSeconds(0.4f);
         dataBus.ReciveData(0);
         rangeL = float.Parse(dataBus.GetData());
         GPIO.SetPWMPort(9, 0.5f);
@@ -60,20 +60,20 @@ public class testMicro4 : RSMAMicrocontroller
                 TurnLeft();
                 dataBus.SetData("Turn left");
                 dataBus.SendData(1);
-                yield return new WaitForSeconds(1.7f);
+                yield return new WaitForSeconds(0.85f);
             }
             else if (rangeR >= rangeL)
             {
                 TurnRight();
                 dataBus.SetData("Turn right");
                 dataBus.SendData(1);
-                yield return new WaitForSeconds(1.7f);
+                yield return new WaitForSeconds(0.85f);
             }
 
         }
         else
         {
-            yield return new WaitForSeconds(0.6f);
+            yield return new WaitForSeconds(0.3f);
             GPIO.SetPWMPort(9, 0.5f);
             for (int i =0; i < 25; i++)
             {
@@ -84,7 +84,7 @@ public class testMicro4 : RSMAMicrocontroller
                     MoveForward();
                     dataBus.SetData("Forvard");
                     dataBus.SendData(1);
-                    yield return new WaitForSeconds(0.2f);
+                    yield return new WaitForSeconds(0.1f);
                 }
             }
         }

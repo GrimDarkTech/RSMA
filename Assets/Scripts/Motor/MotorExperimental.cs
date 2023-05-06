@@ -65,8 +65,8 @@ public class MotorExperimental : MonoBehaviour
     }
     public void SetTorque(float torque)
     {
-        rotor.AddRelativeTorque(torque * startMotorAxis * Time.deltaTime);
-        motorRigidbody.AddTorque(-torque * startMotorAxis * Time.deltaTime);
+        rotor.AddRelativeTorque(torque * startMotorAxis);
+        motorRigidbody.AddTorque(-torque * startMotorAxis);
     }
     public void SetDamper(float newDamper)
     {

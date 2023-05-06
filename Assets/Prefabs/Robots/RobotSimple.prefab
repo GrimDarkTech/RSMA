@@ -834,7 +834,7 @@ Transform:
   - {fileID: 5638290644239341065}
   - {fileID: 2817787144400167779}
   m_Father: {fileID: 0}
-  m_RootOrder: 1
+  m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2817787145579684902
 GameObject:
@@ -1891,7 +1891,7 @@ FixedJoint:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2399144367209016879}
-  m_ConnectedBody: {fileID: 0}
+  m_ConnectedBody: {fileID: 1981270759541370610}
   m_ConnectedArticulationBody: {fileID: 0}
   m_BreakForce: Infinity
   m_BreakTorque: Infinity
@@ -1912,6 +1912,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxRange: 25
+  angle: 60
+  numberOfRays: 10
 --- !u!114 &2817787145214092521
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2428,6 +2430,19 @@ FixedJoint:
   m_EnablePreprocessing: 1
   m_MassScale: 1
   m_ConnectedMassScale: 1
+--- !u!114 &2817787145258639561
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7942949170288368534}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7b188d18dc06b69438414361c70df20f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  connectedBody: {fileID: 1981270759541370610}
 --- !u!114 &2817787145258639562
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2444,19 +2459,6 @@ MonoBehaviour:
   portIn2Id: 7
   portSpeedId: 3
   GPIOScript: {fileID: 2817787146317416559}
---- !u!114 &2817787145258639561
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7942949170288368534}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7b188d18dc06b69438414361c70df20f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  connectedBody: {fileID: 1981270759541370610}
 --- !u!1001 &2817787146317416556
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2577,19 +2579,6 @@ FixedJoint:
   m_EnablePreprocessing: 1
   m_MassScale: 1
   m_ConnectedMassScale: 1
---- !u!114 &2817787146317416554
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3160299518648677693}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7b188d18dc06b69438414361c70df20f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  connectedBody: {fileID: 1981270759541370610}
 --- !u!114 &2817787146317416552
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2605,6 +2594,19 @@ MonoBehaviour:
   isActive: 1
   GPIO: {fileID: 2817787146317416559}
   dataBus: {fileID: 2817787146317416558}
+--- !u!114 &2817787146317416554
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3160299518648677693}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7b188d18dc06b69438414361c70df20f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  connectedBody: {fileID: 1981270759541370610}
 --- !u!114 &2817787146317416558
 MonoBehaviour:
   m_ObjectHideFlags: 0
