@@ -3,25 +3,28 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody))]
 public class RSMAEncoder : RSMADataTransferSlave
 {
-    public float angularVelocityOut;
+    public float encoderResolution = 1;
 
-    Vector3 angularVelocity;
+    public Vector3 rotation;
+    public Vector3 angularVelocity;
+    public Vector3 encoderValue;
+
     Rigidbody rotorRigidbody;
-    Rigidbody motorRigidbody;
 
     public GameObject rotor;
-    public GameObject motor;
+    public HingeJoint motor;
 
     private void Start()
     {
         rotorRigidbody = rotor.GetComponent<Rigidbody>();
-        motorRigidbody = motor.GetComponent<Rigidbody>();
     }
     void FixedUpdate()
     {
-        angularVelocity = rotorRigidbody.angularVelocity - motorRigidbody.angularVelocity;
-        angularVelocityOut = angularVelocity.magnitude;
-        data = angularVelocityOut.ToString();
+        angularVelocity = Vector3.Dot(rotorRigidbody.angularVelocity, motor.axis) * motor.axis;
+        rotation = rotation + angularVelocity * Time.deltaTime;
+        encoderValue = (rotation / (Mathf.PI * 2)) * encoderResolution;
+
+        data = angularVelocity.x + ";" + angularVelocity.y + ";" + angularVelocity.z;
     }
     public override string SendData()
     {
