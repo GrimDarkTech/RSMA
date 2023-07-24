@@ -5,13 +5,14 @@ public class RSMALED : MonoBehaviour
     protected bool mode;
     [SerializeField] private Material activeLEDMaterial;
     [SerializeField] private Material disabledLEDMaterial;
+    [SerializeField] private GameObject LampObject;
 
     public int portID;
     public RSMAGPIO GPIOScript;
     private Renderer LEDRenderer;
     private void Start()
     {
-        LEDRenderer = gameObject.GetComponent<Renderer>();
+        LEDRenderer = LampObject.GetComponent<Renderer>();
     }
     private void Update()
     {
