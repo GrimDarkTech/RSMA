@@ -27,6 +27,9 @@ public class RSMAMicrocontroller : MonoBehaviour
     }
     protected IEnumerator MicroLoop()
     {
+        //TODO убрать
+        Debug.Log("TractorMicro B");
+
         yield return new WaitForSeconds(.1f);
         isLoopEnd = false;
     }

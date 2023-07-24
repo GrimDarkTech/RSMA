@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class KeyboardInput : RSMADataTransferSlave
+public class RSMAKeyboard : RSMADataTransferSlave
 {
     bool isTime = true;
     public float frequency = 1;
