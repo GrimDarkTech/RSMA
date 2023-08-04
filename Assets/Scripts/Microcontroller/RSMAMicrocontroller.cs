@@ -1,17 +1,15 @@
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class RSMAMicrocontroller : MonoBehaviour
 {
     public bool isActive;
-    protected bool isLoop = false;
-    protected bool isLoopEnd = false;
     [SerializeField] protected RSMAGPIO GPIO;
     [SerializeField] protected RSMADataTransferMaster dataBus;
     protected void Start()
     {
         if(isActive)
+<<<<<<< Updated upstream
             StartCoroutine(MicroStart()); ;
     }
     protected void Update()
@@ -32,6 +30,13 @@ public class RSMAMicrocontroller : MonoBehaviour
 
         yield return new WaitForSeconds(.1f);
         isLoopEnd = false;
+=======
+            StartCoroutine(MicroLoop()); ;
+>>>>>>> Stashed changes
     }
 
+    protected virtual IEnumerator MicroLoop()
+    {
+        yield return new WaitForSeconds(.1f);
+    }
 }
