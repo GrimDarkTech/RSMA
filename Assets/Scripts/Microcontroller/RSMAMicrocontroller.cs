@@ -1,17 +1,20 @@
 using System.Collections;
 using UnityEngine;
 
-public class RSMAMicrocontroller : MonoBehaviour
+public abstract class RSMAMicrocontroller : MonoBehaviour
 {
     [SerializeField] protected RSMAGPIO GPIO;
     [SerializeField] protected RSMADataTransferMaster dataBus;
-    protected void Start()
-    {
-        StartCoroutine(MicroLoop());
-    }
+    [SerializeField] protected IMicrocontollerProgramm programm;
 
-    protected virtual IEnumerator MicroLoop()
+    protected void OnEnable()
     {
-        yield return new WaitForSeconds(.1f);
+        StartCoroutine(programm.MicroLoop());
+        if(programm != null)
+        {
+            programm.GPIO = this.GPIO;
+            programm.dataBus = this.dataBus;
+
+        }
     }
 }

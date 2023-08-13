@@ -1,24 +1,17 @@
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 
-public class testMecanum : RSMAMicrocontroller
+public class testMecanum : IMicrocontollerProgramm
 {
     private float range;
-    private void Start()
+
+    public RSMAGPIO GPIO { get; set; }
+    public RSMADataTransferMaster dataBus { get; set; }
+
+    public IEnumerator MicroLoop()
     {
-        isLoop = false;
-    }
-    private void Update()
-    {
-        if (!isLoop)
-        {
-            StartCoroutine(MicroLoop());
-        }
-    }
-    private IEnumerator MicroLoop()
-    {
-        isLoop = true;
         yield return new WaitForSeconds(0.3f);
         dataBus.ReciveData(0);
         range = float.Parse(dataBus.GetData());
@@ -51,7 +44,6 @@ public class testMecanum : RSMAMicrocontroller
             speed2Driver(6, 7, 3, -1);
             speed2Driver(8, 9, 4, 1);
         }
-        isLoop = false;
     }
     void speed2Driver(int firstDigital, int secondDigital, int PWM, float speed)
     {

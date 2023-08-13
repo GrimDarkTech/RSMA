@@ -2,6 +2,7 @@ using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(FixedJoint))]
+
 public class RSMAModule : MonoBehaviour
 {
     private Rigidbody moduleRigidbody;
