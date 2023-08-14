@@ -4,6 +4,5 @@ using UnityEngine;
 
 public class RSMARobotOrigin : MonoBehaviour
 {
-    [DllImport("__Internal")]
-    public static extern void SayHello();
+
 }
