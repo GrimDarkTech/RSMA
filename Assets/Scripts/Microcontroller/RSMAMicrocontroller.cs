@@ -9,12 +9,16 @@ public abstract class RSMAMicrocontroller : MonoBehaviour
 
     protected void OnEnable()
     {
-        StartCoroutine(programm.MicroLoop());
-        if(programm != null)
+        programm = gameObject.GetComponent<IMicrocontollerProgramm>();
+        if (programm != null)
         {
             programm.GPIO = this.GPIO;
             programm.dataBus = this.dataBus;
-
+            StartCoroutine(programm.MainProgramm());
+        }
+        else
+        {
+            Debug.LogError($"Microcontroller {gameObject.name} can't find programm file");
         }
     }
 }
