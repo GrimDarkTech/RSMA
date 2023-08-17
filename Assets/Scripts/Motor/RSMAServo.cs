@@ -7,9 +7,9 @@ public class RSMAServo : MonoBehaviour
 
     public Rigidbody rotor;
     public Vector3 startMotorAxis;
-    public RSMAGPIO GPIOScript;
+    public RSMAGPIO connectMicrocontroller;
     public Vector2 limits;
-    public int portPWMId;
+    public ConnectedPin connectedPin;
     public float torque = 1;
     public float maxAngle = 180;
     public float damper = 0.5f;
@@ -33,7 +33,7 @@ public class RSMAServo : MonoBehaviour
     }
     void FixedUpdate()
     {
-        input = GPIOScript.GetPWMPort(portPWMId) + 0.005f;
+        input = connectMicrocontroller.GetPin(connectedPin).value + 0.005f;
         SetTargetAngle(input * maxAngle);
         SetDamper(damper);
         SetTorque(torque);
