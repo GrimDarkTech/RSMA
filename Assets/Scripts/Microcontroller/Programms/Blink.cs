@@ -11,9 +11,9 @@ public class Blink : MonoBehaviour, IMicrocontollerProgramm
     {
         while (true)
         {
-            GPIO.SetDigitalPort(1, true);
+            GPIO.WritePin("PC", "13", RSMAGPIO.High);
             yield return new WaitForSeconds(0.1f);
-            GPIO.SetDigitalPort(1, false);
+            GPIO.WritePin("PC", "13", RSMAGPIO.Low);
             yield return new WaitForSeconds(0.1f);
         }
     }

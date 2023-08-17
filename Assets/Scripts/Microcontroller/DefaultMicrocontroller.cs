@@ -4,15 +4,15 @@ using UnityEngine;
 
 public class DefaultMicrocontroller : RSMAMicrocontroller
 {
-    // Start is called before the first frame update
-    void Start()
+    [SerializeField] private RSMALED powerLed;
+    protected override void OnDisable()
     {
-        
+        powerLed.SetMode(0);
+        base.OnDisable();
     }
-
-    // Update is called once per frame
-    void Update()
+    protected override void OnEnable()
     {
-        
+        powerLed.SetMode(1);
+        base.OnEnable();
     }
 }
