@@ -1,33 +1,44 @@
 using UnityEngine;
 
+[RequireComponent(typeof(Light))]
 public class RSMALED : MonoBehaviour
 {
-    protected bool mode;
-    [SerializeField] private Material activeLEDMaterial;
-    [SerializeField] private Material disabledLEDMaterial;
-    [SerializeField] private GameObject LampObject;
+    protected ushort mode;
 
-    public int portID;
-    public RSMAGPIO GPIOScript;
-    private Renderer LEDRenderer;
+    public Color color;
+    public ConnectedPin connectedPin;
+    public RSMAGPIO connectMicrocontroller;
+    private Color defaultColor;
+    private Material ledMaterial;
+    private Light ledLight;
+
     private void Start()
     {
-        LEDRenderer = LampObject.GetComponent<Renderer>();
+        ledMaterial = gameObject.GetComponent<Renderer>().material;
+        ledLight = gameObject.GetComponent<Light>();
+        ledLight.color = color;
+        defaultColor = ledMaterial.color;
     }
     private void Update()
     {
-        mode = GPIOScript.GetDigitalPort(portID);
-        if (mode)
+        if(connectMicrocontroller != null)
         {
-            LEDRenderer.material = activeLEDMaterial;
+            mode = (ushort)connectMicrocontroller.GetPin(connectedPin).value;
+        }
+        if (mode == 1)
+        {
+            ledLight.enabled = true;
+            ledMaterial.color = color;
         }
         else
         {
-            LEDRenderer.material = disabledLEDMaterial;
+            ledLight.enabled = false;
+            ledMaterial.color = defaultColor;
         }
     }
-    public bool GetMode()
+
+    public void SetMode(ushort newMode)
     {
-        return mode;
+        mode = newMode;
     }
 }
