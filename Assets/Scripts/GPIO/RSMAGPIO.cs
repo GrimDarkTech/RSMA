@@ -1,52 +1,196 @@
+using Microsoft.Cci;
+using System.Collections.Generic;
 using UnityEngine;
 
 
 public class RSMAGPIO : MonoBehaviour
 {
-    [SerializeField] private bool[] digitalPort = new bool[500];
-    [SerializeField] private float[] PWMPort = new float[500];
-   
-    public void SetDigitalPort(int portId, bool value)
+    public const float High = 1;
+    public const float Low = 2;
+    [SerializeField] private List<GPIOPort> ports = new List<GPIOPort>();
+    
+    public void WritePin(string portName, string pinName, float value)
     {
-            if (portId < 500)
-                digitalPort[portId] = value;
-            else
-                Debug.LogError("Value of port id is to big, try value less then 500");
-    }
-    public bool GetDigitalPort(int portId)
-    {
-        if (portId < 500)
-            return digitalPort[portId];
-        else
+        GPIOPin pin2Write = null;
+        foreach (var port in ports)
         {
-            Debug.LogError("Value of port id is to big, try value less then 500");
-            return false;
-        }
-    }
-    public void SetPWMPort(int portId, float value)
-    {
-        if (portId < 500)
-            if(value > 1)
-                PWMPort[portId] = 1;
-            else
+            if(port.name == portName)
             {
-                if(value < 0)
-                    PWMPort[portId] = 0;
-                else
-                    PWMPort[portId] = value;
+                foreach (var pin in port.pins)
+                {
+                    if (pin.name == pinName)
+                    {
+                        pin2Write = pin;
+                        break;
+                    }
+                }
+                break;
             }
-        
-        else
-            Debug.LogError("Value of port id is to big, try value less then 500");
-    }
-    public float GetPWMPort(int portId)
-    {
-        if (portId < 500)
-            return PWMPort[portId];
-        else
-        {
-            Debug.LogError("Value of port id is to big, try value less then 500");
-            return 0;
         }
+        if(pin2Write != null)
+        {
+            pin2Write.value = value;
+        }
+    }
+    public void WritePin(int portIndex, int pinIndex, float value)
+    {
+        if(portIndex < ports.Count)
+        {
+            if (pinIndex < ports[portIndex].pins.Count)
+            {
+                GPIOPin pin2Write = ports[portIndex].pins[pinIndex];
+                if (pin2Write != null)
+                {
+                    pin2Write.value = value;
+                }
+            }
+        }
+    }
+    public void WritePin(int portIndex, string pinName, float value)
+    {
+        GPIOPin pin2Write = null;
+        if (portIndex < ports.Count)
+        {
+            foreach (var pin in ports[portIndex].pins)
+            {
+                if (pin.name == pinName)
+                {
+                    pin2Write = pin;
+                    break;
+                }
+            }
+        }
+        if (pin2Write != null)
+        {
+            pin2Write.value = value;
+        }
+    }
+    public void WritePin(string portName, int pinIndex, float value)
+    {
+        GPIOPin pin2Write = null;
+        foreach (var port in ports)
+        {
+            if (port.name == portName)
+            {
+                pin2Write = port.pins[pinIndex];
+                break;
+            }
+        }
+        if (pin2Write != null)
+        {
+            pin2Write.value = value;
+        }
+    }
+    public GPIOPin GetPin(string portName, string pinName)
+    {
+        GPIOPin pin2Get = null;
+        foreach (var port in ports)
+        {
+            if (port.name == portName)
+            {
+                foreach (var pin in port.pins)
+                {
+                    if (pin.name == pinName)
+                    {
+                        pin2Get = pin;
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+        return pin2Get;
+    }
+    public GPIOPin GetPin(ConnectedPin connectedPin)
+    {
+        GPIOPin pin2Get = null;
+        foreach (var port in ports)
+        {
+            if (port.name == connectedPin.portName)
+            {
+                foreach (var pin in port.pins)
+                {
+                    if (pin.name == connectedPin.pinName)
+                    {
+                        pin2Get = pin;
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+        return pin2Get;
+    }
+
+    public void ResetAll()
+    {
+        foreach (var port in ports)
+        {
+            foreach (var pin in port.pins)
+            {
+                pin.value = 0;
+            }
+        }
+    }
+    public float ReadPin(string portName, string pinName)
+    {
+        GPIOPin pin2Read = null;
+        foreach (var port in ports)
+        {
+            if (port.name == portName)
+            {
+                foreach (var pin in port.pins)
+                {
+                    if (pin.name == pinName)
+                    {
+                        pin2Read = pin;
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+        return pin2Read.value;
+    }
+    public float ReadPin(int portIndex, int pinIndex)
+    {
+        GPIOPin pin2Read = null;
+        if (portIndex < ports.Count)
+        {
+            if (pinIndex < ports[portIndex].pins.Count)
+            {
+                pin2Read = ports[portIndex].pins[pinIndex];
+            }
+        }
+        return pin2Read.value;
+    }
+    public float ReadPin(int portIndex, string pinName)
+    {
+        GPIOPin pin2Read = null;
+        if (portIndex < ports.Count)
+        {
+            foreach (var pin in ports[portIndex].pins)
+            {
+                if (pin.name == pinName)
+                {
+                    pin2Read = pin;
+                    break;
+                }
+            }
+        }
+        return pin2Read.value;
+    }
+    public float ReadPin(string portName, int pinIndex)
+    {
+        GPIOPin pin2Read = null;
+        foreach (var port in ports)
+        {
+            if (port.name == portName)
+            {
+                pin2Read = port.pins[pinIndex];
+                break;
+            }
+        }
+        return pin2Read.value;
     }
 }
