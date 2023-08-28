@@ -5,12 +5,12 @@ public abstract class RSMAMicrocontroller : MonoBehaviour
 {
     [SerializeField] protected RSMAGPIO GPIO;
     [SerializeField] protected RSMADataTransferMaster dataBus;
-    [SerializeField] protected IMicrocontollerProgramm programm;
+    [SerializeField] protected IMicrocontollerProgram programm;
     protected IEnumerator programmCoroutine;
 
     protected virtual void OnEnable()
     {
-        programm = gameObject.GetComponent<IMicrocontollerProgramm>();
+        programm = gameObject.GetComponent<IMicrocontollerProgram>();
         if (programm != null)
         {
             programm.GPIO = this.GPIO;
@@ -26,6 +26,6 @@ public abstract class RSMAMicrocontroller : MonoBehaviour
     protected virtual void OnDisable()
     {
         StopCoroutine(programmCoroutine);
-        GPIO.ResetAll();
+        GPIO.TurnOffAll();
     }
 }

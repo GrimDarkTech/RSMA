@@ -14,5 +14,6 @@ public class DefaultMicrocontroller : RSMAMicrocontroller
     {
         powerLed.SetMode(1);
         base.OnEnable();
+        GPIO.ResetAll();
     }
 }
