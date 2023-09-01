@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-public class Blink : MonoBehaviour, IMicrocontollerProgramm
+public class Blink : MonoBehaviour, IMicrocontollerProgram
 {
     public RSMAGPIO GPIO { get; set; }
 

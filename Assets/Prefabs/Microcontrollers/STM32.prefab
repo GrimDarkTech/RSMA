@@ -92,7 +92,7 @@ Light:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3521385130473848688}
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 10
   m_Type: 2
   m_Shape: 0
@@ -159,11 +159,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b9c9995b048a44f46b892da18ea149ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  colorBody: {fileID: 0}
   color: {r: 1, g: 0, b: 0, a: 0}
   connectedPin:
     portName: PC
     pinName: 13
   connectMicrocontroller: {fileID: 4905233438433263266}
+  ledLight: {fileID: 0}
 --- !u!1 &4378783429399543429
 GameObject:
   m_ObjectHideFlags: 0
@@ -323,11 +325,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b9c9995b048a44f46b892da18ea149ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  colorBody: {fileID: 0}
   color: {r: 1, g: 0, b: 0, a: 0}
   connectedPin:
     portName: 
     pinName: 
   connectMicrocontroller: {fileID: 0}
+  ledLight: {fileID: 0}
 --- !u!1 &5247689737818571716
 GameObject:
   m_ObjectHideFlags: 0

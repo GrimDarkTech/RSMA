@@ -4,17 +4,25 @@ using UnityEngine;
 public class RSMALED : MonoBehaviour
 {
     protected ushort mode;
-
+    public Renderer colorBody;
     public Color color;
     public ConnectedPin connectedPin;
     public RSMAGPIO connectMicrocontroller;
     private Color defaultColor;
     private Material ledMaterial;
-    private Light ledLight;
+    [SerializeField] private Light ledLight;
 
     private void Start()
     {
-        ledMaterial = gameObject.GetComponent<Renderer>().material;
+        
+        if(colorBody != null)
+        {
+            ledMaterial = colorBody.material;
+        }
+        else
+        {
+            ledMaterial = gameObject.GetComponent<Renderer>().material;
+        }
         ledLight = gameObject.GetComponent<Light>();
         ledLight.color = color;
         defaultColor = ledMaterial.color;
