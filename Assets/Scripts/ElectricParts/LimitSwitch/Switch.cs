@@ -61,17 +61,7 @@ public class Switch : MonoBehaviour
 
     private void Update()
     {
-        //if (DoCalculations != null) DoCalculations();
-        //if (Joint.projectionAngle > ActivationAngle)
-        //{
-        //    if (_isPressed) return;
-        //    Pressed();
-        //}
-        //else
-        //{
-        //    if (!_isPressed) return;
-        //    Released();
-        //}
+        if (DoCalculations != null) DoCalculations();
     }
 
     private void OnDrawGizmos()

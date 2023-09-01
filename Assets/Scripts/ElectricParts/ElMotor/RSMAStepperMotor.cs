@@ -15,4 +15,9 @@ public class RSMAStepperMotor : RSMADataTransferSlave
     {
         
     }
+
+    public override string SendData()
+    {
+        return base.SendData();
+    }
 }
