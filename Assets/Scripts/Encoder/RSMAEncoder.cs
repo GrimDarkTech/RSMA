@@ -5,26 +5,20 @@ public class RSMAEncoder : RSMADataTransferSlave
 {
     public float encoderResolution = 1;
 
-    public Vector3 rotation;
-    public Vector3 angularVelocity;
-    public Vector3 encoderValue;
-
-    Rigidbody rotorRigidbody;
-
     public GameObject rotor;
     public HingeJoint motor;
 
-    private void Start()
-    {
-        rotorRigidbody = rotor.GetComponent<Rigidbody>();
-    }
     void FixedUpdate()
     {
-        angularVelocity = Vector3.Dot(rotorRigidbody.angularVelocity, motor.axis) * motor.axis;
-        rotation = rotation + angularVelocity * Time.deltaTime;
-        encoderValue = (rotation / (Mathf.PI * 2)) * encoderResolution;
+        float current_angle = motor.angle;
+        float angular_velocity = motor.velocity;
 
-        data = angularVelocity.x + ";" + angularVelocity.y + ";" + angularVelocity.z;
+        if (motor.angle < 0)
+        {
+            current_angle = 360 + motor.angle;
+        }
+        data = $"{angular_velocity};{current_angle}";
+        Debug.Log(data);
     }
     public override string SendData()
     {
