@@ -89,6 +89,7 @@ public class RSMAEncoder : RSMADataTransferSlave
     }
 }
 
+#if UNITY_EDITOR
 [CustomEditor(typeof(RSMAEncoder))]
 public class RSMAEncoderEditor : Editor
 {
@@ -215,3 +216,4 @@ public enum EncoderRangeType
     Limit = 0,
     Unlimit = 1
 }
+#endif
