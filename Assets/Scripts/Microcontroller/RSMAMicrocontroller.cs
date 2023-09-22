@@ -25,7 +25,10 @@ public abstract class RSMAMicrocontroller : MonoBehaviour
     }
     protected virtual void OnDisable()
     {
-        StopCoroutine(programmCoroutine);
+        if (programm != null)
+        {
+            StopCoroutine(programmCoroutine);
+        }
         GPIO.TurnOffAll();
     }
 }
