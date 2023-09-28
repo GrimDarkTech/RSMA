@@ -1,6 +1,8 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
+
+/// <summary>
+/// Implements the properties and behaviors of AVR/STM- like microcontrollers with a power LED
+/// </summary>
 
 public class DefaultMicrocontroller : RSMAMicrocontroller
 {

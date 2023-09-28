@@ -14,7 +14,7 @@ public class GPIOPort
     public string name;
 
     /// <summary>
-    /// Lis of GPIO port pins
+    /// List of GPIO port pins
     /// </summary>
     [SerializeField] public List<GPIOPin> pins = new List<GPIOPin>();
 }

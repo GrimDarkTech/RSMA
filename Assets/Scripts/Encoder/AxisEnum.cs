@@ -1,7 +1,6 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-
+/// <summary>
+/// Describes the direction of the axis for the orientation of direction-dependent devices
+/// </summary>
 public enum AxisEnum
 {
     X = 0,
