@@ -1,45 +1,46 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.SceneManagement;
-public class LightSensorScript : MonoBehaviour
+
+/// <summary>
+/// Implements properties and functionality of light sensor
+/// </summary>
+public class LightSensorScript : RSMADataTransferSlave
 {
-    public float LightIntensity;
+    /// <summary>
+    /// Light intensity value determined by sensor
+    /// </summary>
+    public float lightIntensity;
+    /// <summary>
+    /// Scale factor for calculating light intensity
+    /// </summary>
     [Range(0f,1f)]
-    public float LightCoefficient = 1f;
-    private GameObject[] allGameObjects;
-    Light[] lights;
+    public float lightCoefficient = 1f;
+    
+    private Light[] lights;
 
     void Start()
     {
         lights = FindObjectsOfType<Light>();
-        foreach(Light light in lights)
-        {
-            light.gameObject.tag = "Light";
-            SphereCollider temp = light.gameObject.AddComponent<SphereCollider>();
-            temp.radius = 0.1f;
-        }
     }
-
-    // Update is called once per frame
     void Update()
     {
-        LightIntensity = 0;
+        lightIntensity = 0;
         foreach(Light light in lights)
         {
-            Vector3 lightPos = light.transform.position;
+            float distance = Vector3.Distance(gameObject.transform.position, light.transform.position);
+            Vector3 rayDirection = Vector3.Normalize(light.transform.position - gameObject.transform.position);
             RaycastHit hit;
-            if(Physics.Raycast(gameObject.transform.position, lightPos-transform.position, out hit))
-            {  
-                if (hit.collider.gameObject.tag == "Light")
-                { 
-                    Debug.DrawRay(gameObject.transform.position, hit.point-transform.position, Color.blue);
-                    float distance = (lightPos-transform.position).x*(lightPos-transform.position).x+(lightPos-transform.position).y*(lightPos-transform.position).y+(lightPos-transform.position).z*(lightPos-transform.position).z;
-                    distance = Mathf.Sqrt(distance);
-                    //Debug.Log(distance);
-                    LightIntensity += light.intensity*LightCoefficient/distance;
+            if(Physics.Raycast(gameObject.transform.position, rayDirection, out hit))
+            {
+                if (hit.distance >= distance)
+                {
+                    if (light.enabled)
+                    {
+                        Debug.DrawLine(gameObject.transform.position, light.transform.position, Color.blue);
+                        lightIntensity += light.intensity * (Mathf.Pow(light.range, 2) / Mathf.Pow(distance, 2)) * lightCoefficient / Mathf.Sqrt(distance);
+                    }
                 }
             }
         }
+        data = lightIntensity.ToString();
     }
 }
