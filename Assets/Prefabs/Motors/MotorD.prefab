@@ -18,7 +18,7 @@ GameObject:
   - component: {fileID: 5012842025407388295}
   - component: {fileID: 5012842025407388288}
   m_Layer: 0
-  m_Name: MotorMidRight
+  m_Name: MotorD
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -155,10 +155,10 @@ HingeJoint:
   m_GameObject: {fileID: 3610921976240186694}
   m_ConnectedBody: {fileID: 0}
   m_ConnectedArticulationBody: {fileID: 0}
-  m_Anchor: {x: 0, y: -0.004544572, z: 0}
+  m_Anchor: {x: 0.023, y: -0.017, z: -0.065}
   m_Axis: {x: 1, y: 0, z: 0}
   m_AutoConfigureConnectedAnchor: 1
-  m_ConnectedAnchor: {x: 0, y: 0, z: 0}
+  m_ConnectedAnchor: {x: 0, y: 0, z: 0.03}
   m_UseSpring: 0
   m_Spring:
     spring: 0

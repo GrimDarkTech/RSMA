@@ -21,9 +21,15 @@ public class RSMAMotor : MonoBehaviour
     /// Represents the motor axis, emanating from origin
     /// </summary>
     public Vector3 startMotorAxis;
+<<<<<<< Updated upstream
     /// <summary>
     /// Maximum angular velocity of motor
     /// </summary>
+=======
+    public bool resetMotorAnchor;
+    public Vector3 startMotorAnchor;
+
+>>>>>>> Stashed changes
     public float maxVelocity = 1;
     /// <summary>
     /// Maximum torque of motor
@@ -42,7 +48,10 @@ public class RSMAMotor : MonoBehaviour
     {
         MotorInit();
         SetMotorAxis(startMotorAxis);
-        SetMotorAnchor(new Vector3(0, 0, 0));
+        if (resetMotorAnchor)
+        {
+            SetMotorAnchor(startMotorAnchor);
+        }
         SetMotorActive(true);
         SetSpringActive(true);
         SetRotor(rotor);
