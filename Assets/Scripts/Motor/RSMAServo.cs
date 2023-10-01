@@ -4,7 +4,9 @@ using UnityEngine;
 [RequireComponent(typeof(HingeJoint))]
 public class RSMAServo : MonoBehaviour
 {
-
+    /// <summary>
+    /// Body used as a motor rotor
+    /// </summary>
     public Rigidbody rotor;
     public Vector3 startMotorAxis;
     public RSMAGPIO connectMicrocontroller;
