@@ -1,5 +1,7 @@
 using UnityEngine;
-
+/// <summary>
+/// Implements properties and functionality of connectable module
+/// </summary>
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(FixedJoint))]
 
@@ -21,9 +23,13 @@ public class RSMAModule : MonoBehaviour
             Debug.LogError("ConnectedBody (ModuleBase in" + gameObject.name + ") is null.");
         }
     }
-    public void SetConnectedBody(Rigidbody newConnectedBody)
+    /// <summary>
+    /// Sets connected 
+    /// </summary>
+    /// <param name="connectedBody">Body to connect</param>
+    public void SetConnectedBody(Rigidbody connectedBody)
     {
-        fixedJoint.connectedBody = newConnectedBody;
+        fixedJoint.connectedBody = connectedBody;
     }
 
 }

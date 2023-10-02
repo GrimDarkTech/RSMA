@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
+/// <summary>
+/// Implements properties and functionality of stepper motor
+/// </summary>
 public class RSMAStepperMotor : RSMADataTransferSlave
 {
     //Общие данные

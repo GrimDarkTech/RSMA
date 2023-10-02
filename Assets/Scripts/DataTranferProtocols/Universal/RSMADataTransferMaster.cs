@@ -26,6 +26,10 @@ public class RSMADataTransferMaster : MonoBehaviour
             targetDevice.ReciveData(data);
         }
     }
+    /// <summary>
+    /// Recives data from target device
+    /// </summary>
+    /// <param name="targetAddress">Address of device connected to data bus</param>
     public virtual void ReciveData(int targetAddress)
     {
         RSMADataTransferSlave targetScript;
@@ -37,6 +41,10 @@ public class RSMADataTransferMaster : MonoBehaviour
         else
             Debug.Log("Error");
     }
+    /// <summary>
+    /// Sends request command to target device
+    /// </summary>
+    /// <param name="targetAddress">Address of device connected to data bus</param>
     public virtual void Request(int targetAddress)
     {
         RSMADataTransferSlave targetScript;
@@ -46,7 +54,10 @@ public class RSMADataTransferMaster : MonoBehaviour
                 targetScript.OnRequest();
             }
     }
-
+    /// <summary>
+    /// Requests name of target device
+    /// </summary>
+    /// <param name="targetAddress">Address of device connected to data bus</param>
     public virtual void RequestName(int targetAddress)
     {
         RSMADataTransferSlave targetScript;

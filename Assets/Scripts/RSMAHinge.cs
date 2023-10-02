@@ -1,44 +1,44 @@
 using UnityEngine;
-
+/// <summary>
+/// Implements properties and functionality of hinge joint
+/// </summary>
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(HingeJoint))]
 public class RSMAHinge : MonoBehaviour
 {
     private HingeJoint axisHingeJoint;
 
-
+    /// <summary>
+    /// Body connected to joint
+    /// </summary>
     public Rigidbody connectedBody;
+    /// <summary>
+    /// Connection axis
+    /// </summary>
     public Vector3 axis;
 
 
 
     void Start()
     {
-        MotorInit();
+        Init();
         SetAxis(axis);
-        SetMotorAnchor(new Vector3(0, 0, 0));
-        SetRotor(connectedBody);
-
+        axisHingeJoint.anchor= Vector3.zero;
+        axisHingeJoint.connectedBody= connectedBody;
     }
-    public void MotorInit()
+    /// <summary>
+    /// Inits compoenents
+    /// </summary>
+    public void Init()
     {
         axisHingeJoint = gameObject.GetComponent<HingeJoint>();
     }
-    public void SetAxis(Vector3 newAxis)
+    /// <summary>
+    /// Sets axis
+    /// </summary>
+    /// <param name="axis">axis</param>
+    public void SetAxis(Vector3 axis)
     {
-        axisHingeJoint.axis = newAxis;
-    }
-    public void SetAxis(float newX, float newY, float newZ)
-    {
-        Vector3 newMotorAxis = new Vector3(newX, newY, newZ);
-        axisHingeJoint.axis = newMotorAxis;
-    }
-    public void SetMotorAnchor(Vector3 newMotorAnchor)
-    {
-        axisHingeJoint.anchor = newMotorAnchor;
-    }
-    public void SetRotor(Rigidbody newRotor)
-    {
-        axisHingeJoint.connectedBody = newRotor;
+        axisHingeJoint.axis = axis;
     }
 }

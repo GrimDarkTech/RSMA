@@ -1,5 +1,7 @@
 using UnityEngine;
-
+/// <summary>
+/// Implements properties and functionality of servo motor
+/// </summary>
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(HingeJoint))]
 public class RSMAServo : MonoBehaviour

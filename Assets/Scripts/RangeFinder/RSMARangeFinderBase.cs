@@ -1,10 +1,20 @@
 using UnityEngine;
-
+/// <summary>
+/// Implements properties and functionality of rangefinder
+/// </summary>
 public class RSMARangeFinderBase : RSMADataTransferSlave
 {
+    /// <summary>
+    /// Maximum range that can be measured by rangefinder
+    /// </summary>
     public float maxRange;
-
+    /// <summary>
+    /// Viewing angle of the rangefinder
+    /// </summary>
     public float angle = 1;
+    /// <summary>
+    /// Number of rays casted on angle
+    /// </summary>
 
     public int numberOfRays = 1;
 
