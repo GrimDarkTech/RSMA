@@ -32,7 +32,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3610921976240186694}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: -0.026, y: 0.017, z: 0.065}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -157,8 +157,8 @@ HingeJoint:
   m_ConnectedArticulationBody: {fileID: 0}
   m_Anchor: {x: 0.023, y: -0.017, z: -0.065}
   m_Axis: {x: 1, y: 0, z: 0}
-  m_AutoConfigureConnectedAnchor: 1
-  m_ConnectedAnchor: {x: 0, y: 0, z: 0.03}
+  m_AutoConfigureConnectedAnchor: 0
+  m_ConnectedAnchor: {x: 0.01, y: 0, z: 0}
   m_UseSpring: 0
   m_Spring:
     spring: 0
@@ -191,13 +191,13 @@ MonoBehaviour:
   m_GameObject: {fileID: 3610921976240186694}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ca93d4baefc9f9043a8df3cc0549a5a0, type: 3}
+  m_Script: {fileID: 11500000, guid: 0f439c269cf7a234588a09365b52af2c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   rotor: {fileID: 0}
   motorDriver: {fileID: 0}
-  startMotorAxis: {x: 1, y: 0, z: 0}
-  maxVelocity: 3600
-  maxForce: 5
-  springForce: 1
-  springDumper: 1
+  motorAxis: {x: 0, y: 0, z: 0}
+  resetMotorAnchor: 0
+  motorAnchor: {x: 0, y: 0, z: 0}
+  connectedAnchor: {x: 0, y: 0, z: 0}
+  torque: 1

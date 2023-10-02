@@ -1,26 +1,29 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-
+/// <summary>
+/// Implements properties and functionality of master device in data transfer protocol
+/// </summary>
 public class RSMADataTransferMaster : MonoBehaviour
 {
+    /// <summary>
+    /// List of devices connected to master device via the data bus
+    /// </summary>
     public List<RSMADataTransferSlave> dataBus = new List<RSMADataTransferSlave>();
+
     protected string data;
-    public void SetData(string newData) 
+
+    /// <summary>
+    /// Sends data to target device
+    /// </summary>
+    /// <param name="targetAddress">Address of device connected to data bus</param>
+    public virtual void SendData(int targetAddress)
     {
-        data = newData;
-    }
-    public string GetData()
-    {
-        return data;
-    }
-    public virtual void  SendData(int targetAddress)
-    {
-        RSMADataTransferSlave targetScript;
+        RSMADataTransferSlave targetDevice;
         if (dataBus.Count > targetAddress && dataBus[targetAddress] != null)
         {
-            targetScript = dataBus[targetAddress];
-            targetScript.ReciveData(data);
+            targetDevice = dataBus[targetAddress];
+            targetDevice.ReciveData(data);
         }
     }
     public virtual void ReciveData(int targetAddress)
