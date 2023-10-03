@@ -1,12 +1,26 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+
+/// <summary>
+/// 
+/// </summary>
 public class Blink : MonoBehaviour, IMicrocontollerProgram
 {
+    /// <summary>
+    /// 
+    /// </summary>
     public RSMAGPIO GPIO { get; set; }
 
+    /// <summary>
+    /// 
+    /// </summary>
     public  RSMADataTransferMaster dataBus { get; set; }
-
+    
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <returns></returns>
     public IEnumerator MainProgramm()
     {
         while (true)

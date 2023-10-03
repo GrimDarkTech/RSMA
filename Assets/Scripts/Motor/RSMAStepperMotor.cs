@@ -92,10 +92,21 @@ public class RSMAStepperMotorEditor : Editor
     }
 }
 #endif
-
+/// <summary>
+/// 
+/// </summary>
 public enum StepperMotorType
 {
+    /// <summary>
+    /// 
+    /// </summary>
     VariableMagnets = 0, //С переменным магнитным сопростивлением
+    /// <summary>
+    /// 
+    /// </summary>
     PermanentMagnents = 1, //С постоянными магнитами
+    /// <summary>
+    /// 
+    /// </summary>
     Hybrid = 2, //С постоянными магнитами
 }

@@ -2,19 +2,43 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System;
-
+/// <summary>
+/// 
+/// </summary>
 [ExecuteInEditMode]
 public class WheelSetUp : MonoBehaviour
 {
+    /// <summary>
+    /// 
+    /// </summary>
     public GameObject Wheel;
+    /// <summary>
+    /// 
+    /// </summary>
     public BetterVector WheelCus;
-
+    /// <summary>
+    /// 
+    /// </summary>
     public GameObject MiniWheel;
+    /// <summary>
+    /// 
+    /// </summary>
     public BetterVector MiniWheelCus;
-
+    /// <summary>
+    /// 
+    /// </summary>
     [Range(0, 360)] public float Angle;
+    /// <summary>
+    /// 
+    /// </summary>
     [Min(0)] public int Count;
+    /// <summary>
+    /// 
+    /// </summary>
     [Min(0)] public float Size;
+    /// <summary>
+    /// 
+    /// </summary>
     [Min(0)] public float Range;
 
     private GameObject _check_wheel;
@@ -24,7 +48,9 @@ public class WheelSetUp : MonoBehaviour
     private float _size;
     private float _range;
     private float _angle;
-
+    /// <summary>
+    /// 
+    /// </summary>
     public void Update()
     {
         if (Application.isPlaying) return;
@@ -203,18 +229,41 @@ public class WheelSetUp : MonoBehaviour
         return Vector3.zero;
     }
 }
-
+/// <summary>
+/// 
+/// </summary>
 [Serializable]
 public struct BetterVector
 {
+    /// <summary>
+    /// 
+    /// </summary>
     public VecEnum right;
+    /// <summary>
+    /// 
+    /// </summary>
     public VecEnum forward;
+    /// <summary>
+    /// 
+    /// </summary>
     public VecEnum up;
 }
+/// <summary>
+/// 
+/// </summary>
 public enum VecEnum
 {
+/// <summary>
+/// 
+/// </summary>
     right = 0,
+    /// <summary>
+    /// 
+    /// </summary>
     forward = 1,
+    /// <summary>
+    /// 
+    /// </summary>
     up = 2
 }
 

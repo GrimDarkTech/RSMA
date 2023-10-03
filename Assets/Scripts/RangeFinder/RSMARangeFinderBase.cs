@@ -46,6 +46,10 @@ public class RSMARangeFinderBase : RSMADataTransferSlave
         }
         return range;
     }
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <returns></returns>
     public override string SendData()
     {
         return (MeasureRange().ToString());

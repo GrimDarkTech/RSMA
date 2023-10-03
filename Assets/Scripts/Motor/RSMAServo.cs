@@ -10,16 +10,45 @@ public class RSMAServo : MonoBehaviour
     /// Body used as a motor rotor
     /// </summary>
     public Rigidbody rotor;
+    /// <summary>
+    /// 
+    /// </summary>
     public Vector3 startMotorAxis;
+    /// <summary>
+    /// 
+    /// </summary>
     public RSMAGPIO connectMicrocontroller;
+    /// <summary>
+    /// 
+    /// </summary>
     public Vector2 limits;
+    /// <summary>
+    /// 
+    /// </summary>
     public ConnectedPin connectedPin;
+    /// <summary>
+    /// 
+    /// </summary>
     public float torque = 1;
+    /// <summary>
+    /// 
+    /// </summary>
     public float maxAngle = 180;
+    /// <summary>
+    /// 
+    /// </summary>
     public float damper = 0.5f;
+    /// <summary>
+    /// 
+    /// </summary>
     public bool isUseLimit;
-
+    /// <summary>
+    /// 
+    /// </summary>
     protected HingeJoint motorHingeJoint;
+    /// <summary>
+    /// 
+    /// </summary>
     protected Rigidbody motorRigidbody;
     protected float input = 0;
 

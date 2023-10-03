@@ -198,6 +198,8 @@ public class RSMAEncoderEditor : Editor
 /// 2-фазный энкодер - определяет 1фазу и направление вращения двигателя
 /// 3-фазный энкодер - определяет 1фазу и 2фазу и угол поворота
 /// </summary>
+#endif
+
 public enum EncoderOutput
 {
     Output1 = 0,
@@ -216,4 +218,3 @@ public enum EncoderRangeType
     Limit = 0,
     Unlimit = 1
 }
-#endif
