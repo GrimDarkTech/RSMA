@@ -3,19 +3,47 @@ using UnityEngine;
 
 public class RSMAEncoder : RSMADataTransferSlave
 {
-    //Общие данные
+    /// <summary>
+    /// Defines the type of encoder used in the simulation
+    /// </summary>
     public EncoderType EncoderTypeObj { get; set; }
+    /// <summary>
+    /// Allows you to set up a limit on the rotation of the shaft
+    /// </summary>
     public EncoderRangeType EncoderRangeType { get; set; }
-    public AxisEnum AxisDirection { get; set; } //С какой стороны будет находится энкодер относительно мотора
+    /// <summary>
+    /// Determines which side the encoder will be located relative to the motor
+    /// </summary>
+    public AxisEnum AxisDirection { get; set; }
+    /// <summary>
+    /// Determines how much data the encoder transmits over the data transmitter
+    /// </summary>
     public EncoderOutput OutPut { get; set; } = EncoderOutput.Output3;
+    /// <summary>
+    /// Automatic determination of the axis from which the encoder will be connected 
+    /// to the motor
+    /// </summary>
     public bool AutoAxis { get; set; } //Автоматическое определение рабочей стороны
 
-
-    //Данные инкрементального энкодера
+    /// <summary>
+    /// At what distance from the object the encoder will be located
+    /// the distance can be negative and positive
+    /// </summary>
     public float Distance = 2;
+    /// <summary>
+    /// Encoder resolution is the number of pulses per revolution (PPR) or bits 
+    /// output by the encoder during one 360 degree revolution of the encoder 
+    /// shaft or bore. 
+    /// </summary>
     public float EncoderResolution = 1;
 
+    /// <summary>
+    /// the object of the shaft that will spin together with the motor
+    /// </summary>
     public GameObject Shaft;
+    /// <summary>
+    /// Motor of the object under study
+    /// </summary>
     public HingeJoint Motor;
 
     void FixedUpdate()
@@ -36,30 +64,43 @@ public class RSMAEncoder : RSMADataTransferSlave
     }
 
     /// <summary>
-    /// Получить скорость вращения вала в градусах/секунду
+    /// Get the speed of rotation of the shaft in degrees per second
     /// </summary>
     public float GetVelocity()
     {
+        if (Motor == null) return 0;
         return Motor.velocity;
     }
 
     /// <summary>
-    /// Получить направление вала
+    /// Get the direction of the shaft
+    /// 0 - no side
+    /// 1 - right side
+    /// 2 - left side
     /// </summary>
     public int GetSide()
     {
+        if (Motor == null) return 0;
         if (Motor.velocity == 0) return 0;
         if (Motor.motor.targetVelocity < 0) return 1;
         if (Motor.motor.targetVelocity > 0) return 2;
         return 0;
     }
 
+    /// <summary>
+    /// Get the rotation frequency of the encoder shaft
+    /// </summary>
+    /// <returns></returns>
     public string GetHZ()
     {
         if (Motor == null || !Motor.useMotor) return "Motor is NULL";
         return $"{(int)(Motor.velocity * EncoderResolution)} Гц";
     }
 
+    /// <summary>
+    /// Get the calculated step angle with which the encoder 
+    /// updates the data
+    /// </summary>
     public string GetMeasureAngle()
     {
         if (EncoderResolution == 0) return "NaN";
@@ -67,11 +108,13 @@ public class RSMAEncoder : RSMADataTransferSlave
     }
 
     /// <summary>
-    /// Получить угол вращения
+    /// Get the angle of rotation of the encoder shaft, which 
+    /// depends on the type of encoder
     /// </summary>
     /// <returns></returns>
     public float GetAngle()
     {
+        if (Motor == null) return 0;
         float current_angle = Motor.angle;
         float measure_angle = 360 / EncoderResolution;
         if (Motor.angle < 0)
@@ -89,6 +132,10 @@ public class RSMAEncoder : RSMADataTransferSlave
     }
 }
 
+/// <summary>
+/// Settings for the unique display of encoder data. 
+/// Deleted in the final build
+/// </summary>
 #if UNITY_EDITOR
 [CustomEditor(typeof(RSMAEncoder))]
 public class RSMAEncoderEditor : Editor
@@ -192,14 +239,13 @@ public class RSMAEncoderEditor : Editor
 
     //private void SetAxis
 }
-
-/// <summary>
-/// 1-фазный энкодер - определяет чистоту вращения двигателя
-/// 2-фазный энкодер - определяет 1фазу и направление вращения двигателя
-/// 3-фазный энкодер - определяет 1фазу и 2фазу и угол поворота
-/// </summary>
 #endif
 
+/// <summary>
+/// 1-phase encoder - determines the engine speed
+/// 2-phase encoder - determines 1 phase and the direction of rotation of the motor
+/// 3-phase encoder - determines 1 phase and 2 phase and rotation angle
+/// </summary>
 public enum EncoderOutput
 {
     Output1 = 0,
@@ -207,12 +253,18 @@ public enum EncoderOutput
     Output3 = 2
 }
 
+/// <summary>
+/// Type of working encoder
+/// </summary>
 public enum EncoderType
 {
     Incremental = 0,
     Absolute = 1
 }
 
+/// <summary>
+/// limits of the rotation
+/// </summary>
 public enum EncoderRangeType
 {
     Limit = 0,
