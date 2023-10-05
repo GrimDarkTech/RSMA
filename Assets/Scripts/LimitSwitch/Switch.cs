@@ -9,45 +9,97 @@ public class Switch : MonoBehaviour
 {
     public SwitchTypeEnum TypeEnum;
 
-    public UnityEvent onPressed;
-    public UnityEvent onReleased;
+    /// <summary>
+    /// The state of closure or opening of an electrical circuit.
+    /// </summary>
     public bool MechState;
 
-    //Роликовый плунжер
+    /// <summary>
+    /// Resistance to movement due to viscous friction.
+    /// </summary>
     public float ButtonDamper = 10;
+    /// <summary>
+    /// The force returns to its previous shape after compression or stretching.
+    /// </summary>
     public float ButtonSpring = 50;
+    /// <summary>
+    /// Maximum button pressing distance
+    /// </summary>
     public float MaxLength = 0.015f;
+    /// <summary>
+    /// the activation point is within the initial position to the limit position 
+    /// of the button, which is displayed as a percentage.
+    /// </summary>
     public float HorButtonSlider = 100;
 
     //Роликовый рычаг
+    /// <summary>
+    /// Resistance to movement due to viscous friction for angle.
+    /// </summary>
     public float AngularDamper = 10;
+    /// <summary>
+    /// The force returns to its previous shape after compression or stretching in 
+    /// the angular view.
+    /// </summary>
     public float AngularSpring = 50;
+    /// <summary>
+    /// The minimum angle at which the lever can turn.
+    /// </summary>
     public float MinAngle = -10;
+    /// <summary>
+    /// The maximum angle at which the lever can turn
+    /// </summary>
     public float MaxAngle = 50;
+    /// <summary>
+    /// the activation point is within the initial angle to the limit angle 
+    /// of the lever, which is displayed as a percentage.
+    /// </summary>
     public float HorLeverRollerSlider = 100;
 
-    //Общие настройки
+    /// <summary>
+    /// The joint is a lever responsible for simulating the behavior of the lever.
+    /// </summary>
     public ConfigurableJoint Joint;
+    /// <summary>
+    /// Fulcrum of configurable joint.
+    /// </summary>
     public Vector3 AnchorPos;
+    /// <summary>
+    /// Direction of the axis of rotation.
+    /// </summary>
     public Vector3 Vector;
 
-    //Настройки Гизмо
+    /// <summary>
+    /// The size of the gizmo that is displayed in the unity user interface.
+    /// </summary>
     public float SizeGizmoSphere;
 
-
+    /// <summary>
+    /// An event that performs calculations depending on the type of limit switch.
+    /// </summary>
     public Action DoCalculations;
 
+    /// <summary>
+    /// It is triggered when the limit switch switches to the on state
+    /// </summary>
     public void SwitchOn()
     {
         MechState = true;
         Debug.Log("Состояние переключателя: Включено");
     }
 
+    /// <summary>
+    /// It is triggered when the limit switch switches to the off state
+    /// </summary>
     public void SwitchOff()
     {
         MechState = false;
         Debug.Log("Состояние переключателя: Выключено");
     }
+
+    /// <summary>
+    /// Erases all settings of configurable joint of lever and sets new ones
+    /// </summary>
     public void ResetJoint()
     {
         DestroyImmediate(gameObject.GetComponent<ConfigurableJoint>());
@@ -118,6 +170,11 @@ public class Switch : MonoBehaviour
     }
 }
 
+
+/// <summary>
+/// Settings for the unique display of limit switch data. 
+/// Deleted in the final build.
+/// </summary>
 [CustomEditor(typeof(Switch))]
 public class SwitchEditor : Editor
 {
@@ -184,12 +241,7 @@ public class SwitchEditor : Editor
         float size_gizmo_sphere = EditorGUILayout.FloatField("Размер гизмо: ", switch_lever.SizeGizmoSphere);
         switch_lever.SizeGizmoSphere = size_gizmo_sphere < 0 ? 0 : size_gizmo_sphere;
     }
-    /// <summary>
-    /// <br> 0 - Фиксированное состояние </br>
-    /// <br> 1 - Ограниченное состояние </br>
-    /// <br> 2 - Свободное состояние</br>
-    /// </summary>
-    /// <returns></returns>
+
     private void SetLimits(ConfigurableJoint joint, int state_xMotion, int state_yMotion, int state_zMotion, int state_xAngular, int state_yAngular, int state_zAngular)
     {
         joint.xMotion = (ConfigurableJointMotion)state_xMotion;
