@@ -41,6 +41,10 @@ public class RSMAMotor : MonoBehaviour
     /// Maximum torque of motor
     /// </summary>
     public float torque = 1;
+    /// <summary>
+    /// Maximum angle velocity of motor in degrees per second
+    /// </summary>
+    public float angularVelocity = 3600;
 
     private void Start()
     {
@@ -48,7 +52,7 @@ public class RSMAMotor : MonoBehaviour
         motorHingeJoint.axis = motorAxis;
         if (resetMotorAnchor)
         {
-            motorHingeJoint.anchor= motorAnchor;
+            motorHingeJoint.anchor = motorAnchor;
             motorHingeJoint.autoConfigureConnectedAnchor = false;
             motorHingeJoint.connectedAnchor = connectedAnchor;
             motorHingeJoint.autoConfigureConnectedAnchor = true;
@@ -58,9 +62,15 @@ public class RSMAMotor : MonoBehaviour
     }
     private void FixedUpdate()
     {
-        input = motorDriver.getOutput();
-        motorRigidbody.AddRelativeTorque(-input * torque * motorAxis);
-        rotor.AddRelativeTorque(input * torque * motorAxis);
+        if(motorDriver != null)
+        {
+            input = motorDriver.getOutput();
+        }
+        var motor = motorHingeJoint.motor;
+        motor.force = torque;
+        motor.targetVelocity = - angularVelocity * input;
+        motor.freeSpin = false;
+        motorHingeJoint.motor = motor;
     }
     private void MotorInit()
     {
