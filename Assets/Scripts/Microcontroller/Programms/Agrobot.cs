@@ -15,19 +15,19 @@ public class Agrobot : MonoBehaviour, IMicrocontollerProgram
         while (true)
         {
             MoveForward();
-            yield return new WaitForSeconds(3f);
+            yield return new WaitForSeconds(Random.Range(2f, 7f));
             Stop();
             yield return new WaitForSeconds(0.5f);
             TurnRight();
-            yield return new WaitForSeconds(6f);
+            yield return new WaitForSeconds(Random.Range(3f, 7f));
             Stop();
             yield return new WaitForSeconds(0.5f);
             MoveBackward();
-            yield return new WaitForSeconds(3f);
+            yield return new WaitForSeconds(Random.Range(3f, 7f));
             Stop();
             yield return new WaitForSeconds(0.5f);
             TurnLeft();
-            yield return new WaitForSeconds(6f);
+            yield return new WaitForSeconds(Random.Range(2f, 8f));
             Stop();
             yield return new WaitForSeconds(0.5f);
         }
