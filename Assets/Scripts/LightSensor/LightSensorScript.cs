@@ -43,4 +43,8 @@ public class LightSensorScript : RSMADataTransferSlave
         }
         data = lightIntensity.ToString();
     }
+    public override string SendData()
+    {
+        return data;
+    }
 }
