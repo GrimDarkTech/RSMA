@@ -1,5 +1,5 @@
 # RSMAMotor 
-[switch to API](Documentation/API/en/RSMAMotor.md)
+[switch to API](../../../Documentation/API/en/RSMAMotor.md)
 
 Implements properties and functionality of DC electric motor
 
