@@ -1,8 +1,8 @@
 using UnityEngine;
 /// <summary>
-/// Implements properties and functionality of electric motor
+/// Implements properties and functionality of DC electric motor
 /// </summary>
-/// 
+
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(HingeJoint))]
 public class RSMAMotor : MonoBehaviour
