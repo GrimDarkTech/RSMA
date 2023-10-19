@@ -27,7 +27,7 @@ public class RSMAMotor : MonoBehaviour
     /// <summary>
     /// Resets MotorAnchor with startMotorAnchor
     /// </summary>
-    public bool resetMotorAnchor;
+    public bool isResetMotorAnchor;
 
     /// <summary>
     /// Represents the Motor Anchor
@@ -50,7 +50,7 @@ public class RSMAMotor : MonoBehaviour
     {
         MotorInit();
         motorHingeJoint.axis = motorAxis;
-        if (resetMotorAnchor)
+        if (isResetMotorAnchor)
         {
             motorHingeJoint.anchor = motorAnchor;
             motorHingeJoint.autoConfigureConnectedAnchor = false;
