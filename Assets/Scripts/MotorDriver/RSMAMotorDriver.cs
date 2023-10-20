@@ -28,7 +28,7 @@ public class RSMAMotorDriver : MonoBehaviour
     /// <summary>
     /// Returns output signal from driver
     /// </summary>
-    /// <returns></returns>
+    /// <returns>float value of output signal from driver</returns>
     public float getOutput()
     {
         return output;

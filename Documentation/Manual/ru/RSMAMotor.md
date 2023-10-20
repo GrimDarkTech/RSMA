@@ -1,5 +1,5 @@
 # RSMAMotor
-[переключиться на API](../../../Documentation/API/ru/RSMAMotor.md)
+[переключиться на API](../../../Documentation/ScriptingAPI/ru/RSMAMotor.md)
 
 Реализует свойства и функциональные возможности электродвигателя постоянного тока
 

@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.0040930044, g: 0.00022397957, b: 0.000000057441305, a: 1}
+  m_IndirectSpecularColor: {r: 0.4465052, g: 0.49129146, b: 0.5476497, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -565,6 +565,72 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 6
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1075179310
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1075179312}
+  - component: {fileID: 1075179311}
+  m_Layer: 0
+  m_Name: MDBuilder
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1075179311
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1075179310}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d63cf671ec565a045b9b604a9b42fdca, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  filepath: F:\Unity Projects\RSMA\Assets\Scripts\DataTranferProtocols\Universal
+  filename: RSMADataTransferSlave
+  docsFolderPath: F:\Unity Projects\RSMA\Documentation\Manual\en
+  lines: []
+  classes:
+  - name: RSMADataTransferSlave
+    description: Implements properties and functionality of slave device in data
+      transfer protocol
+    consts: []
+    fields: []
+    properties: []
+    methods:
+    - name: void SetDeviceName(string deviceName)
+      description: Sets device name
+      retunrs: 
+      parameters:
+      - name: deviceName
+        description: Device name
+    - name: string GetDeviceName()
+      description: Gets device name
+      retunrs: Device name
+      parameters: []
+--- !u!4 &1075179312
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1075179310}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 7
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1479870360
 GameObject:
   m_ObjectHideFlags: 0
@@ -651,14 +717,14 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1479870360}
-  m_LocalRotation: {x: 0.93505317, y: 0.06491242, z: 0.24225649, w: -0.2505467}
+  m_LocalRotation: {x: 0.7699636, y: -0.53960294, z: 0.33592275, w: -0.056041498}
   m_LocalPosition: {x: 0, y: 3, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 5
-  m_LocalEulerAnglesHint: {x: 210, y: -29.05, z: 0}
+  m_LocalEulerAnglesHint: {x: 163.965, y: -36.95398, z: 64.657}
 --- !u!1 &1930544674 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 5247689737818571716, guid: a30ec51cfded74e49aaf827b0245882d, type: 3}
@@ -676,6 +742,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 94a8d8f2c14ebb345b6a5b4b5be78c31, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  value3: 0
 --- !u!114 &1930544682 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 4905233438433263266, guid: a30ec51cfded74e49aaf827b0245882d, type: 3}

@@ -1,6 +1,6 @@
 using UnityEngine;
 /// <summary>
-/// Implements properties and functionality of hinge joint
+/// Simulates the behavior of the axial connection. The hinge joint is used to simulate the interaction of two rigid bodies
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(HingeJoint))]
@@ -13,7 +13,7 @@ public class RSMAHinge : MonoBehaviour
     /// </summary>
     public Rigidbody connectedBody;
     /// <summary>
-    /// Connection axis
+    /// Connection axis direction relative local transfrom
     /// </summary>
     public Vector3 axis;
 
@@ -27,7 +27,7 @@ public class RSMAHinge : MonoBehaviour
         axisHingeJoint.connectedBody= connectedBody;
     }
     /// <summary>
-    /// Inits compoenents
+    /// Sets up joint and gets refernce
     /// </summary>
     public void Init()
     {
@@ -36,7 +36,7 @@ public class RSMAHinge : MonoBehaviour
     /// <summary>
     /// Sets axis
     /// </summary>
-    /// <param name="axis">axis</param>
+    /// <param name="axis">axis in relative tranform</param>
     public void SetAxis(Vector3 axis)
     {
         axisHingeJoint.axis = axis;

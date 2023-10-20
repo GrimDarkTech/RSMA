@@ -13,23 +13,10 @@ public class RSMAStepperMotor : RSMADataTransferSlave
 
     //Общие характеристики
     public int StepCount { get; set; }
-
-
-    void Start()
-    {
-        
-    }
-
-    void FixedUpdate()
-    {
-        
-    }
-
     public override string SendData()
     {
         return base.SendData();
     }
-
     public float GetStepAngle()
     {
         return (360f / StepCount);

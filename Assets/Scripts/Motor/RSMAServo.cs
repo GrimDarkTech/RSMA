@@ -11,44 +11,39 @@ public class RSMAServo : MonoBehaviour
     /// </summary>
     public Rigidbody rotor;
     /// <summary>
-    /// 
+    /// Represents the motor axis, emanating from origin
     /// </summary>
     public Vector3 startMotorAxis;
     /// <summary>
-    /// 
+    /// Microcontroller GPIO connected to servo
     /// </summary>
     public RSMAGPIO connectMicrocontroller;
     /// <summary>
-    /// 
+    /// Angles
     /// </summary>
     public Vector2 limits;
     /// <summary>
-    /// 
+    /// Microcontroller GPIO port pin connected to servo
     /// </summary>
     public ConnectedPin connectedPin;
     /// <summary>
-    /// 
+    /// Maximum torque
     /// </summary>
     public float torque = 1;
     /// <summary>
-    /// 
+    /// Maximum angle
     /// </summary>
     public float maxAngle = 180;
     /// <summary>
-    /// 
+    /// Damper factor
     /// </summary>
     public float damper = 0.5f;
     /// <summary>
-    /// 
+    /// Is servo has limits
     /// </summary>
     public bool isUseLimit;
-    /// <summary>
-    /// 
-    /// </summary>
+
     protected HingeJoint motorHingeJoint;
-    /// <summary>
-    /// 
-    /// </summary>
     protected Rigidbody motorRigidbody;
     protected float input = 0;
 
@@ -72,7 +67,9 @@ public class RSMAServo : MonoBehaviour
         SetTorque(torque);
         SetLimits();
     }
-
+    /// <summary>
+    /// Inits motor and sets up motor component
+    /// </summary>
     public void MotorInit()
     {
         motorHingeJoint = gameObject.GetComponent<HingeJoint>();

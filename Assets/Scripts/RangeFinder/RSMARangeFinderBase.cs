@@ -47,9 +47,9 @@ public class RSMARangeFinderBase : RSMADataTransferSlave
         return range;
     }
     /// <summary>
-    /// 
+    /// Sends measured range via datatransfer protocol
     /// </summary>
-    /// <returns></returns>
+    /// <returns>Returns measured range coverted to string</returns>
     public override string SendData()
     {
         return (MeasureRange().ToString());

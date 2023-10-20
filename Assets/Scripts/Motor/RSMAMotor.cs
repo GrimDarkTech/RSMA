@@ -1,4 +1,5 @@
 using UnityEngine;
+
 /// <summary>
 /// Implements properties and functionality of DC electric motor
 /// </summary>
@@ -16,7 +17,7 @@ public class RSMAMotor : MonoBehaviour
     /// Body used as a motor rotor
     /// </summary>
     public Rigidbody rotor;
-    ///     /// <summary>
+    /// <summary>
     /// Driver connected to motor
     /// </summary>
     public RSMAMotorDriver motorDriver;
