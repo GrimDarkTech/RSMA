@@ -1,5 +1,5 @@
 # RSMAModule
-[switch to API](../../../Documentation/ScriptingAPI/en/RSMAModule.md)
+[switch to API](../../../Documentation/ScriptingAPI/en/RSMAMechanicalPart.cs.md)
 
 Implements properties and functionality of connectable module
 
@@ -8,10 +8,11 @@ Implements properties and functionality of connectable module
 |--|--|--|
 |connectedBody||Rigidbody|
 ## Methods
-| Declaration | Description | Returns |
-|--|--|--|
-|void SetConnectedBody(Rigidbody connectedBody)|Sets connected||
-### Parameters
+### void SetConnectedBody(Rigidbody connectedBody)
+Sets connected rigid body
+Returns: 
+
+#### Parameters
 | Name | Description |
 |--|--|
 |connectedBody|Body to connect|

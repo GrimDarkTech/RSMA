@@ -1,5 +1,5 @@
 # GPIOPort
-[switch to API](../../../Documentation/ScriptingAPI/en/GPIOPort.md)
+[switch to API](../../../Documentation/ScriptingAPI/en/GPIOPin.cs.md)
 
 Implements properties and functionality of GPIO port
 
@@ -7,3 +7,4 @@ Implements properties and functionality of GPIO port
 | Field | Description | Type |
 |--|--|--|
 |name|GPIO port name|string|
+|pins|List of GPIO port pins|List<GPIOPin>|

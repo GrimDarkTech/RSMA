@@ -1,5 +1,5 @@
 # Switch
-[switch to API](../../../Documentation/ScriptingAPI/en/Switch.md)
+[switch to API](../../../Documentation/ScriptingAPI/en/RSMALimitSwitch.cs.md)
 
 
 
@@ -23,13 +23,20 @@
 |SizeGizmoSphere|The size of the gizmo that is displayed in the unity user interface.|float|
 |DoCalculations|An event that performs calculations depending on the type of limit switch.|Action|
 ## Methods
-| Declaration | Description | Returns |
-|--|--|--|
-|void SwitchOn()|It is triggered when the limit switch switches to the on state||
-|void SwitchOff()|It is triggered when the limit switch switches to the off state||
-|void ResetJoint()|Erases all settings of configurable joint of lever and sets new ones||
+### void SwitchOn()
+It is triggered when the limit switch switches to the on state
+Returns: 
+
+### void SwitchOff()
+It is triggered when the limit switch switches to the off state
+Returns: 
+
+### void ResetJoint()
+Erases all settings of configurable joint of lever and sets new ones
+Returns: 
+
 # SwitchEditor
-[switch to API](../../../Documentation/ScriptingAPI/en/Switch.md)
+[switch to API](../../../Documentation/ScriptingAPI/en/RSMALimitSwitch.cs.md)
 
 Deleted in the final build.Settings for the unique display of limit switch data.
 

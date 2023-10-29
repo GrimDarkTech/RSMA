@@ -1,5 +1,5 @@
 # ExcelLogger
-[switch to API](../../../Documentation/ScriptingAPI/en/ExcelLogger.md)
+[switch to API](../../../Documentation/ScriptingAPI/en/AutoDocs.cs.md)
 
 Implements the recording of formatted data in a csv file
 
@@ -8,25 +8,35 @@ Implements the recording of formatted data in a csv file
 |--|--|--|
 |name||Sets|
 ## Methods
-| Declaration | Description | Returns |
-|--|--|--|
-|void SetFilename(string filename)|Sets name of csv file||
-### Parameters
+### void SetFilename(string filename)
+Sets name of csv file
+Returns: 
+
+#### Parameters
 | Name | Description |
 |--|--|
 |filename|File name|
-|void SetPath(string path)|Sets path of csv file||
-### Parameters
+### void SetPath(string path)
+Sets path of csv file
+Returns: 
+
+#### Parameters
 | Name | Description |
 |--|--|
 |path|File path|
-|void WriteHead(string head)|Writes headers in csv file||
-### Parameters
+### void WriteHead(string head)
+Writes headers in csv file
+Returns: 
+
+#### Parameters
 | Name | Description |
 |--|--|
 |head|Headers separated by  or , or tab or space|
-|void WriteLine(string line)|Writes line in csv file||
-### Parameters
+### void WriteLine(string line)
+Writes line in csv file
+Returns: 
+
+#### Parameters
 | Name | Description |
 |--|--|
 |line|Table row separated by  or , or tab or space|

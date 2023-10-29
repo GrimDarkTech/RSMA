@@ -8,7 +8,9 @@ using UnityEngine;
 /// </summary>
 public class RSMAStepperMotor : RSMADataTransferSlave
 {
-    //Общие данные
+    /// <summary>
+    /// 
+    /// </summary>
     public StepperMotorType StepperType;
 
     //Общие характеристики

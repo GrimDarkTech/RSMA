@@ -1,5 +1,5 @@
 # RSMARangeFinderBase
-[switch to API](../../../Documentation/ScriptingAPI/en/RSMARangeFinderBase.md)
+[switch to API](../../../Documentation/ScriptingAPI/en/RSMAMotorDriver.cs.md)
 
 Implements properties and functionality of rangefinder
 

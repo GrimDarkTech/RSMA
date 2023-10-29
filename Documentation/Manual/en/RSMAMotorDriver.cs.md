@@ -1,5 +1,5 @@
 # RSMAMotorDriver
-[switch to API](../../../Documentation/ScriptingAPI/en/RSMAMotorDriver.md)
+[switch to API](../../../Documentation/ScriptingAPI/en/RSMAStepperMotor.cs.md)
 
 Implements properties and functionality of electric motor driver
 
@@ -11,6 +11,7 @@ Implements properties and functionality of electric motor driver
 |connectedPinPWM|GPIO port pin connected to driver's PWM input|ConnectedPin|
 |connectMicrocontroller|Microcontroller GPIO that connected to driver|RSMAGPIO|
 ## Methods
-| Declaration | Description | Returns |
-|--|--|--|
-|float getOutput()|Returns output signal from driver|float value of output signal from driver|
+### float getOutput()
+Returns output signal from driver
+Returns: 
+float value of output signal from driver

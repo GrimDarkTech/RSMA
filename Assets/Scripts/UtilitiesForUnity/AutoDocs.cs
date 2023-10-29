@@ -32,17 +32,102 @@ public class AutoDocs : MonoBehaviour
     public List<string> lines;
     public List<SerializedClass> classes;
 
+    [ContextMenu("GenerateMDFilesFromDirectory")]
+    public void GenerateMDFilesFromDirectory()
+    {
+        var allFiles = Directory.GetFiles(filepath, "*.cs", SearchOption.AllDirectories);
+        foreach (var file in allFiles)
+        {
+            lines = FileToStr(file);
+            classes = FindClasses(lines);
+
+            lines.Clear();
+
+            foreach (SerializedClass sClass in classes)
+            {
+                lines.Add($"# {sClass.name}");
+                lines.Add($"[switch to API](../../../Documentation/ScriptingAPI/en/{filename}.md)");
+                lines.Add("");
+                lines.Add($"{sClass.description}");
+                lines.Add("");
+                if (sClass.consts.Count > 0)
+                {
+                    lines.Add("## Constants");
+                    lines.Add("| Constant | Description | Type |");
+                    lines.Add("|--|--|--|");
+                    foreach (SerializedConst sConst in sClass.consts)
+                    {
+                        lines.Add($"|{sConst.name}|{sConst.description}|{sConst.type}|");
+                    }
+                }
+                if (sClass.fields.Count > 0)
+                {
+                    lines.Add("## Fields");
+                    lines.Add("| Field | Description | Type |");
+                    lines.Add("|--|--|--|");
+                    foreach (SerializedField field in sClass.fields)
+                    {
+                        lines.Add($"|{field.name}|{field.description}|{field.type}|");
+                    }
+                }
+                if (sClass.properties.Count > 0)
+                {
+                    lines.Add("## Properties");
+                    lines.Add("| Property | Description | Type |");
+                    lines.Add("|--|--|--|");
+                    foreach (SerializedProperty property in sClass.properties)
+                    {
+                        lines.Add($"|{property.name}|{property.description}|{property.type}|");
+                    }
+                }
+                if (sClass.methods.Count > 0)
+                {
+                    lines.Add("## Methods");
+                    foreach (SerializedMethod method in sClass.methods)
+                    {
+                        lines.Add($"### {method.name}");
+                        lines.Add(method.description);
+                        if (method.retunrs != "")
+                        {
+                            lines.Add($"Returns: \n{method.retunrs}");
+                        }
+                        if (method.parameters.Count > 0)
+                        {
+                            lines.Add("#### Parameters");
+                            lines.Add("| Name | Description |");
+                            lines.Add("|--|--|");
+                            foreach (SerializedMethodParam param in method.parameters)
+                            {
+                                lines.Add($"|{param.name}|{param.description}|");
+                            }
+                        }
+                    }
+                }
+            }
+            filename = Path.GetFileName(file);
+            StreamWriter sw = new StreamWriter($"{docsFolderPath}\\{filename}.md");
+
+            foreach (string line in lines)
+            {
+                sw.WriteLine(line);
+            }
+
+            lines.Clear();
+
+            sw.Close();
+        }
+    }
+
     [ContextMenu("GenerateMDFile")]
     public void GenerateMDfromCS()
     {
         try
         {
-            lines = FileToStr();
+            lines = FileToStr($"{filepath}\\{filename}.cs");
             classes = FindClasses(lines);
 
             lines.Clear();
 
-            
             
             foreach(SerializedClass sClass in classes)
             {
@@ -84,14 +169,17 @@ public class AutoDocs : MonoBehaviour
                 if(sClass.methods.Count > 0) 
                 {
                     lines.Add("## Methods");
-                    lines.Add("| Declaration | Description | Returns |");
-                    lines.Add("|--|--|--|");
                     foreach (SerializedMethod method in sClass.methods)
                     {
-                        lines.Add($"|{method.name}|{method.description}|{method.retunrs}|");
+                        lines.Add($"### {method.name}");
+                        lines.Add(method.description);
+                        if(method.retunrs != "")
+                        {
+                            lines.Add($"Returns: \n{method.retunrs}");
+                        }
                         if(method.parameters.Count > 0)
                         {
-                            lines.Add("### Parameters");
+                            lines.Add("#### Parameters");
                             lines.Add("| Name | Description |");
                             lines.Add("|--|--|");
                             foreach (SerializedMethodParam param in method.parameters)
@@ -99,7 +187,6 @@ public class AutoDocs : MonoBehaviour
                                 lines.Add($"|{param.name}|{param.description}|");
                             }
                         }
-
                     }
                 }
 
@@ -121,14 +208,13 @@ public class AutoDocs : MonoBehaviour
         {
             Debug.LogError("Exception: " + e.Message);
         }
-
     }
-    private List<string> FileToStr()
+    private List<string> FileToStr(string filePath)
     {
         List<string> lines = new List<string>();
         try
         {
-            StreamReader sr = new StreamReader($"{filepath}\\{filename}.cs");
+            StreamReader sr = new StreamReader(filePath);
 
             while (true)
             {
@@ -137,10 +223,11 @@ public class AutoDocs : MonoBehaviour
                 {
                     break;
                 }
-                if (line != "" && (line.Contains("///") || line.Contains("public")))
+                if (line != "" && (line.Contains("///") || line.Contains("public") || line.Contains("[SerializeField]")))
                 {
                     line = line.Replace("///", "");
                     line = line.Replace("public", "");
+                    line = line.Replace("[SerializeField]", "");
                     line = line.Replace("<summary>", "/s");
                     line = line.Replace("</summary>", "/e");
                     line = line.Replace("<remarks>", "/rm");
@@ -215,43 +302,53 @@ public class AutoDocs : MonoBehaviour
                     if (lines[j].Contains("const"))
                     {
                         SerializedConst serializedConst = new SerializedConst();
-                        serializedConst.name = lines[j].Split(" ", StringSplitOptions.RemoveEmptyEntries)[2];
-                        serializedConst.type = lines[j].Split(" ", StringSplitOptions.RemoveEmptyEntries)[1];
-                        serializedConst.value = lines[j].Split("=", StringSplitOptions.RemoveEmptyEntries)[1];
+                        var constLinesSplited = lines[j].Split(" ", StringSplitOptions.RemoveEmptyEntries);
+                        if (constLinesSplited.Length > 3)
+                        {
+                            serializedConst.name = constLinesSplited[2];
+                            serializedConst.type = constLinesSplited[1];
+                        }
+                        constLinesSplited = lines[j].Split("=", StringSplitOptions.RemoveEmptyEntries);
+                        if(constLinesSplited.Length > 2)
+                        {
+                            serializedConst.value = constLinesSplited[1];
+                        }
                         serializedConst.description = FindDescription(lines, j);
                         serializedClass.consts.Add(serializedConst);
                     }
                     else if (j < (lines.Count) && !lines[j].StartsWith("/"))
                     {
-
-                        string elementName = lines[j].Split(" ", StringSplitOptions.RemoveEmptyEntries)[1];
-                        if (fieldsNames.Contains(elementName))
+                        string[] splitedLine = lines[j].Split(" ", StringSplitOptions.RemoveEmptyEntries);
+                        if (splitedLine.Length > 1f)
                         {
-                            SerializedField serializedField = new SerializedField();
-                            serializedField.name = elementName;
-                            serializedField.type = lines[j].Split(" ", StringSplitOptions.RemoveEmptyEntries)[0];
-                            serializedField.description = FindDescription(lines, j);
-                            serializedClass.fields.Add(serializedField);
-                        }
-                        else if (propertiesNames.Contains(elementName))
-                        {
-                            SerializedProperty serializedProperty = new SerializedProperty();
-                            serializedProperty.name = elementName;
-                            serializedProperty.type = lines[j].Split(" ", StringSplitOptions.RemoveEmptyEntries)[0];
-                            serializedProperty.description = FindDescription(lines, j);
-                            serializedClass.properties.Add(serializedProperty);
-                        }
-                        else
-                        {
-                            var splitForCheckMethods = elementName.Split("(", StringSplitOptions.RemoveEmptyEntries);
-                            if (splitForCheckMethods.Count() > 1 && methodsNames.Contains(splitForCheckMethods[0]))
+                            string elementName = splitedLine[1];
+                            if (fieldsNames.Contains(elementName))
                             {
-                                SerializedMethod serializedMethod = FindDataForMethod(lines, j);
-                                serializedMethod.name = lines[j];
-                                serializedClass.methods.Add(serializedMethod);
+                                SerializedField serializedField = new SerializedField();
+                                serializedField.name = elementName;
+                                serializedField.type = lines[j].Split(" ", StringSplitOptions.RemoveEmptyEntries)[0];
+                                serializedField.description = FindDescription(lines, j);
+                                serializedClass.fields.Add(serializedField);
+                            }
+                            else if (propertiesNames.Contains(elementName))
+                            {
+                                SerializedProperty serializedProperty = new SerializedProperty();
+                                serializedProperty.name = elementName;
+                                serializedProperty.type = lines[j].Split(" ", StringSplitOptions.RemoveEmptyEntries)[0];
+                                serializedProperty.description = FindDescription(lines, j);
+                                serializedClass.properties.Add(serializedProperty);
+                            }
+                            else
+                            {
+                                var splitForCheckMethods = elementName.Split("(", StringSplitOptions.RemoveEmptyEntries);
+                                if (splitForCheckMethods.Count() > 1 && methodsNames.Contains(splitForCheckMethods[0]))
+                                {
+                                    SerializedMethod serializedMethod = FindDataForMethod(lines, j);
+                                    serializedMethod.name = lines[j];
+                                    serializedClass.methods.Add(serializedMethod);
+                                }
                             }
                         }
-                        
                     }
                 }
 

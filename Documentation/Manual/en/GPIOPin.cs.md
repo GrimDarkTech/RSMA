@@ -1,5 +1,5 @@
 # GPIOPin
-[switch to API](../../../Documentation/ScriptingAPI/en/GPIOPin.md)
+[switch to API](../../../Documentation/ScriptingAPI/en/ConnectedPin.cs.md)
 
 Implements properties and functionality of GPIO port pin
 

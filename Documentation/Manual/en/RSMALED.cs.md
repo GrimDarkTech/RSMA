@@ -1,5 +1,5 @@
 # RSMALED
-[switch to API](../../../Documentation/ScriptingAPI/en/RSMALED.md)
+[switch to API](../../../Documentation/ScriptingAPI/en/RSMAKeyboard.cs.md)
 
 Implements properties and functionality of Light Emitting Diode
 
@@ -12,10 +12,11 @@ Implements properties and functionality of Light Emitting Diode
 |connectedPin|GPIO port pin which LED is connected|ConnectedPin|
 |connectMicrocontroller|GPIO which LED is connected|RSMAGPIO|
 ## Methods
-| Declaration | Description | Returns |
-|--|--|--|
-|void SetMode(ushort mode)|Sets LED mode||
-### Parameters
+### void SetMode(ushort mode)
+Sets LED mode
+Returns: 
+
+#### Parameters
 | Name | Description |
 |--|--|
 |mode|LED mode (1 - active, else - inactive)|

@@ -2,7 +2,7 @@ using UnityEngine;
 
 
 /// <summary>
-/// Implements the properties and behaviors of AVR/STM-like microcontrollers with a power LED
+/// Implements the properties and behaviors of AVR/STM-like microcontrollers. When turned on, the PowerLED LED activates
 /// </summary>
 
 public class DefaultMicrocontroller : RSMAMicrocontroller

@@ -1,5 +1,5 @@
 # RSMAEncoder
-[switch to API](../../../Documentation/ScriptingAPI/en/RSMAEncoder.md)
+[switch to API](../../../Documentation/ScriptingAPI/en/AxisEnum.cs.md)
 
 
 
@@ -20,15 +20,24 @@
 |AutoAxis|to the motorAutomatic determination of the axis from which the encoder will be connected|bool|
 |EncoderRangeType|limits of the rotation|enum|
 ## Methods
-| Declaration | Description | Returns |
-|--|--|--|
-|float GetVelocity()|Get the speed of rotation of the shaft in degrees per second||
-|int GetSide()|2 - left side1 - right side0 - no sideGet the direction of the shaft||
-|string GetHZ()|Get the rotation frequency of the encoder shaft||
-|string GetMeasureAngle()|updates the dataGet the calculated step angle with which the encoder||
-|float GetAngle()|depends on the type of encoderGet the angle of rotation of the encoder shaft, which||
+### float GetVelocity()
+Get the speed of rotation of the shaft in degrees per second
+Returns: 
+
+### int GetSide()
+2 - left side1 - right side0 - no sideGet the direction of the shaft
+Returns: 
+
+### string GetHZ()
+Get the rotation frequency of the encoder shaft
+### string GetMeasureAngle()
+updates the dataGet the calculated step angle with which the encoder
+Returns: 
+
+### float GetAngle()
+depends on the type of encoderGet the angle of rotation of the encoder shaft, which
 # RSMAEncoderEditor
-[switch to API](../../../Documentation/ScriptingAPI/en/RSMAEncoder.md)
+[switch to API](../../../Documentation/ScriptingAPI/en/AxisEnum.cs.md)
 
 Deleted in the final buildSettings for the unique display of encoder data.
 

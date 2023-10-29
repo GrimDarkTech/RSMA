@@ -1,5 +1,5 @@
 # LightSensorScript
-[switch to API](../../../Documentation/ScriptingAPI/en/LightSensorScript.md)
+[switch to API](../../../Documentation/ScriptingAPI/en/RSMALED.cs.md)
 
 Implements properties and functionality of light sensor
 

@@ -594,28 +594,54 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d63cf671ec565a045b9b604a9b42fdca, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  filepath: F:\Unity Projects\RSMA\Assets\Scripts\DataTranferProtocols\Universal
-  filename: RSMADataTransferSlave
+  filepath: F:\Unity Projects\RSMA\Assets\Scripts
+  filename: TestP.cs
   docsFolderPath: F:\Unity Projects\RSMA\Documentation\Manual\en
   lines: []
   classes:
-  - name: RSMADataTransferSlave
-    description: Implements properties and functionality of slave device in data
-      transfer protocol
-    consts: []
-    fields: []
-    properties: []
+  - name: TestP
+    description: Was made for test new parser system
+    consts:
+    - name: pi
+      description: Chislo Pi, but with more power
+      type: float
+      value: 
+    fields:
+    - name: value3
+      description: Just float for cls
+      type: float
+    properties:
+    - name: GPIO
+      description: Field for GPIO
+      type: RSMAGPIO
+    - name: dataBus
+      description: Data bus stop
+      type: RSMADataTransferMaster
     methods:
-    - name: void SetDeviceName(string deviceName)
-      description: Sets device name
+    - name: void Sueta(int arg1, int arg2)
+      description: Sum and save via value3
       retunrs: 
       parameters:
-      - name: deviceName
-        description: Device name
-    - name: string GetDeviceName()
-      description: Gets device name
-      retunrs: Device name
+      - name: arg2
+        description: AGRRR 2
+      - name: arg1
+        description: Argum 1
+    - name: IEnumerator MainProgramm()
+      description: Remark:Works pretty well Microcontroller method just for fun
+      retunrs: Returns time interupts
       parameters: []
+  - name: SecondClassInFile
+    description: 
+    consts: []
+    fields:
+    - name: a
+      description: 
+      type: int
+    - name: b
+      description: Remark:sdasddas It's have description
+      type: int
+    properties: []
+    methods: []
 --- !u!4 &1075179312
 Transform:
   m_ObjectHideFlags: 0

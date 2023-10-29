@@ -1,5 +1,5 @@
 # RSMAMechanicalPart
-[switch to API](../../../Documentation/ScriptingAPI/en/RSMAMechanicalPart.md)
+[switch to API](../../../Documentation/ScriptingAPI/en/RSMAHinge.cs.md)
 
 Controls of an object's position and rotation through physics simulation. Uses Rigidbody to simulate physics
 

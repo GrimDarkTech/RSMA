@@ -1,5 +1,5 @@
 # RSMAMotor
-[switch to API](../../../Documentation/ScriptingAPI/en/RSMAMotor.md)
+[switch to API](../../../Documentation/ScriptingAPI/en/SerialController.cs.md)
 
 Implements properties and functionality of DC electric motor
 

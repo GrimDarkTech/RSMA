@@ -1,5 +1,5 @@
 # RSMADataTransferMaster
-[switch to API](../../../Documentation/ScriptingAPI/en/RSMADataTransferMaster.md)
+[switch to API](../../../Documentation/ScriptingAPI/en/WheelSetUp.cs.md)
 
 Implements properties and functionality of master device in data transfer protocol
 

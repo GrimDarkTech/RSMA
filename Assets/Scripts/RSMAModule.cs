@@ -24,7 +24,7 @@ public class RSMAModule : MonoBehaviour
         }
     }
     /// <summary>
-    /// Sets connected 
+    /// Sets connected rigid body 
     /// </summary>
     /// <param name="connectedBody">Body to connect</param>
     public void SetConnectedBody(Rigidbody connectedBody)
