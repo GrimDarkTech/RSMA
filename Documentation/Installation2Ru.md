@@ -43,3 +43,30 @@
 Если Вы планируете писать скрипты для управления микроконтроллерами, программными компонентами RSMA или Unity - рекомендуется [установить VisualStudio Code](https://code.visualstudio.com/).
 
 Для удобства работы с Unity установите плагин [Unity for Visual Studio Code](https://marketplace.visualstudio.com/items?itemName=visualstudiotoolsforunity.vstuc).
+
+## Установка Git клиента
+
+Если Вы планируете работать над проектом в команде и/или Вам нужна система контроля версий - рекомендуется установить git-клиент.
+
+## Загрузка RSMA
+
+Загрузить RSMA возможно несколькими способами
+
+### Загрузка с использованием git
+```
+git clone https://github.com/kms0207/RSMA
+```
+### Загрузка zip-архива с GitHub
+
+![image](https://github.com/kms0207/RSMA/assets/75982005/1a1d17a4-ffb0-4051-a535-7bf1be63413d)
+
+### Загрузка с использованием [GitHub Desktop](https://desktop.github.com/)
+
+![image](https://github.com/kms0207/RSMA/assets/75982005/d66e5375-e36d-4b19-9eba-b267850d118b)
+![image](https://github.com/kms0207/RSMA/assets/75982005/5c230fe0-1fe9-43a8-b02e-8b0b4a3ae23b)
+
+## Запуск RSMA
+
+Для запуска RSMA необходимо добавить проект в UnityHub
+![image](https://github.com/kms0207/RSMA/assets/75982005/ddcf73d8-f6bf-4914-af2a-e708a855d6b3)
+
