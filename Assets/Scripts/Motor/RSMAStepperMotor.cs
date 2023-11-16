@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEditor;
@@ -6,15 +7,74 @@ using UnityEngine;
 /// <summary>
 /// Implements properties and functionality of stepper motor
 /// </summary>
+[RequireComponent(typeof(HingeJoint), typeof(Rigidbody))]
 public class RSMAStepperMotor : RSMADataTransferSlave
 {
     /// <summary>
     /// 
     /// </summary>
     public StepperMotorType StepperType;
+    public GameObject RotObj;
+    public HingeJoint Motor;
+    public Rigidbody RB;
 
-    //Общие характеристики
-    public int StepCount { get; set; }
+    public int load_iterations = 1;
+    public int time_loading = 0;
+
+    private float cur_angle = 0;
+    private float last_angle = 0;
+
+    //Shared features
+    public int StepCount;
+
+    private void Awake()
+    {
+        Motor = GetComponent<HingeJoint>();
+        RB = GetComponent<Rigidbody>();
+
+        Motor.useLimits = true;
+    }
+
+    private void FixedUpdate()
+    {
+        if (time_loading > 0) { time_loading -= 1; return; }
+
+
+        var lim = Motor.limits;
+        lim.min = cur_angle;
+        lim.max = cur_angle + GetStepAngle();
+
+        Motor.limits = lim;
+
+        if (lim.max >= 177)
+        {
+            cur_angle = (cur_angle + GetStepAngle()) - 177;
+            time_loading = load_iterations;
+            var euler = transform.localRotation.eulerAngles;
+            transform.localRotation = Quaternion.Euler(euler.x, euler.y, 0);
+            return;
+        }
+
+        if (Math.Round(transform.rotation.eulerAngles.z, 2) >= Math.Round(lim.max, 2))
+        {
+            cur_angle += GetStepAngle();
+            time_loading = load_iterations;
+        }
+
+        if (last_angle > transform.rotation.eulerAngles.z)
+        {
+            last_angle = transform.rotation.eulerAngles.z;
+        }
+
+        if (RotObj != null)
+        {
+            if (Mathf.Abs(transform.rotation.eulerAngles.z - last_angle) > 5)
+            Debug.Log(transform.rotation.eulerAngles.z +":"+ last_angle);
+            RotObj.transform.RotateAround(transform.position, transform.forward, transform.rotation.eulerAngles.z - last_angle);
+        }
+        last_angle = transform.rotation.eulerAngles.z;
+    }
+
     public override string SendData()
     {
         return base.SendData();
@@ -33,28 +93,31 @@ public class RSMAStepperMotorEditor : Editor
     {
         RSMAStepperMotor rsma_stepper_motor = (RSMAStepperMotor)target;
 
-        rsma_stepper_motor.StepperType = (StepperMotorType)EditorGUILayout.EnumPopup("Тип шагового двигателя: ", rsma_stepper_motor.StepperType);
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("RotObj"), new GUIContent("Вращаемый объект"));
+        serializedObject.FindProperty("StepperType").enumValueIndex = (int)(StepperMotorType)EditorGUILayout.EnumPopup("Тип шагового двигателя: ", rsma_stepper_motor.StepperType);
         EditorGUILayout.Space(10);
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("load_iterations"), new GUIContent("Задержка шаговика:"));
+
+
 
         if (rsma_stepper_motor.StepperType == StepperMotorType.VariableMagnets) VariableMagnets(rsma_stepper_motor);
         if (rsma_stepper_motor.StepperType == StepperMotorType.PermanentMagnents) PermanentMagnents(rsma_stepper_motor);
         if (rsma_stepper_motor.StepperType == StepperMotorType.Hybrid) Hybrid(rsma_stepper_motor);
+
+        string info_box = "";
+        info_box += "Характеристики:\n";
+        info_box += $"Угол шага: {((RSMAStepperMotor)target).GetStepAngle()}°\n";
+        EditorGUILayout.HelpBox(info_box, MessageType.None);
+
+        serializedObject.ApplyModifiedProperties();
     }
 
     private void VariableMagnets(RSMAStepperMotor rsm)
     {
-        string info_box = "";
-
         EditorGUILayout.LabelField("Шаговый двигатель с переменным магнитным сопротивлением");
 
-        rsm.StepCount = EditorGUILayout.IntSlider("Количество шагов: ", rsm.StepCount, 12, 24);
+        serializedObject.FindProperty("StepCount").intValue = EditorGUILayout.IntSlider("Количество шагов: ", rsm.StepCount, 12, 24);
         EditorGUILayout.Space(10);
-
-        info_box += "Характеристики:\n";
-        info_box += $"Угол шага: {rsm.GetStepAngle()}°\n";
-
-        EditorGUILayout.HelpBox(info_box, MessageType.None);
-        //EditorGUILayout.LabelField($"Угол шага: {rsm.GetStepAngle()}°");
 
         EditorGUILayout.HelpBox("Шаговые двигатели с переменным магнитным сопротивлением имеют несколько полюсов на статоре и ротор зубчатой формы из магнитомягкого материала. Намагниченность ротора отсутствует. Для простоты на рисунке ротор имеет 4 зубца, а статор имеет 6 полюсов. Двигатель имеет 3 независимые обмотки, каждая из которых намотана на двух противоположных полюсах статора.", MessageType.Info);
     }
@@ -64,7 +127,7 @@ public class RSMAStepperMotorEditor : Editor
         //
         EditorGUILayout.LabelField("Шаговый двигатель с постоянными магнитами");
 
-        rsm.StepCount = EditorGUILayout.IntSlider("Количество шагов: ", rsm.StepCount, 24, 48);
+        serializedObject.FindProperty("StepCount").intValue = EditorGUILayout.IntSlider("Количество шагов: ", rsm.StepCount, 24, 48);
         EditorGUILayout.Space(10);
 
         EditorGUILayout.HelpBox("Шаговые двигатели с постоянными магнитами состоят из статора, который имеет обмотки, и ротора, содержащего постоянные магниты. Чередующиеся полюса ротора имеют прямолинейную форму и расположены параллельно оси двигателя. Благодаря намагниченности ротора в таких двигателях обеспечивается больший магнитный поток и, как следствие, больший момент, чем у двигателей с переменным магнитным сопротивлением.", MessageType.Info);
@@ -74,7 +137,7 @@ public class RSMAStepperMotorEditor : Editor
     {
         EditorGUILayout.LabelField("Гибридный шаговый двигатель");
 
-        rsm.StepCount = EditorGUILayout.IntSlider("Количество шагов: ", rsm.StepCount, 100, 400);
+        serializedObject.FindProperty("StepCount").intValue = EditorGUILayout.IntSlider("Количество шагов: ", rsm.StepCount, 100, 400);
         EditorGUILayout.Space(10);
 
         EditorGUILayout.HelpBox("Гибридные шаговые двигатели являются более дорогими, чем двигатели с постоянными магнитами, зато они обеспечивают меньшую величину шага, больший момент и большую скорость.", MessageType.Info);

@@ -6,24 +6,24 @@ public class RSMAEncoder : RSMADataTransferSlave
     /// <summary>
     /// Defines the type of encoder used in the simulation
     /// </summary>
-    public EncoderType EncoderTypeObj { get; set; }
+    public EncoderType EncoderTypeObj;
     /// <summary>
     /// Allows you to set up a limit on the rotation of the shaft
     /// </summary>
-    public EncoderRangeType EncoderRangeType { get; set; }
+    public EncoderRangeType EncoderRangeType;
     /// <summary>
     /// Determines which side the encoder will be located relative to the motor
     /// </summary>
-    public AxisEnum AxisDirection { get; set; }
+    public AxisEnum AxisDirection;
     /// <summary>
     /// Determines how much data the encoder transmits over the data transmitter
     /// </summary>
-    public EncoderOutput OutPut { get; set; } = EncoderOutput.Output3;
+    public EncoderOutput OutPut = EncoderOutput.Output3;
     /// <summary>
     /// Automatic determination of the axis from which the encoder will be connected 
     /// to the motor
     /// </summary>
-    public bool AutoAxis { get; set; } //Автоматическое определение рабочей стороны
+    public bool AutoAxis; //Автоматическое определение рабочей стороны
 
     /// <summary>
     /// At what distance from the object the encoder will be located
@@ -56,11 +56,11 @@ public class RSMAEncoder : RSMADataTransferSlave
         if ((int)OutPut >= 2) data += $"{GetAngle()};";
 
         float steps = 1 / Time.fixedDeltaTime;
-        float speed = Motor.motor.targetVelocity;
+        float speed = Motor.velocity * Time.fixedDeltaTime;
         float side = Distance < 0 ? 1 : -1;
 
 
-        Shaft.transform.Rotate(0, 0, side * (speed / steps), Space.Self);
+        Shaft.transform.Rotate(0, 0, side * speed, Space.Self);
     }
 
     /// <summary>
@@ -151,13 +151,15 @@ public class RSMAEncoderEditor : Editor
         if (rsma_encoder.EncoderTypeObj == EncoderType.Incremental) IncrementalEncoder(rsma_encoder);
         if (rsma_encoder.EncoderTypeObj == EncoderType.Absolute) AbsouluteEncoder(rsma_encoder);
 
+        serializedObject.ApplyModifiedProperties();
     }
 
     private void IncrementalEncoder(RSMAEncoder rsma_encoder)
     {
         EditorGUILayout.LabelField("Инкрементальный энкодер");
 
-        float Local_EncoderRes = EditorGUILayout.FloatField("Разрешение энкодера имп/об: ", rsma_encoder.EncoderResolution); //Кол-во импульсов на оборот
+        var Local_EncoderRes = serializedObject.FindProperty("EncoderResolution"); //Кол-во импульсов на оборот
+        Local_EncoderRes.floatValue = EditorGUILayout.FloatField("Разрешение энкодера имп/об: ", rsma_encoder.EncoderResolution); //Кол-во импульсов на оборот
         EditorGUILayout.Space(10);
         EditorGUILayout.LabelField($"Частота выходных импульсов: {rsma_encoder.GetHZ()}"); //Данные о частоте вращения
         EditorGUILayout.LabelField($"Угол за импульс: {rsma_encoder.GetMeasureAngle()}"); //Данные об угле за импульс
@@ -168,8 +170,8 @@ public class RSMAEncoderEditor : Editor
 
         EditorGUILayout.HelpBox("Инкрементный энкодер - формирует импульсы, количество \nкоторых соответствует повороту вала на определенный угол.", MessageType.Info);
 
-        if (Local_EncoderRes < 0) Local_EncoderRes = 0;
-        rsma_encoder.EncoderResolution = Local_EncoderRes;
+        if (Local_EncoderRes.floatValue < 0) Local_EncoderRes.floatValue = 0;
+        rsma_encoder.EncoderResolution = Local_EncoderRes.floatValue;
     }
 
     private void AbsouluteEncoder(RSMAEncoder rsma_encoder)
@@ -188,14 +190,15 @@ public class RSMAEncoderEditor : Editor
 
     private void SharedFunctions(RSMAEncoder rsma_encoder)
     {
-        rsma_encoder.Motor = (HingeJoint)EditorGUILayout.ObjectField("Мотор:", rsma_encoder.Motor, typeof(HingeJoint));
-        rsma_encoder.Shaft = (GameObject)EditorGUILayout.ObjectField("Вал:", rsma_encoder.Shaft, typeof(GameObject));
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("Motor"), new GUIContent("Мотор:"));
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("Shaft"), new GUIContent("Вал:"));
         EditorGUILayout.Space(10);
-        rsma_encoder.AutoAxis = EditorGUILayout.Toggle("Авто определение направляющей оси: ", rsma_encoder.AutoAxis);
+        var AutoAxis = serializedObject.FindProperty("AutoAxis");
+        AutoAxis.boolValue = EditorGUILayout.Toggle("Авто определение направляющей оси: ", rsma_encoder.AutoAxis);
         if (!rsma_encoder.AutoAxis)
-            rsma_encoder.AxisDirection = (AxisEnum)EditorGUILayout.EnumPopup("Направляющая ось: ", rsma_encoder.AxisDirection);
-        rsma_encoder.Distance = EditorGUILayout.FloatField("Расстояние до мотора: ", rsma_encoder.Distance);
-        rsma_encoder.OutPut = (EncoderOutput)EditorGUILayout.EnumPopup("Количество выходов: ", rsma_encoder.OutPut);
+            serializedObject.FindProperty("AxisDirection").enumValueIndex = (int)(AxisEnum)EditorGUILayout.EnumPopup("Направляющая ось: ", rsma_encoder.AxisDirection);
+        serializedObject.FindProperty("Distance").floatValue = EditorGUILayout.FloatField("Расстояние до мотора: ", rsma_encoder.Distance);
+        serializedObject.FindProperty("OutPut").enumValueIndex = (int)(EncoderOutput)EditorGUILayout.EnumPopup("Количество выходов: ", rsma_encoder.OutPut);
 
         SetAxisPos(rsma_encoder);
 
