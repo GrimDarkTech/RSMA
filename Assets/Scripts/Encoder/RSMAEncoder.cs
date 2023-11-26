@@ -59,8 +59,9 @@ public class RSMAEncoder : RSMADataTransferSlave
         float speed = Motor.velocity * Time.fixedDeltaTime;
         float side = Distance < 0 ? 1 : -1;
 
-
-        Shaft.transform.Rotate(0, 0, side * speed, Space.Self);
+        var val = Shaft.transform.localEulerAngles;
+        val.z = Motor.transform.eulerAngles.z;
+        Shaft.transform.localEulerAngles = val;
     }
 
     /// <summary>

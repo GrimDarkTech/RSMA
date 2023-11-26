@@ -176,7 +176,6 @@ GameObject:
   m_Component:
   - component: {fileID: 5723201029947757196}
   - component: {fileID: 5723201029947757194}
-  - component: {fileID: 5723201029947757195}
   - component: {fileID: 5723201029947757193}
   m_Layer: 0
   m_Name: ElectricMotor
@@ -218,42 +217,6 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
---- !u!59 &5723201029947757195
-HingeJoint:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5723201029947757197}
-  m_ConnectedBody: {fileID: 0}
-  m_ConnectedArticulationBody: {fileID: 0}
-  m_Anchor: {x: 0, y: 0, z: 0}
-  m_Axis: {x: 0, y: 0, z: 1}
-  m_AutoConfigureConnectedAnchor: 1
-  m_ConnectedAnchor: {x: 2.23, y: 0.9309999, z: -1.082}
-  m_UseSpring: 0
-  m_Spring:
-    spring: 0
-    damper: 0
-    targetPosition: 0
-  m_UseMotor: 1
-  m_Motor:
-    targetVelocity: 50
-    force: 50
-    freeSpin: 0
-  m_UseLimits: 1
-  m_Limits:
-    min: 0
-    max: 0
-    bounciness: 0
-    bounceMinVelocity: 0
-    contactDistance: 0
-  m_BreakForce: Infinity
-  m_BreakTorque: Infinity
-  m_EnableCollision: 0
-  m_EnablePreprocessing: 1
-  m_MassScale: 1
-  m_ConnectedMassScale: 1
 --- !u!114 &5723201029947757193
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -267,12 +230,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   StepperType: 2
-  RotObj: {fileID: 0}
-  Motor: {fileID: 0}
-  RB: {fileID: 0}
-  load_iterations: 5
-  time_loading: 0
+  RotationObject: {fileID: 0}
+  Hinje: {fileID: 0}
   StepCount: 400
+  Start_pos: 0
+  Add_value: 0.1
+  Time_wait: 0.1
+  Gizmo_distance: -0.3
+  Auto_set_distance: 0
+  Distance_rot_obj: 0
+  Distance_shaft: 0
+  Side: 1
+  Delay: 1
+  gizmo_test: {x: 0, y: 0, z: 0}
+  display_pos: 0
 --- !u!1 &8144848959480786666
 GameObject:
   m_ObjectHideFlags: 0
@@ -285,6 +256,7 @@ GameObject:
   - component: {fileID: 8144848959480786665}
   - component: {fileID: 8144848959480786664}
   - component: {fileID: 8144848959480786670}
+  - component: {fileID: 7218115571845458816}
   m_Layer: 0
   m_Name: Shaft
   m_TagString: Untagged
@@ -369,10 +341,46 @@ Rigidbody:
   m_Drag: 0
   m_AngularDrag: 0.05
   m_UseGravity: 0
-  m_IsKinematic: 1
+  m_IsKinematic: 0
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
+--- !u!59 &7218115571845458816
+HingeJoint:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8144848959480786666}
+  m_ConnectedBody: {fileID: 5723201029947757194}
+  m_ConnectedArticulationBody: {fileID: 0}
+  m_Anchor: {x: 0, y: 0, z: 0}
+  m_Axis: {x: 0, y: 0, z: 1}
+  m_AutoConfigureConnectedAnchor: 1
+  m_ConnectedAnchor: {x: -0.000000059604645, y: 0, z: 0.6600004}
+  m_UseSpring: 0
+  m_Spring:
+    spring: 0
+    damper: 0
+    targetPosition: 0
+  m_UseMotor: 1
+  m_Motor:
+    targetVelocity: 50
+    force: 50
+    freeSpin: 0
+  m_UseLimits: 1
+  m_Limits:
+    min: 0
+    max: 0
+    bounciness: 0
+    bounceMinVelocity: 0.2
+    contactDistance: 0
+  m_BreakForce: Infinity
+  m_BreakTorque: Infinity
+  m_EnableCollision: 0
+  m_EnablePreprocessing: 1
+  m_MassScale: 1
+  m_ConnectedMassScale: 1
 --- !u!1 &8144848959927892887
 GameObject:
   m_ObjectHideFlags: 0
