@@ -1,0 +1,10 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <ui:DropdownField label="Object1" index="-1" choices="System.Collections.Generic.List`1[System.String]" />
+    <ui:DropdownField label="Object2" index="-1" choices="System.Collections.Generic.List`1[System.String]" />
+    <ui:Vector3Field label="Point object1" />
+    <ui:Vector3Field label="Point object2" />
+    <ui:Vector3Field label="Direction object1" />
+    <ui:Vector3Field label="Direction object2" />
+    <ui:Vector3Field label="Displacement object1" />
+    <ui:Button text="Make alignment" display-tooltip-when-elided="true" />
+</ui:UXML>
