@@ -1,12 +1,18 @@
+using System;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
+using System.Collections.Generic;
 
 public class GPIOMonitor : EditorWindow
 {
+    private RSMAGPIO gpio;
 
-    [SerializeField]
-    private VisualTreeAsset m_VisualTreeAsset = default;
+    private bool isOpened = true;
+
+    private Vector2 scrollPos;
+
+
 
     [MenuItem("RSMA/GPIO Monitor")]
     public static void ShowExample()
@@ -18,11 +24,60 @@ public class GPIOMonitor : EditorWindow
         wnd.maxSize = new Vector2(1920, 720);
     }
 
-    public void CreateGUI()
+    private void OnGUI()
     {
-        // Each editor window contains a root VisualElement object
-        VisualElement root = rootVisualElement;
+        EditorGUILayout.BeginHorizontal();
 
-        // VisualElements objects can contain other VisualElement following a tree hierarchy.
+        GUILayout.Label("GPIO");
+        gpio = EditorGUILayout.ObjectField(gpio, typeof(RSMAGPIO), true) as RSMAGPIO;
+
+        EditorGUILayout.EndHorizontal();
+
+        HeaderDraw();
     }
+
+    private void HeaderDraw()
+    {
+        isOpened = EditorGUILayout.BeginFoldoutHeaderGroup(isOpened, "Ports");
+
+        scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
+
+        if (isOpened && gpio != null)
+        {
+            var ports = gpio.GetPortList();
+            if (ports.Count > 0)
+            {
+                foreach (var port in ports)
+                {
+                    GUILayout.Label(port.name);
+                    EditorGUILayout.BeginVertical();
+
+                    EditorGUILayout.BeginHorizontal();
+                    GUILayout.Space(20);
+                    GUILayout.Label("Pin name");
+                    GUILayout.Label("Pin value");
+                    GUILayout.Label("Pin mode");
+                    GUILayout.Label("Pin pull mode");
+
+                    EditorGUILayout.EndHorizontal();
+                    foreach (var pin in port.pins)
+                    {
+                        EditorGUILayout.BeginHorizontal();
+
+                        GUILayout.Space(10);
+                        pin.name = EditorGUILayout.TextField(pin.name);
+                        pin.value = EditorGUILayout.FloatField(pin.value);
+                        EditorGUILayout.TextField(pin.pinMode.ToString());
+                        EditorGUILayout.TextField(pin.pinPullMode.ToString());
+
+                        EditorGUILayout.EndHorizontal();
+                    }
+                    EditorGUILayout.EndVertical();
+                }
+            }
+        }
+        EditorGUILayout.EndScrollView();
+        EditorGUILayout.EndFoldoutHeaderGroup();
+    }
+
 }

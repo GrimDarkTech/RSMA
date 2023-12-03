@@ -20,6 +20,15 @@ public class RSMAGPIO : MonoBehaviour
     [SerializeField] private List<GPIOPort> ports = new List<GPIOPort>();
 
     /// <summary>
+    /// Returns GPIO ports list
+    /// </summary>
+    /// <returns>List of ports</returns>
+    public List<GPIOPort> GetPortList()
+    { 
+        return ports; 
+    }
+
+    /// <summary>
     /// Toggles output value of GPIO port pin 
     /// </summary>
     /// <param name="portName">GPIO port name</param>
