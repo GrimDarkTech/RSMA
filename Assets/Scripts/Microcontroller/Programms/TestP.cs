@@ -44,7 +44,6 @@ public class TestP : MonoBehaviour, IMicrocontollerProgram
     public IEnumerator MainProgramm()
     {
         float timeToWait = 1f;
-        string str = "Hello world";
         yield return new WaitForSeconds(timeToWait);
 
         while (true)

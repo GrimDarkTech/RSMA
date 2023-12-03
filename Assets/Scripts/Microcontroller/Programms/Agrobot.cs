@@ -1,7 +1,4 @@
 using System.Collections;
-using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using System.Threading;
 using UnityEngine;
 
 public class Agrobot : MonoBehaviour, IMicrocontollerProgram
@@ -132,5 +129,5 @@ public class Agrobot : MonoBehaviour, IMicrocontollerProgram
             GPIO.WritePin("PC", 5, RSMAGPIO.Low);
             GPIO.WritePin("PC", 6, 1f);
         }
-    }
+}
 }
