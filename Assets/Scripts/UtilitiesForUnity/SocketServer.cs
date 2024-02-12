@@ -6,7 +6,6 @@ using System.Net;
 using System.Threading.Tasks;
 using System.Text;
 using System;
-using UnityEditor.VersionControl;
 
 public class SocketServer : MonoBehaviour 
 {
@@ -46,29 +45,42 @@ public class SocketServer : MonoBehaviour
             Debug.Log("Server successfully binded the port");
         }
         
+
         listener.Listen(100);
 
-        var handler = await listener.AcceptAsync();
+        List<Socket> handlers = new List<Socket>();
 
+        Task listenClienTask = Task.Run(() => ListenToClientAsync(listener, handlers));
+    }
+    private async void ListenToClientAsync(Socket listener, List<Socket> handlers)
+    {
         while (true)
         {
-            byte[] buffer = new byte[1024];
-            int received = await handler.ReceiveAsync(buffer, SocketFlags.None);
-            string response = Encoding.UTF8.GetString(buffer, 0, received);
+            Socket handler = await listener.AcceptAsync();
+            handlers.Add(handler);
 
-            string endOfMessage = "<|EOM|>";
-
-            if (response.IndexOf(endOfMessage) > -1)
+            while (true)
             {
-                Debug.Log($"Connecting attempt from \"{response.Replace(endOfMessage, "")}\"");
+                byte[] buffer = new byte[1024];
+                int received = await handler.ReceiveAsync(buffer, SocketFlags.None);
+                string response = Encoding.UTF8.GetString(buffer, 0, received);
 
-                string ackMessage = "<|ACK|>";
-                byte[] echoBytes = Encoding.UTF8.GetBytes(ackMessage);
-                await handler.SendAsync(echoBytes, 0);
+                string endOfMessage = "<|EOM|>";
 
-                clients.Add(response.Replace(endOfMessage, ""));
+                if (response.IndexOf(endOfMessage) > -1)
+                {
+                    string clientName = response.Replace(endOfMessage, "");
 
-                break;
+                    Debug.Log($"Connecting attempt from \"{clientName}\"");
+
+                    string ackMessage = $"{clientName}<|ACK|>";
+                    byte[] echoBytes = Encoding.UTF8.GetBytes(ackMessage);
+                    await handler.SendAsync(echoBytes, 0);
+
+                    clients.Add(clientName);
+
+                    break;
+                }
             }
         }
     }

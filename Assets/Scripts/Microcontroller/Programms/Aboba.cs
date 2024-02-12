@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-public class NewFirmware : MonoBehaviour, IMicrocontollerProgram
+public class Aboba : MonoBehaviour, IMicrocontollerProgram
 {
     public RSMAGPIO GPIO { get; set; }
 
