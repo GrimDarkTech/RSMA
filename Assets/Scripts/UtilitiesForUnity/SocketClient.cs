@@ -21,12 +21,23 @@ public class SocketClient : MonoBehaviour
     /// <summary>
     /// Name of client
     /// </summary>
+    public string message = "";
+
+
+    [SerializeField]
+    private bool isConnected;
+
 
     private Socket client;
 
     [ContextMenu("Connect to server")]
     private async void ConnectToServerAsync()
     {
+        if (isConnected)
+        {
+            SocketLogger.Log($"{clientName}: Ñlient is already connected to server");
+            return;
+        }
         IPAddress ipAddress = IPAddress.Parse(serverIP);
 
         IPEndPoint ipEndPoint = new(ipAddress, serverPort);
@@ -35,11 +46,11 @@ public class SocketClient : MonoBehaviour
 
         await client.ConnectAsync(ipEndPoint);
 
-        Debug.Log("Waiting for server responce");
+        SocketLogger.Log($"{clientName}: Waiting for server responce");
 
         while (true)
         {
-            string message = $"{clientName}<|EOM|>";
+            string message = $"{clientName}<|CCR|><|EOM|>";
             var messageBytes = Encoding.UTF8.GetBytes(message);
 
             _ = await client.SendAsync(messageBytes, SocketFlags.None);
@@ -47,17 +58,27 @@ public class SocketClient : MonoBehaviour
             var buffer = new byte[1024];
             var received = await client.ReceiveAsync(buffer, SocketFlags.None);
             var response = Encoding.UTF8.GetString(buffer, 0, received);
-            if (response == $"{clientName}<|ACK|>")
+            if (response == $"{clientName}<|SA|><|ACK|>")
             {
-                Debug.Log($"Client successfully connect to server.");
+                SocketLogger.Log($"{clientName}: successfully connect to server.");
+                isConnected = true;
                 break;
             }
         }
     }
-
+    [ContextMenu("Send message to server")]
+    public void SendMes()
+    {
+        SendMessageToServerAsync(message);
+    }
     private async void SendMessageToServerAsync(string message)
     {
-        message = $"{client}<CNS>" + message + "<|EOM|>";
+        if (!isConnected)
+        {
+            SocketLogger.Log($"{clientName}: client is NOT connected to server");
+            return;
+        }
+        message = $"{clientName}<|CM|>" + message + "<|EOM|>";
         var messageBytes = Encoding.UTF8.GetBytes(message);
 
         _ = await client.SendAsync(messageBytes, SocketFlags.None);
@@ -65,22 +86,29 @@ public class SocketClient : MonoBehaviour
         var buffer = new byte[1024];
         var received = await client.ReceiveAsync(buffer, SocketFlags.None);
         var response = Encoding.UTF8.GetString(buffer, 0, received);
-        if (response == $"<SS>{clientName}<|ACK|>")
+        if (response == $"{clientName}<|SA|><|ACK|>")
         {
-            Debug.Log($"Message delivered");
+            SocketLogger.Log($"{clientName}: Message delivered");
         }
     }
-    private void ShutdownClient()
+    [ContextMenu("Disconnet from server")]
+    private async void ShutdownClientAsync()
     {
-        string message = $"{client}<CNS>" +  + "<|EOM|>";
+        if (!isConnected)
+        {
+            SocketLogger.Log($"{clientName}: Ñlient is NOT connected to server");
+            return;
+        }
+        string message = $"{clientName}<|CDR|><|EOM|>";
+        var messageBytes = Encoding.UTF8.GetBytes(message);
         _ = await client.SendAsync(messageBytes, SocketFlags.None);
 
         var buffer = new byte[1024];
         var received = await client.ReceiveAsync(buffer, SocketFlags.None);
         var response = Encoding.UTF8.GetString(buffer, 0, received);
-        if (response == $"<SS>{clientName}<|ACK|>")
+        if (response == $"{clientName}<|SA|><|ACK|>")
         {
-            Debug.Log($"Message delivered");
+            SocketLogger.Log($"{clientName}: Shutdown request has been accepted");
         }
         try
         {
@@ -93,18 +121,18 @@ public class SocketClient : MonoBehaviour
         finally
         {
             client.Close();
+            isConnected = false;
         }
+        SocketLogger.Log($"{clientName}: Disconnected");
     }
 }
 
 // massage struct: target/clientName<separator>messageText<|EOM|>
 
 // separators: <|EOM|> - end of message;
-// <|CM|> - client message separator
-// <|SM|> - server message separator
-// <|CCR|> - client connection request separator
-// <|CDR|> - client disconnection request separator'
-// <|CA|> - client ack separator
-// <|SA|> - server ack separator
+// <|M|> - message separator
+// <|CR|> - client connection request separator
+// <|DR|> - client disconnection request separator'
+// <|ACK|> - ack separator
 
-// ack struct: target/clientName<separator><|ACK|>
+// ack struct: target/clientName<|ACK|>

@@ -992,6 +992,8 @@ GameObject:
   - component: {fileID: 1228753101}
   - component: {fileID: 1228753100}
   - component: {fileID: 1228753099}
+  - component: {fileID: 1228753102}
+  - component: {fileID: 1228753103}
   m_Layer: 0
   m_Name: Socket
   m_TagString: Untagged
@@ -1014,6 +1016,8 @@ MonoBehaviour:
   serverIP: 127.0.0.1
   serverPort: 7777
   clientName: Aboba
+  message: m1
+  isConnected: 0
 --- !u!114 &1228753100
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1028,6 +1032,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   serverIP: 127.0.0.1
   serverPort: 7777
+  cliensNames: []
 --- !u!4 &1228753101
 Transform:
   m_ObjectHideFlags: 0
@@ -1043,6 +1048,36 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 10
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1228753102
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1228753098}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 011adcbd83486eb43b8fe4e5a8942912, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serverIP: 127.0.0.1
+  serverPort: 7777
+  clientName: Tod
+  message: Helelo
+  isConnected: 0
+--- !u!114 &1228753103
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1228753098}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8f3f1321027b94f40886db33f8a334a6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  logText: 
 --- !u!1 &1479870360
 GameObject:
   m_ObjectHideFlags: 0

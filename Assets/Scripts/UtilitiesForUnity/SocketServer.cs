@@ -6,6 +6,9 @@ using System.Net;
 using System.Threading.Tasks;
 using System.Text;
 using System;
+using System.Runtime.InteropServices;
+using System.Runtime.ConstrainedExecution;
+using static UnityEngine.EventSystems.EventTrigger;
 
 public class SocketServer : MonoBehaviour 
 {
@@ -17,7 +20,16 @@ public class SocketServer : MonoBehaviour
     /// <summary>
     /// Port binded by the server
     /// </summary>
-    public List<string> clients = new List<string>();
+    public List<string> cliensNames = new List<string>();
+    /// <summary>
+    /// Clients names
+    /// </summary>
+
+    private Dictionary<string, Socket> clients = new Dictionary<string, Socket>();
+    /// <summary>
+    /// Clients connected to server
+    /// </summary>
+
     public void Start()
     {
         StartServer();
@@ -38,26 +50,27 @@ public class SocketServer : MonoBehaviour
         }
         catch(Exception ex)
         {
-            Debug.LogException(ex);
+            SocketLogger.Log(ex.Message);
         }
         finally 
         {
-            Debug.Log("Server successfully binded the port");
+            SocketLogger.Log("Server: Successfully binded the port");
         }
         
 
         listener.Listen(100);
 
-        List<Socket> handlers = new List<Socket>();
+        clients.Clear();
 
-        Task listenClienTask = Task.Run(() => ListenToClientAsync(listener, handlers));
+        Task listenClient = Task.Run(() => ListenToClientAsync(listener, clients));
+
+        SocketLogger.Log("Server: Listener is enabled");
     }
-    private async void ListenToClientAsync(Socket listener, List<Socket> handlers)
+    private async void ListenToClientAsync(Socket listener, Dictionary<string, Socket> clients)
     {
         while (true)
         {
             Socket handler = await listener.AcceptAsync();
-            handlers.Add(handler);
 
             while (true)
             {
@@ -65,21 +78,67 @@ public class SocketServer : MonoBehaviour
                 int received = await handler.ReceiveAsync(buffer, SocketFlags.None);
                 string response = Encoding.UTF8.GetString(buffer, 0, received);
 
-                string endOfMessage = "<|EOM|>";
 
-                if (response.IndexOf(endOfMessage) > -1)
+                if (response.IndexOf("<|EOM|>") > -1 && response.IndexOf("<|CCR|>") > -1)
                 {
-                    string clientName = response.Replace(endOfMessage, "");
+                    string clientName = response.Replace("<|EOM|>", "");
+                    clientName = clientName.Replace("<|CCR|>", "");
 
-                    Debug.Log($"Connecting attempt from \"{clientName}\"");
+                    SocketLogger.Log($"Server: Connecting attempt from \"{clientName}\"");
 
-                    string ackMessage = $"{clientName}<|ACK|>";
+                    string ackMessage = $"{clientName}<|SA|><|ACK|>";
                     byte[] echoBytes = Encoding.UTF8.GetBytes(ackMessage);
                     await handler.SendAsync(echoBytes, 0);
 
-                    clients.Add(clientName);
+                    clients.Add(clientName, handler);
+                    cliensNames.Add(clientName);
+                    Task ReciveMessage = Task.Run(() => ListenToMessageAsync(handler));
 
                     break;
+                }
+            }
+        }
+    }
+
+    private async void ListenToMessageAsync(Socket client)
+    {
+        while(true)
+        {
+            byte[] buffer = new byte[1024];
+            int received = await client.ReceiveAsync(buffer, SocketFlags.None);
+            string response = Encoding.UTF8.GetString(buffer, 0, received);
+
+            if (response.IndexOf("<|EOM|>") > -1)
+            {
+                response = response.Replace("<|EOM|>", "");
+
+                string messageText;
+                string clientName;
+                if(response.IndexOf("<|CM|>") > -1)
+                {
+                    var separetedValues = response.Split("<|CM|>");
+                    clientName = separetedValues[0];
+                    messageText = separetedValues[1];
+
+                    string ackMessage = $"{clientName}<|SA|><|ACK|>";
+                    byte[] echoBytes = Encoding.UTF8.GetBytes(ackMessage);
+                    await client.SendAsync(echoBytes, 0);
+
+                    SocketLogger.Log($"Recived message from {clientName}");
+                }
+                else if (response.IndexOf("<|CDR|>") > -1)
+                {
+                    var separetedValues = response.Split("<|CDR|>");
+                    clientName = separetedValues[0];
+
+                    string ackMessage = $"{clientName}<|SA|><|ACK|>";
+                    byte[] echoBytes = Encoding.UTF8.GetBytes(ackMessage);
+                    await client.SendAsync(echoBytes, 0);
+
+                    clients.Remove(clientName);
+                    cliensNames.Remove(clientName);
+
+                    SocketLogger.Log($"Server: Client {clientName} disconnected");
                 }
             }
         }
