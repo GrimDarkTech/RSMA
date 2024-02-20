@@ -1,41 +1,84 @@
 using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
 using System.Net.Sockets;
 using System.Net;
 using System.Threading.Tasks;
 using System.Text;
 using System;
 
-public class SocketClient : MonoBehaviour
+/// <summary>
+/// Ñlass implements the behavior of a socket client. Uses to connect to server, send and receive messages
+/// </summary>
+public class SocketClient
 {
-    public string serverIP = "127.0.0.1";
     /// <summary>
     /// Server IP address
     /// </summary>
-    public int serverPort = 7777;
+    public string serverIP = "127.0.0.1";
+
     /// <summary>
     /// Port binded by the server
     /// </summary>
-    public string clientName = "";
+    public int serverPort = 7777;
+
     /// <summary>
     /// Name of client
     /// </summary>
-    public string message = "";
+    public string clientName = "";
 
+    /// <summary>
+    /// True if client connected to server
+    /// </summary>
+    public bool isConnected = false;
 
-    [SerializeField]
-    private bool isConnected;
+    /// <summary>
+    /// Uses to contain task for listening for messages
+    /// </summary>
+    protected Task messageReciver;
 
+    /// <summary>
+    /// Socket client
+    /// </summary>
+    protected Socket client;
 
-    private Socket client;
+    public SocketClient() { }
+    public SocketClient(string serverIP, int serverPort, string clientName)
+    {
+        this.serverIP = serverIP;
+        this.serverPort = serverPort;
+        this.clientName = clientName;
+    }
 
-    [ContextMenu("Connect to server")]
-    private async void ConnectToServerAsync()
+    /// <summary>
+    /// Called when client connected to server
+    /// </summary>
+    public virtual void OnConnected() { }
+
+    /// <summary>
+    /// Called when client disconnected to server
+    /// </summary>
+    public virtual void OnDisconnected() { }
+
+    /// <summary>
+    /// Called when message delivered to server
+    /// </summary>
+    /// <param name="message">Message text</param>
+    public virtual void OnMessageDelivered() { }
+
+    /// <summary>
+    /// Called when recived message from server
+    /// </summary>
+    /// <param name="message">Message text</param>
+    public virtual void OnMessageRecived(string message) { }
+
+    /// <summary>
+    /// Connects client to server
+    /// </summary>
+    public async void ConnectAsync()
     {
         if (isConnected)
         {
-            SocketLogger.Log($"{clientName}: Ñlient is already connected to server");
+            RSMALogger.Logger.Log($"{clientName}: Ñlient is already connected to server");
             return;
         }
         IPAddress ipAddress = IPAddress.Parse(serverIP);
@@ -44,86 +87,176 @@ public class SocketClient : MonoBehaviour
 
         client = new(ipEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
-        await client.ConnectAsync(ipEndPoint);
+        try 
+        {
+            await client.ConnectAsync(ipEndPoint);
+        }
+        catch(Exception ex)
+        {
+            RSMALogger.Logger.Log($"{clientName}: Connection error: The destination computer rejected the connection request. Make sure that the server is running and available for connection");
+            return;
+        }
 
-        SocketLogger.Log($"{clientName}: Waiting for server responce");
+        RSMALogger.Logger.Log($"{clientName}: Waiting for server responce");
 
         while (true)
         {
-            string message = $"{clientName}<|CCR|><|EOM|>";
+            string message = $"{clientName}<|CR|><|EOM|>";
             var messageBytes = Encoding.UTF8.GetBytes(message);
-
-            _ = await client.SendAsync(messageBytes, SocketFlags.None);
-
-            var buffer = new byte[1024];
-            var received = await client.ReceiveAsync(buffer, SocketFlags.None);
-            var response = Encoding.UTF8.GetString(buffer, 0, received);
-            if (response == $"{clientName}<|SA|><|ACK|>")
+            try
             {
-                SocketLogger.Log($"{clientName}: successfully connect to server.");
+                _ = await client.SendAsync(messageBytes, SocketFlags.None);
+            }
+            catch (Exception ex)
+            {
+                RSMALogger.Logger.Log($"{clientName}: Connection error: The destination computer rejected the connection request. Make sure that the server is running and available for connection");
+                return;
+            }
+            var buffer = new byte[1024];
+            int received = 0;
+            try
+            {
+                received = await client.ReceiveAsync(buffer, SocketFlags.None);
+            }
+            catch (Exception ex)
+            {
+                RSMALogger.Logger.Log($"{clientName}: Connection error: The destination computer rejected the connection request. Try change client/user name");
+                return;
+            }
+            var response = Encoding.UTF8.GetString(buffer, 0, received);
+
+            if (response == $"<|CR|><|ACK|>")
+            {
+                RSMALogger.Logger.Log($"{clientName}: successfully connect to server.");
                 isConnected = true;
                 break;
             }
         }
-    }
-    [ContextMenu("Send message to server")]
-    public void SendMes()
-    {
-        SendMessageToServerAsync(message);
-    }
-    private async void SendMessageToServerAsync(string message)
-    {
-        if (!isConnected)
-        {
-            SocketLogger.Log($"{clientName}: client is NOT connected to server");
-            return;
-        }
-        message = $"{clientName}<|CM|>" + message + "<|EOM|>";
-        var messageBytes = Encoding.UTF8.GetBytes(message);
 
-        _ = await client.SendAsync(messageBytes, SocketFlags.None);
+        messageReciver = Task.Run(() => ListenToMessageAsync());
 
-        var buffer = new byte[1024];
-        var received = await client.ReceiveAsync(buffer, SocketFlags.None);
-        var response = Encoding.UTF8.GetString(buffer, 0, received);
-        if (response == $"{clientName}<|SA|><|ACK|>")
-        {
-            SocketLogger.Log($"{clientName}: Message delivered");
-        }
+        OnConnected();
     }
-    [ContextMenu("Disconnet from server")]
-    private async void ShutdownClientAsync()
+    /// <summary>
+    /// Sends message to server
+    /// </summary>
+    /// <param name="message">Message text</param>
+    public async void SendMessageAsync(string message)
     {
         if (!isConnected)
         {
-            SocketLogger.Log($"{clientName}: Ñlient is NOT connected to server");
+            RSMALogger.Logger.Log($"{clientName}: client is NOT connected to server");
             return;
         }
-        string message = $"{clientName}<|CDR|><|EOM|>";
+        message = $"{clientName}<|M|>" + message + "<|EOM|>";
         var messageBytes = Encoding.UTF8.GetBytes(message);
-        _ = await client.SendAsync(messageBytes, SocketFlags.None);
 
-        var buffer = new byte[1024];
-        var received = await client.ReceiveAsync(buffer, SocketFlags.None);
-        var response = Encoding.UTF8.GetString(buffer, 0, received);
-        if (response == $"{clientName}<|SA|><|ACK|>")
-        {
-            SocketLogger.Log($"{clientName}: Shutdown request has been accepted");
-        }
         try
         {
-            client.Shutdown(SocketShutdown.Both);
+            _ = await client.SendAsync(messageBytes, SocketFlags.None);
+        }
+        catch(Exception ex)
+        {
+            RSMALogger.Logger.Log($"{clientName}: Listener error: The remote computer has terminated an existing connection. Make sure that the server is running and available for connection");
+            isConnected = false;
+            return;
+        } 
+    }
+    /// <summary>
+    /// Disconnects cleint from server
+    /// </summary>
+    public async void DisconnectAsync()
+    {
+        if (!isConnected)
+        {
+            RSMALogger.Logger.Log($"{clientName}: Ñlient is NOT connected to server");
+            return;
+        }
+        string message = $"{clientName}<|DR|><|EOM|>";
+
+        var messageBytes = Encoding.UTF8.GetBytes(message);
+        try
+        {
+            _ = await client.SendAsync(messageBytes, SocketFlags.None);
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex.Message);
-        }
-        finally
-        {
-            client.Close();
+            RSMALogger.Logger.Log($"{clientName}: Listener error: The remote computer has terminated an existing connection. Make sure that the server is running and available for connection");
             isConnected = false;
+            return;
         }
-        SocketLogger.Log($"{clientName}: Disconnected");
+    }
+    /// <summary>
+    /// Listening to messages
+    /// </summary>
+    protected async void ListenToMessageAsync()
+    {
+        while (true)
+        {
+            byte[] buffer = new byte[1024];
+            int received = 0;
+            try
+            {
+                received = await client.ReceiveAsync(buffer, SocketFlags.None);
+            }
+            catch
+            {
+                RSMALogger.Logger.Log($"{clientName}: Listener error: The remote computer has terminated an existing connection. Make sure that the server is running and available for connection");
+                isConnected = false;
+                return;
+            }
+            string response = Encoding.UTF8.GetString(buffer, 0, received);
+
+            if (response.IndexOf("<|EOM|>") > -1)
+            {
+                response = response.Replace("<|EOM|>", "");
+
+                string messageText;
+                string clientName;
+                if (response.IndexOf("<|M|>") > -1)
+                {
+                    var separetedValues = response.Split("<|M|>");
+                    clientName = separetedValues[0];
+                    messageText = separetedValues[1];
+
+                    string ackMessage = $"<|M|><|ACK|>";
+                    byte[] echoBytes = Encoding.UTF8.GetBytes(ackMessage);
+                    await client.SendAsync(echoBytes, 0);
+
+                    RSMALogger.Logger.Log($"{clientName}: recived message from server");
+                    OnMessageRecived(messageText);
+                }
+            }
+            else if ((response.IndexOf("<|ACK|>") > -1))
+            {
+                if (response == "<|M|><|ACK|>")
+                {
+                    RSMALogger.Logger.Log($"{clientName}: Message delivered");
+                    OnMessageDelivered();
+                }
+                else if (response == "<|DR|><|ACK|>")
+                {   
+                    try
+                    {
+                        messageReciver.Dispose();
+                        client.Shutdown(SocketShutdown.Both);
+                    }
+                    catch (Exception ex)
+                    {
+                        RSMALogger.Logger.Log(ex.Message);
+                        return;
+                    }
+                    finally
+                    {
+                        client.Close();
+                        isConnected = false;
+                        RSMALogger.Logger.Log($"{clientName}: Disconnected");
+                        OnDisconnected();
+                    }
+                    return;
+                }
+            }
+        }
     }
 }
 
@@ -135,4 +268,4 @@ public class SocketClient : MonoBehaviour
 // <|DR|> - client disconnection request separator'
 // <|ACK|> - ack separator
 
-// ack struct: target/clientName<|ACK|>
+// ack struct: <separator><|ACK|>

@@ -588,7 +588,7 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1228753099}
+      - m_Target: {fileID: 0}
         m_TargetAssemblyTypeName: SocketClient, Assembly-CSharp
         m_MethodName: Connect
         m_Mode: 1
@@ -990,10 +990,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1228753101}
-  - component: {fileID: 1228753100}
-  - component: {fileID: 1228753099}
   - component: {fileID: 1228753102}
-  - component: {fileID: 1228753103}
   m_Layer: 0
   m_Name: Socket
   m_TagString: Untagged
@@ -1001,38 +998,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1228753099
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1228753098}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 011adcbd83486eb43b8fe4e5a8942912, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  serverIP: 127.0.0.1
-  serverPort: 7777
-  clientName: Aboba
-  message: m1
-  isConnected: 0
---- !u!114 &1228753100
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1228753098}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0a371235aa38c9c4bbc84f551bca62cf, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  serverIP: 127.0.0.1
-  serverPort: 7777
-  cliensNames: []
 --- !u!4 &1228753101
 Transform:
   m_ObjectHideFlags: 0
@@ -1057,27 +1022,23 @@ MonoBehaviour:
   m_GameObject: {fileID: 1228753098}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 011adcbd83486eb43b8fe4e5a8942912, type: 3}
+  m_Script: {fileID: 11500000, guid: d63cf671ec565a045b9b604a9b42fdca, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  serverIP: 127.0.0.1
-  serverPort: 7777
-  clientName: Tod
-  message: Helelo
-  isConnected: 0
---- !u!114 &1228753103
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1228753098}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8f3f1321027b94f40886db33f8a334a6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  logText: 
+  filepath: Assets/Scripts/UtilitiesForUnity
+  filename: SoundPitchDataTransfer.cs
+  docsFolderPath: F:\Unity Projects\RSMADocs\Manual\en
+  lines: []
+  classes:
+  - name: SoundPitchDataTransfer
+    description: 
+    consts: []
+    fields:
+    - name: audioSource
+      description: 
+      type: AudioSource
+    properties: []
+    methods: []
 --- !u!1 &1479870360
 GameObject:
   m_ObjectHideFlags: 0
