@@ -1,4 +1,4 @@
-using Newtonsoft.Json.Linq;
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -12,7 +12,7 @@ using UnityEngine;
 public class AutoDocs : MonoBehaviour
 {
     /// <summary>
-    /// Absolute .cs file path
+    /// Absolute file directory path
     /// </summary>
     public string filepath;
 

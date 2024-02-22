@@ -990,7 +990,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1228753101}
-  - component: {fileID: 1228753102}
+  - component: {fileID: 1228753103}
+  - component: {fileID: 1228753104}
   m_Layer: 0
   m_Name: Socket
   m_TagString: Untagged
@@ -1013,7 +1014,7 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 10
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1228753102
+--- !u!114 &1228753103
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1022,23 +1023,537 @@ MonoBehaviour:
   m_GameObject: {fileID: 1228753098}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d63cf671ec565a045b9b604a9b42fdca, type: 3}
+  m_Script: {fileID: 11500000, guid: bfbd4d67a2fa4574bb802fe4c0dc495f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &1228753104
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1228753098}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fb0d70e03637ba840b3f7e5af607a69b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   filepath: Assets/Scripts/UtilitiesForUnity
-  filename: SoundPitchDataTransfer.cs
-  docsFolderPath: F:\Unity Projects\RSMADocs\Manual\en
-  lines: []
+  filename: NewBehaviourScript.cs
+  docsFolderPath: 
+  lines:
+  - using System.Collections;
+  - using System.Collections.Generic;
+  - using UnityEngine;
+  - /// <summary>
+  - /// Class aboba
+  - /// </summary>
+  - 'public class NewBehaviourScript : MonoBehaviour'
+  - '{'
+  - '    /// <summary>'
+  - '    /// Abababa'
+  - '    /// </summary>'
+  - '    static string val = "text"; TestClass2 tc = new TestClass2(2);'
+  - '}'
+  - /// <summary>
+  - /// Sgag
+  - /// </summary>
+  - public class TestClass2
+  - '{'
+  - '    /// <summary>'
+  - '    /// adasda'
+  - '    /// </summary>'
+  - '    public int aboba;'
+  - '    private int tota;'
+  - '    public TestClass2(int aboba)'
+  - '    {'
+  - '        this.aboba = aboba;'
+  - '    }'
+  - '    /// <summary>'
+  - '    /// adasd'
+  - '    /// </summary>'
+  - '    /// <param name="vals">Hola</param>'
+  - '    public void Calc(string vals)'
+  - '    {'
+  - '    }'
+  - '    private void Cal2c(string vals)'
+  - '    {'
+  - '    }'
+  - '}'
+  docStrings:
+  - <summary>
+  - ' Class aboba'
+  - </summary>
+  - 'public class NewBehaviourScript : MonoBehaviour'
+  - <summary>
+  - '     Abababa'
+  - </summary>
+  - '    static string val = "text"; TestClass2 tc = new TestClass2(2);'
+  - <summary>
+  - ' Sgag'
+  - </summary>
+  - public class TestClass2
+  - <summary>
+  - '     adasda'
+  - </summary>
+  - '    public int aboba;'
+  - <summary>
+  - '     adasd'
+  - </summary>
+  - <p>     vals=Hola
+  - '    public void Calc(string vals)'
   classes:
-  - name: SoundPitchDataTransfer
+  - name: NewBehaviourScript
     description: 
-    consts: []
-    fields:
-    - name: audioSource
+    fields: []
+    properties:
+    - name: useGUILayout
       description: 
-      type: AudioSource
+      type: System.Boolean
+    - name: runInEditMode
+      description: 
+      type: System.Boolean
+    - name: enabled
+      description: 
+      type: System.Boolean
+    - name: isActiveAndEnabled
+      description: 
+      type: System.Boolean
+    - name: transform
+      description: 
+      type: UnityEngine.Transform
+    - name: gameObject
+      description: 
+      type: UnityEngine.GameObject
+    - name: tag
+      description: 
+      type: System.String
+    - name: rigidbody
+      description: 
+      type: UnityEngine.Component
+    - name: rigidbody2D
+      description: 
+      type: UnityEngine.Component
+    - name: camera
+      description: 
+      type: UnityEngine.Component
+    - name: light
+      description: 
+      type: UnityEngine.Component
+    - name: animation
+      description: 
+      type: UnityEngine.Component
+    - name: constantForce
+      description: 
+      type: UnityEngine.Component
+    - name: renderer
+      description: 
+      type: UnityEngine.Component
+    - name: audio
+      description: 
+      type: UnityEngine.Component
+    - name: networkView
+      description: 
+      type: UnityEngine.Component
+    - name: collider
+      description: 
+      type: UnityEngine.Component
+    - name: collider2D
+      description: 
+      type: UnityEngine.Component
+    - name: hingeJoint
+      description: 
+      type: UnityEngine.Component
+    - name: particleSystem
+      description: 
+      type: UnityEngine.Component
+    - name: name
+      description: 
+      type: System.String
+    - name: hideFlags
+      description: 
+      type: UnityEngine.HideFlags
+    methods:
+    - name: IsInvoking
+      description: 
+      retunrs: 
+      parameters: []
+    - name: CancelInvoke
+      description: 
+      retunrs: 
+      parameters: []
+    - name: Invoke
+      description: 
+      retunrs: 
+      parameters: []
+    - name: InvokeRepeating
+      description: 
+      retunrs: 
+      parameters: []
+    - name: CancelInvoke
+      description: 
+      retunrs: 
+      parameters: []
+    - name: IsInvoking
+      description: 
+      retunrs: 
+      parameters: []
+    - name: StartCoroutine
+      description: 
+      retunrs: 
+      parameters: []
+    - name: StartCoroutine
+      description: 
+      retunrs: 
+      parameters: []
+    - name: StartCoroutine
+      description: 
+      retunrs: 
+      parameters: []
+    - name: StartCoroutine_Auto
+      description: 
+      retunrs: 
+      parameters: []
+    - name: StopCoroutine
+      description: 
+      retunrs: 
+      parameters: []
+    - name: StopCoroutine
+      description: 
+      retunrs: 
+      parameters: []
+    - name: StopCoroutine
+      description: 
+      retunrs: 
+      parameters: []
+    - name: StopAllCoroutines
+      description: 
+      retunrs: 
+      parameters: []
+    - name: get_useGUILayout
+      description: 
+      retunrs: 
+      parameters: []
+    - name: set_useGUILayout
+      description: 
+      retunrs: 
+      parameters: []
+    - name: get_runInEditMode
+      description: 
+      retunrs: 
+      parameters: []
+    - name: set_runInEditMode
+      description: 
+      retunrs: 
+      parameters: []
+    - name: get_enabled
+      description: 
+      retunrs: 
+      parameters: []
+    - name: set_enabled
+      description: 
+      retunrs: 
+      parameters: []
+    - name: get_isActiveAndEnabled
+      description: 
+      retunrs: 
+      parameters: []
+    - name: get_transform
+      description: 
+      retunrs: 
+      parameters: []
+    - name: get_gameObject
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetComponent
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetComponent
+      description: 
+      retunrs: 
+      parameters: []
+    - name: TryGetComponent
+      description: 
+      retunrs: 
+      parameters: []
+    - name: TryGetComponent
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetComponent
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetComponentInChildren
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetComponentInChildren
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetComponentInChildren
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetComponentInChildren
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetComponentsInChildren
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetComponentsInChildren
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetComponentsInChildren
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetComponentsInChildren
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetComponentsInChildren
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetComponentsInChildren
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetComponentInParent
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetComponentInParent
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetComponentInParent
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetComponentInParent
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetComponentsInParent
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetComponentsInParent
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetComponentsInParent
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetComponentsInParent
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetComponentsInParent
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetComponents
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetComponents
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetComponents
+      description: 
+      retunrs: 
+      parameters: []
+    - name: get_tag
+      description: 
+      retunrs: 
+      parameters: []
+    - name: set_tag
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetComponents
+      description: 
+      retunrs: 
+      parameters: []
+    - name: CompareTag
+      description: 
+      retunrs: 
+      parameters: []
+    - name: SendMessageUpwards
+      description: 
+      retunrs: 
+      parameters: []
+    - name: SendMessageUpwards
+      description: 
+      retunrs: 
+      parameters: []
+    - name: SendMessageUpwards
+      description: 
+      retunrs: 
+      parameters: []
+    - name: SendMessageUpwards
+      description: 
+      retunrs: 
+      parameters: []
+    - name: SendMessage
+      description: 
+      retunrs: 
+      parameters: []
+    - name: SendMessage
+      description: 
+      retunrs: 
+      parameters: []
+    - name: SendMessage
+      description: 
+      retunrs: 
+      parameters: []
+    - name: SendMessage
+      description: 
+      retunrs: 
+      parameters: []
+    - name: BroadcastMessage
+      description: 
+      retunrs: 
+      parameters: []
+    - name: BroadcastMessage
+      description: 
+      retunrs: 
+      parameters: []
+    - name: BroadcastMessage
+      description: 
+      retunrs: 
+      parameters: []
+    - name: BroadcastMessage
+      description: 
+      retunrs: 
+      parameters: []
+    - name: get_rigidbody
+      description: 
+      retunrs: 
+      parameters: []
+    - name: get_rigidbody2D
+      description: 
+      retunrs: 
+      parameters: []
+    - name: get_camera
+      description: 
+      retunrs: 
+      parameters: []
+    - name: get_light
+      description: 
+      retunrs: 
+      parameters: []
+    - name: get_animation
+      description: 
+      retunrs: 
+      parameters: []
+    - name: get_constantForce
+      description: 
+      retunrs: 
+      parameters: []
+    - name: get_renderer
+      description: 
+      retunrs: 
+      parameters: []
+    - name: get_audio
+      description: 
+      retunrs: 
+      parameters: []
+    - name: get_networkView
+      description: 
+      retunrs: 
+      parameters: []
+    - name: get_collider
+      description: 
+      retunrs: 
+      parameters: []
+    - name: get_collider2D
+      description: 
+      retunrs: 
+      parameters: []
+    - name: get_hingeJoint
+      description: 
+      retunrs: 
+      parameters: []
+    - name: get_particleSystem
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetInstanceID
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetHashCode
+      description: 
+      retunrs: 
+      parameters: []
+    - name: Equals
+      description: 
+      retunrs: 
+      parameters: []
+    - name: get_name
+      description: 
+      retunrs: 
+      parameters: []
+    - name: set_name
+      description: 
+      retunrs: 
+      parameters: []
+    - name: get_hideFlags
+      description: 
+      retunrs: 
+      parameters: []
+    - name: set_hideFlags
+      description: 
+      retunrs: 
+      parameters: []
+    - name: ToString
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetType
+      description: 
+      retunrs: 
+      parameters: []
+  - name: TestClass2
+    description: 
+    fields:
+    - name: aboba
+      description: 
+      type: System.Int32
     properties: []
-    methods: []
+    methods:
+    - name: Calc
+      description: 
+      retunrs: 
+      parameters: []
+    - name: Equals
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetHashCode
+      description: 
+      retunrs: 
+      parameters: []
+    - name: GetType
+      description: 
+      retunrs: 
+      parameters: []
+    - name: ToString
+      description: 
+      retunrs: 
+      parameters: []
 --- !u!1 &1479870360
 GameObject:
   m_ObjectHideFlags: 0

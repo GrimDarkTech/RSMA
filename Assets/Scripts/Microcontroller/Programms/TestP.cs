@@ -55,7 +55,7 @@ public class TestP : MonoBehaviour, IMicrocontollerProgram
             GPIO.WritePin("PA", "0", 1);
             GPIO.WritePin("PA", "1", 1);
             GPIO.WritePin("PA", "2", 1);
-            yield return new WaitForSeconds(2f);
+            yield return new WaitForSeconds(3f);
             GPIO.WritePin("PA", "0", 0);
             GPIO.WritePin("PA", "1", 0);
             GPIO.WritePin("PA", "2", 0);
