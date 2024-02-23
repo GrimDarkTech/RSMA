@@ -81,10 +81,6 @@ public class AutoDocsMD : MonoBehaviour
                             
                             foreach (var field in fields)
                             {
-                                //if (field.IsPrivate)
-                                //{
-                                //    break;
-                                //}
                                 SerializedField serField = new SerializedField();
                                 serField.name = field.Name;
                                 serField.type = field.FieldType.ToString();
@@ -116,6 +112,8 @@ public class AutoDocsMD : MonoBehaviour
                                 SerializedMethod serMethod = new SerializedMethod();
                                 serMethod.name = method.Name;
 
+                                serMethod.parameters = new List<SerializedMethodParam>();
+
                                 serClass.methods.Add(serMethod);
                             }
 
@@ -142,7 +140,7 @@ public class AutoDocsMD : MonoBehaviour
             {
                 docStrings.Add("</summary>");
 
-                if(lines[i + 1].IndexOf("<param name") == -1)
+                if(lines[i + 1].IndexOf("<param name") == -1 && lines[i + 1].IndexOf("<returns>") == -1)
                 {
                     docStrings.Add(lines[i + 1]);
                 }
@@ -154,15 +152,154 @@ public class AutoDocsMD : MonoBehaviour
                 words[1] = words[1].Replace("</param>", "");
                 docStrings.Add("<p>" + words[0].Replace("///", "") + "=" + words[1]);
 
-                if (lines[i + 1].IndexOf("<param name") == -1)
+                if (lines[i + 1].IndexOf("<param name") == -1 && lines[i + 1].IndexOf("<returns>") == -1)
                 {
                     docStrings.Add(lines[i + 1]);
                 }
+            }
+            else if (line.IndexOf("<returns>") > -1)
+            {
+                string ret = line.Replace("///", "");
+                ret = ret.Replace("<returns>", "");
+                ret = ret.Replace("</returns>", "");
+
+                docStrings.Add("<r>" + ret);
+
+                docStrings.Add(lines[i + 1]);
             }
             else if (line.IndexOf("///") > -1)
             {
                 docStrings.Add(line.Replace("///", ""));
             }
+        }
+
+        for (int cn = 0; cn < classes.Count; cn++)
+        {
+            var serClass = classes[cn];
+
+            for (int i = 0; i < docStrings.Count; i++)
+            {
+                var docLine = docStrings[i];
+
+                if (docLine.IndexOf("class " + serClass.name) > -1)
+                {
+                    var description = "";
+
+                    if (docStrings[i - 1].IndexOf("</summary>") > -1)
+                    {
+                        int j = 2;
+                        while(docStrings[i - j].IndexOf("<summary>") == -1)
+                        {
+                            description += docStrings[i - j].Replace("///", "");
+                            j++;
+                        }
+                    }
+
+                    serClass.description = description;
+                }
+                else
+                {
+                    for (int fn = 0; fn < serClass.fields.Count; fn++)
+                    {
+                        var field = serClass.fields[fn];
+
+                        if (docLine.IndexOf(field.name) > -1)
+                        {
+                            var description = "";
+
+                            if (docStrings[i - 1].IndexOf("</summary>") > -1)
+                            {
+                                int j = 2;
+                                while (docStrings[i - j].IndexOf("<summary>") == -1)
+                                {
+                                    description += docStrings[i - j].Replace("///", "");
+                                    j++;
+                                }
+                            }
+
+                            field.description = description;
+                        }
+
+                        serClass.fields[fn] = field;
+                    }
+
+                    for (int pn = 0; pn < serClass.properties.Count; pn++)
+                    {
+                        var propertie = serClass.properties[pn];
+
+                        if (docLine.IndexOf(propertie.name) > -1)
+                        {
+                            var description = "";
+
+                            if (docStrings[i - 1].IndexOf("</summary>") > -1)
+                            {
+                                int j = 2;
+                                while (docStrings[i - j].IndexOf("<summary>") == -1)
+                                {
+                                    description += docStrings[i - j].Replace("///", "");
+                                    j++;
+                                }
+                            }
+
+                            propertie.description = description;
+                        }
+
+                        serClass.properties[pn] = propertie;
+                    }
+
+                    for (int mn = 0; mn < serClass.properties.Count; mn++)
+                    {
+                        var method = serClass.methods[mn];
+
+                        if (docLine.IndexOf(method.name) > -1)
+                        {
+                            var description = "";
+
+                            if (docStrings[i - 1].IndexOf("</summary>") > -1)
+                            {
+                                int j = 2;
+                                while (docStrings[i - j].IndexOf("<summary>") == -1)
+                                {
+                                    description += docStrings[i - j].Replace("///", "");
+                                    j++;
+                                }
+                            }
+
+                            if (docStrings[i - 1].IndexOf("<r>") > -1)
+                            {
+                                method.retunrs = docStrings[i - 1].Replace("<r>", "");
+                            }
+
+                            if(docStrings[i - 1].IndexOf("<p>") > -1)
+                            {
+                                int j = 1;
+
+                                SerializedMethodParam param = new SerializedMethodParam();
+
+                                while (docStrings[i - j].IndexOf("<p>") > -1)
+                                {
+                                    var str = "";
+                                    str = docStrings[i - j].Replace("<p>", "");
+
+                                    param.name = str.Split("=")[0];
+                                    param.description = str.Split("=")[1];
+
+                                    method.parameters.Add(param);
+
+                                    j++;
+                                }
+                            }
+
+
+                            method.description = description;
+                        }
+
+                        serClass.methods[mn] = method;
+                    }
+                }
+            }
+
+            classes[cn] = serClass;
         }
     }
 
@@ -193,6 +330,7 @@ public class AutoDocsMD : MonoBehaviour
     public struct SerializedMethod
     {
         public string name;
+        public string declaration;
         public string description;
         public string retunrs;
         public List<SerializedMethodParam> parameters;
