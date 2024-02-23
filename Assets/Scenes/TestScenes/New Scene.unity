@@ -1027,41 +1027,334 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   filepath: Assets/Scripts/UtilitiesForUnity
   filename: tota.cs
-  docsFolderPath: 
+  docsFolderPath: Assets/Scripts/UtilitiesForUnity
   lines:
-  - using System.Collections;
-  - using System.Collections.Generic;
-  - using UnityEngine;
-  - /// <summary>
-  - /// Test class for autocds
-  - /// </summary>
-  - 'public class tota : MonoBehaviour'
-  - '{'
-  - '    /// <summary>'
-  - '    /// Test fielld'
-  - '    /// </summary>'
-  - '    public string tField;'
-  - '    /// <summary>'
-  - '    /// Test propertie'
-  - '    /// </summary>'
-  - '    public string tValue { get; set; }'
-  - '    /// <summary>'
-  - '    /// Test method'
-  - '    /// </summary>'
-  - '    /// <param name="aboba">test aboba param</param>'
-  - '    /// <returns></returns>'
-  - '    public string tMethod(string aboba)'
-  - '    {'
-  - '        return tField;'
-  - '    }'
-  - '    /// <summary>'
-  - '    /// Test method n2'
-  - '    /// </summary>'
-  - '    /// <param name="aboba2">test aboba param</param>'
-  - '    public void t2Method(string aboba2)'
-  - '    {'
-  - '    }'
-  - '}'
+  - '# tota'
+  - '[switch to API](../../../Documentation/ScriptingAPI/en/tota.cs.md)'
+  - 
+  - ' Test class for autocds'
+  - 
+  - '## Fields'
+  - '| Field | Description | Type |'
+  - '|--|--|--|'
+  - '|tField||System.String|'
+  - '## Properties'
+  - '| Property | Description | Type |'
+  - '|--|--|--|'
+  - '|tValue|     Test propertie|System.String|'
+  - '|useGUILayout||System.Boolean|'
+  - '|runInEditMode||System.Boolean|'
+  - '|enabled||System.Boolean|'
+  - '|isActiveAndEnabled||System.Boolean|'
+  - '|transform||UnityEngine.Transform|'
+  - '|gameObject||UnityEngine.GameObject|'
+  - '|tag||System.String|'
+  - '|rigidbody||UnityEngine.Component|'
+  - '|rigidbody2D||UnityEngine.Component|'
+  - '|camera||UnityEngine.Component|'
+  - '|light||UnityEngine.Component|'
+  - '|animation||UnityEngine.Component|'
+  - '|constantForce||UnityEngine.Component|'
+  - '|renderer||UnityEngine.Component|'
+  - '|audio||UnityEngine.Component|'
+  - '|networkView||UnityEngine.Component|'
+  - '|collider||UnityEngine.Component|'
+  - '|collider2D||UnityEngine.Component|'
+  - '|hingeJoint||UnityEngine.Component|'
+  - '|particleSystem||UnityEngine.Component|'
+  - '|name||System.String|'
+  - '|hideFlags||UnityEngine.HideFlags|'
+  - '## Methods'
+  - '### get_tValue'
+  - 
+  - "Returns: \n"
+  - '### set_tValue'
+  - 
+  - "Returns: \n"
+  - '### tMethod'
+  - '     Test method'
+  - "Returns: \n     Returns tField values"
+  - '#### Parameters'
+  - '| Name | Description |'
+  - '|--|--|'
+  - '|     aboba|test aboba param|'
+  - '### t2Method'
+  - '     Test method n2'
+  - "Returns: \n"
+  - '#### Parameters'
+  - '| Name | Description |'
+  - '|--|--|'
+  - '|     aboba2|test aboba param|'
+  - '### t3Method'
+  - '     Test method 3'
+  - "Returns: \n"
+  - '### t4Method'
+  - '     Test method 4'
+  - "Returns: \n     ASA stringa"
+  - '### IsInvoking'
+  - 
+  - "Returns: \n"
+  - '### CancelInvoke'
+  - 
+  - "Returns: \n"
+  - '### Invoke'
+  - 
+  - "Returns: \n"
+  - '### InvokeRepeating'
+  - 
+  - "Returns: \n"
+  - '### CancelInvoke'
+  - 
+  - "Returns: \n"
+  - '### IsInvoking'
+  - 
+  - "Returns: \n"
+  - '### StartCoroutine'
+  - 
+  - "Returns: \n"
+  - '### StartCoroutine'
+  - 
+  - "Returns: \n"
+  - '### StartCoroutine'
+  - 
+  - "Returns: \n"
+  - '### StartCoroutine_Auto'
+  - 
+  - "Returns: \n"
+  - '### StopCoroutine'
+  - 
+  - "Returns: \n"
+  - '### StopCoroutine'
+  - 
+  - "Returns: \n"
+  - '### StopCoroutine'
+  - 
+  - "Returns: \n"
+  - '### StopAllCoroutines'
+  - 
+  - "Returns: \n"
+  - '### get_useGUILayout'
+  - 
+  - "Returns: \n"
+  - '### set_useGUILayout'
+  - 
+  - "Returns: \n"
+  - '### get_runInEditMode'
+  - 
+  - "Returns: \n"
+  - '### set_runInEditMode'
+  - 
+  - "Returns: \n"
+  - '### get_enabled'
+  - 
+  - "Returns: \n"
+  - '### set_enabled'
+  - 
+  - "Returns: \n"
+  - '### get_isActiveAndEnabled'
+  - 
+  - "Returns: \n"
+  - '### get_transform'
+  - 
+  - "Returns: \n"
+  - '### get_gameObject'
+  - 
+  - "Returns: \n"
+  - '### GetComponent'
+  - 
+  - "Returns: \n"
+  - '### GetComponent'
+  - 
+  - "Returns: \n"
+  - '### TryGetComponent'
+  - 
+  - "Returns: \n"
+  - '### TryGetComponent'
+  - 
+  - "Returns: \n"
+  - '### GetComponent'
+  - 
+  - "Returns: \n"
+  - '### GetComponentInChildren'
+  - 
+  - "Returns: \n"
+  - '### GetComponentInChildren'
+  - 
+  - "Returns: \n"
+  - '### GetComponentInChildren'
+  - 
+  - "Returns: \n"
+  - '### GetComponentInChildren'
+  - 
+  - "Returns: \n"
+  - '### GetComponentsInChildren'
+  - 
+  - "Returns: \n"
+  - '### GetComponentsInChildren'
+  - 
+  - "Returns: \n"
+  - '### GetComponentsInChildren'
+  - 
+  - "Returns: \n"
+  - '### GetComponentsInChildren'
+  - 
+  - "Returns: \n"
+  - '### GetComponentsInChildren'
+  - 
+  - "Returns: \n"
+  - '### GetComponentsInChildren'
+  - 
+  - "Returns: \n"
+  - '### GetComponentInParent'
+  - 
+  - "Returns: \n"
+  - '### GetComponentInParent'
+  - 
+  - "Returns: \n"
+  - '### GetComponentInParent'
+  - 
+  - "Returns: \n"
+  - '### GetComponentInParent'
+  - 
+  - "Returns: \n"
+  - '### GetComponentsInParent'
+  - 
+  - "Returns: \n"
+  - '### GetComponentsInParent'
+  - 
+  - "Returns: \n"
+  - '### GetComponentsInParent'
+  - 
+  - "Returns: \n"
+  - '### GetComponentsInParent'
+  - 
+  - "Returns: \n"
+  - '### GetComponentsInParent'
+  - 
+  - "Returns: \n"
+  - '### GetComponents'
+  - 
+  - "Returns: \n"
+  - '### GetComponents'
+  - 
+  - "Returns: \n"
+  - '### GetComponents'
+  - 
+  - "Returns: \n"
+  - '### get_tag'
+  - 
+  - "Returns: \n"
+  - '### set_tag'
+  - 
+  - "Returns: \n"
+  - '### GetComponents'
+  - 
+  - "Returns: \n"
+  - '### CompareTag'
+  - 
+  - "Returns: \n"
+  - '### SendMessageUpwards'
+  - 
+  - "Returns: \n"
+  - '### SendMessageUpwards'
+  - 
+  - "Returns: \n"
+  - '### SendMessageUpwards'
+  - 
+  - "Returns: \n"
+  - '### SendMessageUpwards'
+  - 
+  - "Returns: \n"
+  - '### SendMessage'
+  - 
+  - "Returns: \n"
+  - '### SendMessage'
+  - 
+  - "Returns: \n"
+  - '### SendMessage'
+  - 
+  - "Returns: \n"
+  - '### SendMessage'
+  - 
+  - "Returns: \n"
+  - '### BroadcastMessage'
+  - 
+  - "Returns: \n"
+  - '### BroadcastMessage'
+  - 
+  - "Returns: \n"
+  - '### BroadcastMessage'
+  - 
+  - "Returns: \n"
+  - '### BroadcastMessage'
+  - 
+  - "Returns: \n"
+  - '### get_rigidbody'
+  - 
+  - "Returns: \n"
+  - '### get_rigidbody2D'
+  - 
+  - "Returns: \n"
+  - '### get_camera'
+  - 
+  - "Returns: \n"
+  - '### get_light'
+  - 
+  - "Returns: \n"
+  - '### get_animation'
+  - 
+  - "Returns: \n"
+  - '### get_constantForce'
+  - 
+  - "Returns: \n"
+  - '### get_renderer'
+  - 
+  - "Returns: \n"
+  - '### get_audio'
+  - 
+  - "Returns: \n"
+  - '### get_networkView'
+  - 
+  - "Returns: \n"
+  - '### get_collider'
+  - 
+  - "Returns: \n"
+  - '### get_collider2D'
+  - 
+  - "Returns: \n"
+  - '### get_hingeJoint'
+  - 
+  - "Returns: \n"
+  - '### get_particleSystem'
+  - 
+  - "Returns: \n"
+  - '### GetInstanceID'
+  - 
+  - "Returns: \n"
+  - '### GetHashCode'
+  - 
+  - "Returns: \n"
+  - '### Equals'
+  - 
+  - "Returns: \n"
+  - '### get_name'
+  - 
+  - "Returns: \n"
+  - '### set_name'
+  - 
+  - "Returns: \n"
+  - '### get_hideFlags'
+  - 
+  - "Returns: \n"
+  - '### set_hideFlags'
+  - 
+  - "Returns: \n"
+  - '### ToString'
+  - 
+  - "Returns: \n"
+  - '### GetType'
+  - 
+  - "Returns: \n"
   docStrings:
   - <summary>
   - ' Test class for autocds'
@@ -1079,19 +1372,28 @@ MonoBehaviour:
   - '     Test method'
   - </summary>
   - <p>     aboba=test aboba param
-  - '    /// <returns></returns>'
-  - '     <returns></returns>'
+  - <r>     Returns tField values
+  - '    public string tMethod(string aboba)'
   - <summary>
   - '     Test method n2'
   - </summary>
   - <p>     aboba2=test aboba param
   - '    public void t2Method(string aboba2)'
+  - <summary>
+  - '     Test method 3'
+  - </summary>
+  - '    public void t3Method()'
+  - <summary>
+  - '     Test method 4'
+  - </summary>
+  - <r>     ASA stringa
+  - '    public string t4Method()'
   classes:
   - name: tota
     description: ' Test class for autocds'
     fields:
     - name: tField
-      description: '     Test fielld'
+      description: 
       type: System.String
     properties:
     - name: tValue
@@ -1175,14 +1477,28 @@ MonoBehaviour:
       retunrs: 
       parameters: []
     - name: tMethod
-      declaration: 
-      description: 
+      declaration: '    public string tMethod(string aboba)'
+      description: '     Test method'
+      retunrs: '     Returns tField values'
+      parameters:
+      - name: '     aboba'
+        description: test aboba param
+    - name: t2Method
+      declaration: '    public void t2Method(string aboba2)'
+      description: '     Test method n2'
+      retunrs: 
+      parameters:
+      - name: '     aboba2'
+        description: test aboba param
+    - name: t3Method
+      declaration: '    public void t3Method()'
+      description: '     Test method 3'
       retunrs: 
       parameters: []
-    - name: t2Method
-      declaration: 
-      description: 
-      retunrs: 
+    - name: t4Method
+      declaration: '    public string t4Method()'
+      description: '     Test method 4'
+      retunrs: '     ASA stringa'
       parameters: []
     - name: IsInvoking
       declaration: 

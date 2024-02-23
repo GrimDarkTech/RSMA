@@ -255,42 +255,47 @@ public class AutoDocsMD : MonoBehaviour
                         {
                             var description = "";
 
-                            if (docStrings[i - 1].IndexOf("</summary>") > -1)
-                            {
-                                int j = 2;
-                                while (docStrings[i - j].IndexOf("<summary>") == -1)
-                                {
-                                    description += docStrings[i - j].Replace("///", "");
-                                    j++;
-                                }
-                            }
+                            method.declaration = docLine;
 
-                            if (docStrings[i - 1].IndexOf("<r>") > -1)
-                            {
-                                method.retunrs = docStrings[i - 1].Replace("<r>", "");
-                            }
-
-                            if(docStrings[i - 1].IndexOf("<p>") > -1)
+                            if (docStrings[i - 1].Contains("</summary>") || docStrings[i - 1].Contains("<p>") || docStrings[i - 1].Contains("<r>"))
                             {
                                 int j = 1;
-
-                                SerializedMethodParam param = new SerializedMethodParam();
-
-                                while (docStrings[i - j].IndexOf("<p>") > -1)
+                                while (!docStrings[i - j].Contains("<summary>"))
                                 {
-                                    var str = "";
-                                    str = docStrings[i - j].Replace("<p>", "");
+                                    if (docStrings[i - j].Contains("<r>"))
+                                    {
+                                        method.retunrs = docStrings[i - 1].Replace("<r>", "");
+                                    }
 
-                                    param.name = str.Split("=")[0];
-                                    param.description = str.Split("=")[1];
+                                    else if (docStrings[i - j].IndexOf("<r>") > -1)
+                                    {
+                                        method.retunrs = docStrings[i - 1].Replace("<r>", "");
+                                    }
 
-                                    method.parameters.Add(param);
+                                    else if (docStrings[i - j].IndexOf("<p>") > -1)
+                                    {
+                                        SerializedMethodParam param = new SerializedMethodParam();
 
+                                        while (docStrings[i - j].IndexOf("<p>") > -1)
+                                        {
+                                            var str = "";
+                                            str = docStrings[i - j].Replace("<p>", "");
+
+                                            param.name = str.Split("=")[0];
+                                            param.description = str.Split("=")[1];
+
+                                            method.parameters.Add(param);
+
+                                            j++;
+                                        }
+                                    }
+                                    else if (!docStrings[i - j].Contains("</summary>"))
+                                    {
+                                        description += docStrings[i - j].Replace("///", "");
+                                    }
                                     j++;
                                 }
                             }
-
-
                             method.description = description;
                         }
 
@@ -301,6 +306,77 @@ public class AutoDocsMD : MonoBehaviour
 
             classes[cn] = serClass;
         }
+
+        lines.Clear();
+
+        foreach (SerializedClass sClass in classes)
+        {
+            lines.Add($"# {sClass.name}");
+            lines.Add($"[switch to API](../../../Documentation/ScriptingAPI/en/{filename}.md)");
+            lines.Add("");
+            lines.Add($"{sClass.description}");
+            lines.Add("");
+            if (sClass.fields.Count > 0)
+            {
+                lines.Add("## Fields");
+                lines.Add("| Field | Description | Type |");
+                lines.Add("|--|--|--|");
+                foreach (SerializedField field in sClass.fields)
+                {
+                    lines.Add($"|{field.name}|{field.description}|{field.type}|");
+                }
+            }
+            if (sClass.properties.Count > 0)
+            {
+                lines.Add("## Properties");
+                lines.Add("| Property | Description | Type |");
+                lines.Add("|--|--|--|");
+                foreach (SerializedProperty property in sClass.properties)
+                {
+                    lines.Add($"|{property.name}|{property.description}|{property.type}|");
+                }
+            }
+            if (sClass.methods.Count > 0)
+            {
+                lines.Add("## Methods");
+                foreach (SerializedMethod method in sClass.methods)
+                {
+                    lines.Add($"### {method.name}");
+                    lines.Add(method.description);
+
+                    if(method.declaration != "")
+                    {
+                        lines.Add($"Declaration: {method.declaration}");
+                    }
+
+                    if (method.retunrs != "")
+                    {
+                        lines.Add($"Returns: {method.retunrs}");
+                    }
+                    if (method.parameters.Count > 0)
+                    {
+                        lines.Add("#### Parameters");
+                        lines.Add("| Name | Description |");
+                        lines.Add("|--|--|");
+                        foreach (SerializedMethodParam param in method.parameters)
+                        {
+                            lines.Add($"|{param.name}|{param.description}|");
+                        }
+                    }
+                }
+            }
+        }
+
+        StreamWriter sw = new StreamWriter($"{docsFolderPath}\\{filename}.md");
+
+        foreach (string line in lines)
+        {
+            sw.WriteLine(line);
+        }
+
+        lines.Clear();
+
+        sw.Close();
     }
 
     [Serializable]
