@@ -247,7 +247,7 @@ public class AutoDocsMD : MonoBehaviour
                         serClass.properties[pn] = propertie;
                     }
 
-                    for (int mn = 0; mn < serClass.properties.Count; mn++)
+                    for (int mn = 0; mn < serClass.methods.Count; mn++)
                     {
                         var method = serClass.methods[mn];
 
@@ -267,16 +267,11 @@ public class AutoDocsMD : MonoBehaviour
                                         method.retunrs = docStrings[i - 1].Replace("<r>", "");
                                     }
 
-                                    else if (docStrings[i - j].IndexOf("<r>") > -1)
-                                    {
-                                        method.retunrs = docStrings[i - 1].Replace("<r>", "");
-                                    }
-
-                                    else if (docStrings[i - j].IndexOf("<p>") > -1)
+                                    else if (docStrings[i - j].Contains("<p>"))
                                     {
                                         SerializedMethodParam param = new SerializedMethodParam();
 
-                                        while (docStrings[i - j].IndexOf("<p>") > -1)
+                                        while (docStrings[i - j].Contains("<r>"))
                                         {
                                             var str = "";
                                             str = docStrings[i - j].Replace("<p>", "");
@@ -346,12 +341,14 @@ public class AutoDocsMD : MonoBehaviour
 
                     if(method.declaration != "")
                     {
-                        lines.Add($"Declaration: {method.declaration}");
+                        lines.Add("#### Declaration:");
+                        lines.Add(method.declaration);
                     }
 
                     if (method.retunrs != "")
                     {
-                        lines.Add($"Returns: {method.retunrs}");
+                        lines.Add("#### Returns:");
+                        lines.Add(method.retunrs);
                     }
                     if (method.parameters.Count > 0)
                     {
@@ -377,6 +374,11 @@ public class AutoDocsMD : MonoBehaviour
         lines.Clear();
 
         sw.Close();
+    }
+
+    public void GenerateMDFromDirectory() 
+    {
+
     }
 
     [Serializable]
