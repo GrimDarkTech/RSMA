@@ -1,11 +1,5 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Text;
 using System.IO;
 using UnityEditor;
-using UnityEditor.VersionControl;
 using UnityEngine;
 
 
@@ -32,7 +26,7 @@ public class FirmwareCreator: EditorWindow
 
         if (GUILayout.Button("Create Firmware"))
         {
-            string filepath = Application.dataPath.Replace("Assets", "") + path + "/" + filename + ".cs";
+            string filepath = Application.dataPath.Replace("Assets", "") + path + filename + ".cs";
             if (!File.Exists(filepath))
             {
                 StreamWriter sw = new StreamWriter(filepath);
@@ -47,8 +41,12 @@ public class FirmwareCreator: EditorWindow
 
                 if (icon != null)
                 {
-                    EditorGUIUtility.SetIconForObject(AssetDatabase.LoadMainAssetAtPath(path + "/" + filename + ".cs"), icon);
-                    Debug.Log("Done");
+                    var firmwareScript = AssetImporter.GetAtPath(path) as MonoImporter;
+
+                    if(firmwareScript != null)
+                    {
+                        firmwareScript.SetIcon(icon);
+                    }
                 }
 
                 AssetDatabase.Refresh();
@@ -69,6 +67,7 @@ public class ProjectWindowContextMenu : Editor
     private static void ShowPopupWindow()
     {
         string path = AssetDatabase.GetAssetPath(Selection.activeObject);
+
         if (!string.IsNullOrEmpty(path))
         {
             FirmwareCreator.ShowWindow();

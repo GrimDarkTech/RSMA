@@ -151,7 +151,7 @@ public class RSMAStepperMotor : RSMADataTransferSlave
     private void OnDrawGizmosSelected()
     {
         var r = GetComponent<Renderer>();
-        var col = Color.yellow;
+        var col = Color.blue;
         col.a = 0.4f;
         float thickness = 1.5f;
         Vector3 start_point = Vector3.forward;
@@ -168,7 +168,7 @@ public class RSMAStepperMotor : RSMADataTransferSlave
         var d_next = Quaternion.AngleAxis(display_pos - Add_value, transform.forward) * transform.up;
 
 
-        Handles.color = Color.yellow;
+        Handles.color = Color.white;
         int count = (int)(360 / Add_value);
         for (int i = 0; i < count; i++)
         {
@@ -182,7 +182,7 @@ public class RSMAStepperMotor : RSMADataTransferSlave
         Handles.DrawLine(start_point, start_point + d_next, thickness);
 
         GUIStyle style = new GUIStyle();
-        style.normal.textColor = Color.red;
+        style.normal.textColor = Color.white;
         Handles.BeginGUI();
         Handles.Label(start_point + transform.right + transform.up, $"”гол шага: {GetStepAngle()}∞\n“ип шагового двигател€: ќбычный∞\n”гол поворота: {Mathf.Abs(display_pos)}", style);
     }
