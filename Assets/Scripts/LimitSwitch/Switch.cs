@@ -1,10 +1,9 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
-using UnityEditor;
 using UnityEngine;
-using UnityEngine.Events;
 
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 public class Switch : MonoBehaviour
 {
     public SwitchTypeEnum TypeEnum;
@@ -170,7 +169,7 @@ public class Switch : MonoBehaviour
     }
 }
 
-
+#if UNITY_EDITOR
 /// <summary>
 /// Settings for the unique display of limit switch data. 
 /// Deleted in the final build.
@@ -241,7 +240,6 @@ public class SwitchEditor : Editor
         float size_gizmo_sphere = EditorGUILayout.FloatField("Размер гизмо: ", switch_lever.SizeGizmoSphere);
         switch_lever.SizeGizmoSphere = size_gizmo_sphere < 0 ? 0 : size_gizmo_sphere;
     }
-
     private void SetLimits(ConfigurableJoint joint, int state_xMotion, int state_yMotion, int state_zMotion, int state_xAngular, int state_yAngular, int state_zAngular)
     {
         joint.xMotion = (ConfigurableJointMotion)state_xMotion;
@@ -291,3 +289,5 @@ public class SwitchEditor : Editor
         joint.angularXDrive = new JointDrive() { maximumForce = float.MaxValue, positionDamper = switch_lever.AngularDamper, positionSpring = switch_lever.AngularSpring };
     }
 }
+
+#endif

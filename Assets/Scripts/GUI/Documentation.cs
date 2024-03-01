@@ -3,6 +3,8 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
+#if UNITY_EDITOR
+
 public class Documentation : EditorWindow
 {
     [MenuItem("RSMA/Documentation")]
@@ -44,3 +46,5 @@ public class Documentation : EditorWindow
 
     }
 }
+
+#endif

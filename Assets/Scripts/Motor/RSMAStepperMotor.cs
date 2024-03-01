@@ -148,6 +148,8 @@ public class RSMAStepperMotor : RSMADataTransferSlave
         Hinje.useLimits = true;
     }
 
+#if UNITY_EDITOR
+
     private void OnDrawGizmosSelected()
     {
         var r = GetComponent<Renderer>();
@@ -186,6 +188,8 @@ public class RSMAStepperMotor : RSMADataTransferSlave
         Handles.BeginGUI();
         Handles.Label(start_point + transform.right + transform.up, $"”гол шага: {GetStepAngle()}∞\n“ип шагового двигател€: ќбычный∞\n”гол поворота: {Mathf.Abs(display_pos)}", style);
     }
+
+#endif
 }
 
 #if UNITY_EDITOR

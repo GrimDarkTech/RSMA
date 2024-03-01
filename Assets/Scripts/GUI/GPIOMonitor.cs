@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using System.Collections.Generic;
 
+#if UNITY_EDITOR
 public class GPIOMonitor : EditorWindow
 {
     private RSMAGPIO gpio;
@@ -81,3 +82,5 @@ public class GPIOMonitor : EditorWindow
     }
 
 }
+
+#endif

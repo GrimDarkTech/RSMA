@@ -2,6 +2,8 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
+#if UNITY_EDITOR
+
 public class AlignmentTool : EditorWindow
 {
     private GameObject mainObject;
@@ -53,3 +55,5 @@ public class AlignmentTool : EditorWindow
         }
     }
 }
+
+#endif

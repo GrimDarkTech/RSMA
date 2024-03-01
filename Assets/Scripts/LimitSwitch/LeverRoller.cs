@@ -1,8 +1,7 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.Events;
+
+using UnityEditor;
 
 [RequireComponent(typeof(HingeJoint))]
 public class LeverRoller : MonoBehaviour
@@ -70,6 +69,8 @@ public class LeverRoller : MonoBehaviour
     }
 }
 
+#if UNITY_EDITOR
+
 [CustomEditor(typeof(LeverRoller))]
 public class LeverRollerEditor : Editor
 {
@@ -129,3 +130,5 @@ public class LeverRollerEditor : Editor
         joint.anchor = lever.AnchorPostion;
     }
 }
+
+#endif

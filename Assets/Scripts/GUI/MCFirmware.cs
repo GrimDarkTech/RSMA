@@ -1,7 +1,9 @@
 using System.IO;
-using UnityEditor;
 using UnityEngine;
 
+#if UNITY_EDITOR
+
+using UnityEditor;
 
 public class FirmwareCreator: EditorWindow
 {
@@ -75,3 +77,5 @@ public class ProjectWindowContextMenu : Editor
         }
     }
 }
+
+#endif
