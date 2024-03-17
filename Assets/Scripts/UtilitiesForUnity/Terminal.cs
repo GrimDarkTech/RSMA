@@ -17,7 +17,8 @@ public class Terminal : MonoBehaviour
 
     private void Start()
     {
-        _inputField= GetComponentInChildren<InputField>();
+        _inputField = GetComponentInChildren<InputField>();
+        CommandHandler.terminal = this;
     }
     public void TurnOnOff()
     {
@@ -40,19 +41,27 @@ public class Terminal : MonoBehaviour
                 numOfLines = 1;
             }
 
-            string[] splited = _inputField.text.Split(" ");
+            string response = CommandHandler.Execute(_inputField.text);
 
-            if (splited.Length > 0 && splited[0] != "")
-            {
-                //RSMA Server.execute
-                _text.text += $"\n{_inputField.text}";
-            }
-            else
-            {
-                _text.text += $"\nInvalid command";
-            }
+            _text.text += $"\n{response}";
 
             _inputField.text = "";
+        }
+    }
+
+    public void Print(string text)
+    {
+        if (isEnabled)
+        {
+            numOfLines++;
+
+            if (numOfLines > 28)
+            {
+                _text.text = "RSMA..";
+                numOfLines = 1;
+            }
+
+            _text.text += text;
         }
     }
 }
