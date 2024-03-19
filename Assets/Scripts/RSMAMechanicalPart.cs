@@ -6,9 +6,9 @@ using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody))]
 
-public class RSMAMechanicalPart: MonoBehaviour
+public class RSMAMechanicalPart: MonoBehaviour, IRotationPowered
 {
-    private Rigidbody mRigidbody;
+    public Rigidbody rigidbody { get; set; }
 
     /// <summary>
     /// The mass of part in kilograms
@@ -23,13 +23,13 @@ public class RSMAMechanicalPart: MonoBehaviour
 
     private void OnEnable()
     {
-        if(mRigidbody == null)
+        if(rigidbody == null)
         {
-            mRigidbody = gameObject.GetComponent<Rigidbody>();
+            rigidbody = gameObject.GetComponent<Rigidbody>();
         }
-        mRigidbody.mass = mass;
-        mRigidbody.centerOfMass = centerOfMassPosition;
-        mRigidbody.WakeUp();
+        rigidbody.mass = mass;
+        rigidbody.centerOfMass = centerOfMassPosition;
+        rigidbody.WakeUp();
     }
 
 

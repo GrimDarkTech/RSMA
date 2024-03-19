@@ -2,8 +2,13 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class SymmetricDifferential : MonoBehaviour
+public class Differential : MonoBehaviour
 {
+    public AnimationCurve curver;
+
+    [SerializeField]
+    public RotationPowered drivers;
+
     public GameObject driver;
 
     public GameObject satelliteGear;
@@ -12,14 +17,9 @@ public class SymmetricDifferential : MonoBehaviour
 
     public GameObject leftGear;
 
+    public float rightGearRatio;
 
-    public float driverRadius;
-
-    public float satelliteGearRadius;
-
-    public float rightGearRadius;
-
-    public float leftGearRadius;
+    public float leftGearRatio;
 
 
     public float driverAngularVelocity;
@@ -33,8 +33,8 @@ public class SymmetricDifferential : MonoBehaviour
 
     private void Update()
     {
-        rightGearAngularVelocity  = leftGearAngularVelocity + 2 * driverAngularVelocity;
-        float satelliteGearAngularVelocity = (rightGearAngularVelocity * (rightGearAngularVelocity - driverAngularVelocity) - driverAngularVelocity * satelliteGearRadius) / rightGearRadius;
+        rightGearAngularVelocity = driverAngularVelocity * (rightGearRatio + 1) - rightGearRatio * satelliteGearAngularVelocity;
+        leftGearAngularVelocity = driverAngularVelocity * (-leftGearRatio + 1) + leftGearRatio * satelliteGearAngularVelocity;
 
         driver.transform.Rotate(0, 0, driverAngularVelocity);
         satelliteGear.transform.Rotate(0, 0, satelliteGearAngularVelocity);
