@@ -6,9 +6,6 @@ public class Differential : MonoBehaviour
 {
     public AnimationCurve curver;
 
-    [SerializeField]
-    public RotationPowered drivers;
-
     public GameObject driver;
 
     public GameObject satelliteGear;

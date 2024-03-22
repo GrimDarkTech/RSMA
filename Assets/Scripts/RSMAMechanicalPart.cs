@@ -6,9 +6,9 @@ using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody))]
 
-public class RSMAMechanicalPart: MonoBehaviour, IRotationPowered
+public class RSMAMechanicalPart: MonoBehaviour
 {
-    public Rigidbody rigidbody { get; set; }
+    private Rigidbody rigidbody;
 
     /// <summary>
     /// The mass of part in kilograms

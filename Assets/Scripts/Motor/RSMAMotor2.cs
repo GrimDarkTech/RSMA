@@ -15,6 +15,8 @@ public class RSMAMotor2 : MonoBehaviour
 
     private Rigidbody _rotor;
 
+    private IRotationPowered rotationPowered;
+
     protected float input = 0;
 
     public AnimationCurve mechanicalCharacteristics;
@@ -44,9 +46,6 @@ public class RSMAMotor2 : MonoBehaviour
     /// Represents the anchor for connected body
     /// </summary>
     public Vector3 connectedAnchor;
-    /// <summary>
-    /// Maximum torque of motor
-    /// </summary>
 
     private void Start()
     {
@@ -64,8 +63,13 @@ public class RSMAMotor2 : MonoBehaviour
             _hingeJoint.autoConfigureConnectedAnchor = true;
         }
 
-        _rotor = connectedBody.GetComponent<IRotationPowered>().rigidbody;
-        _hingeJoint.connectedBody = _rotor;
+        rotationPowered = GetComponent<IRotationPowered>();
+
+        if(rotationPowered == null)
+        {
+            _rotor = connectedBody.GetComponent<Rigidbody>();
+            _hingeJoint.connectedBody = _rotor;
+        }
     }
     private void FixedUpdate()
     {
@@ -74,13 +78,26 @@ public class RSMAMotor2 : MonoBehaviour
             input = motorDriver.getOutput();
         }
 
+        float angularVelocity;
+        float torque;
 
-        float rotorAngularVelocity = (_rigidbody.angularVelocity - _rotor.angularVelocity).magnitude;
+        if (rotationPowered == null)
+        {
+            angularVelocity = (_rigidbody.angularVelocity - _rotor.angularVelocity).magnitude;
+            torque = mechanicalCharacteristics.Evaluate(angularVelocity);
 
-        float torque = mechanicalCharacteristics.Evaluate(rotorAngularVelocity);
+            _rotor.AddTorque(motorAxis * torque * input);
 
-        _rotor.AddTorque(motorAxis * torque * input);
+            _rigidbody.AddRelativeTorque(-motorAxis * torque * input);
+        }
+        else
+        {
+            angularVelocity = rotationPowered.inputAngularVelocity;
+            torque = mechanicalCharacteristics.Evaluate(angularVelocity);
 
-        _rigidbody.AddRelativeTorque(- motorAxis * torque * input);
+            rotationPowered.inputTorque = torque;
+
+            _rigidbody.AddRelativeTorque(-motorAxis * torque * input);
+        }
     }
 }
