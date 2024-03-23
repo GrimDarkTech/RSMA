@@ -32,6 +32,8 @@ public class Gearbox : MonoBehaviour, IRotationPowered
     /// </summary>
     public Vector3 connectedAnchor;
 
+    public Vector3 outputTorque;
+
 
     private HingeJoint _hingeJoint;
 
@@ -55,10 +57,9 @@ public class Gearbox : MonoBehaviour, IRotationPowered
 
         if (isResetAnchor)
         {
-            _hingeJoint.anchor = anchor;
             _hingeJoint.autoConfigureConnectedAnchor = false;
+            _hingeJoint.anchor = anchor;
             _hingeJoint.connectedAnchor = connectedAnchor;
-            _hingeJoint.autoConfigureConnectedAnchor = true;
         }
 
         _rotor = connectedBody.GetComponent<Rigidbody>();
@@ -68,10 +69,23 @@ public class Gearbox : MonoBehaviour, IRotationPowered
     }
     private void FixedUpdate()
     {
-        _rotor.AddTorque(gearboxAxis * inputTorque * ratio);
+        _rotor.AddRelativeTorque(gearboxAxis * inputTorque * ratio);
+
+        outputTorque = gearboxAxis * inputTorque * ratio;
 
         rigidbody.AddRelativeTorque(-gearboxAxis * inputTorque * ratio);
 
         inputAngularVelocity = (_rotor.angularVelocity - rigidbody.angularVelocity).magnitude * ratio;
+    }
+
+    private void OnDrawGizmos()
+    {
+        Gizmos.color = Color.red;
+        Gizmos.DrawRay(transform.TransformPoint(anchor), (transform.right * gearboxAxis.x + transform.up * gearboxAxis.y + transform.forward * gearboxAxis.z) * 0.01f);
+        Gizmos.DrawSphere(transform.TransformPoint(anchor), 0.002f);
+
+        Gizmos.color = Color.green;
+        Gizmos.DrawRay(transform.TransformPoint(connectedAnchor), (transform.right * gearboxAxis.x + transform.up * gearboxAxis.y + transform.forward * gearboxAxis.z) * 0.01f);
+        Gizmos.DrawSphere(transform.TransformPoint(connectedAnchor), 0.002f);
     }
 }

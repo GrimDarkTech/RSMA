@@ -1,4 +1,3 @@
-using System.Security.Policy;
 using UnityEngine;
 using UnityEditor;
 /// <summary>
@@ -37,22 +36,3 @@ public class RSMAFixed : MonoBehaviour
     }
 
 }
-#if UNITY_EDITOR
-
-[CustomEditor(typeof(RSMAFixed))]
-public class RSMAFixedEditor : Editor
-{
-    
-    public override void OnInspectorGUI()
-    {
-        DrawDefaultInspector();
-
-        if (GUILayout.Button("Read manual"))
-        {
-            Application.OpenURL("https://github.com/GrimDarkTech/RSMADocs/blob/main/Manual/en/RSMAModule.cs.md");
-        }
-    }
-
-}
-
-#endif

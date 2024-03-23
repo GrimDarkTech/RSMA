@@ -1,4 +1,5 @@
 using System.ComponentModel.Design.Serialization;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 
 /// <summary>
@@ -6,7 +7,6 @@ using UnityEngine;
 /// </summary>
 
 [RequireComponent(typeof(Rigidbody))]
-[RequireComponent(typeof(HingeJoint))]
 public class RSMAMotor2 : MonoBehaviour
 {
     private HingeJoint _hingeJoint;
@@ -47,28 +47,29 @@ public class RSMAMotor2 : MonoBehaviour
     /// </summary>
     public Vector3 connectedAnchor;
 
+    public float outputTorque;
+
     private void Start()
     {
         _rigidbody= GetComponent<Rigidbody>();
-        _hingeJoint= GetComponent<HingeJoint>();
 
-        _hingeJoint.axis = motorAxis;
+        rotationPowered = connectedBody.GetComponent<IRotationPowered>();
 
-
-        if (isResetMotorAnchor)
+        if (rotationPowered == null)
         {
-            _hingeJoint.anchor = motorAnchor;
-            _hingeJoint.autoConfigureConnectedAnchor = false;
-            _hingeJoint.connectedAnchor = connectedAnchor;
-            _hingeJoint.autoConfigureConnectedAnchor = true;
-        }
-
-        rotationPowered = GetComponent<IRotationPowered>();
-
-        if(rotationPowered == null)
-        {
+            _hingeJoint = gameObject.AddComponent<HingeJoint>();
             _rotor = connectedBody.GetComponent<Rigidbody>();
             _hingeJoint.connectedBody = _rotor;
+
+            _hingeJoint.axis = motorAxis;
+
+            if (isResetMotorAnchor)
+            {
+                _hingeJoint.anchor = motorAnchor;
+                _hingeJoint.autoConfigureConnectedAnchor = false;
+                _hingeJoint.connectedAnchor = connectedAnchor;
+                _hingeJoint.autoConfigureConnectedAnchor = true;
+            }
         }
     }
     private void FixedUpdate()
@@ -95,9 +96,11 @@ public class RSMAMotor2 : MonoBehaviour
             angularVelocity = rotationPowered.inputAngularVelocity;
             torque = mechanicalCharacteristics.Evaluate(angularVelocity);
 
-            rotationPowered.inputTorque = torque;
+            rotationPowered.inputTorque = torque * input;
 
             _rigidbody.AddRelativeTorque(-motorAxis * torque * input);
         }
+
+        outputTorque = torque * input;
     }
 }
