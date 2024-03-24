@@ -20,6 +20,8 @@ public class RSMAMechanicalPart: MonoBehaviour
     /// </summary>
     public Vector3 centerOfMassPosition = Vector3.zero;
 
+    public bool isDrawCenterOfMass = true;
+
 
     private void OnEnable()
     {
@@ -32,5 +34,12 @@ public class RSMAMechanicalPart: MonoBehaviour
         rigidbody.WakeUp();
     }
 
-
+    private void OnDrawGizmos()
+    {
+        if (isDrawCenterOfMass)
+        {
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawSphere(transform.TransformPoint(centerOfMassPosition), 0.002f);
+        }
+    }
 }

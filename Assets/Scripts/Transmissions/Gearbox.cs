@@ -32,12 +32,14 @@ public class Gearbox : MonoBehaviour, IRotationPowered
     /// </summary>
     public Vector3 connectedAnchor;
 
+    public float maxAngularVelocity = 523f;
+
+    public bool isDrawAnchors = true;
+
     public Vector3 outputTorque;
 
 
     private HingeJoint _hingeJoint;
-
-    private Rigidbody _rotor;
 
 
     public Rigidbody rigidbody { get; set; }
@@ -62,30 +64,32 @@ public class Gearbox : MonoBehaviour, IRotationPowered
             _hingeJoint.connectedAnchor = connectedAnchor;
         }
 
-        _rotor = connectedBody.GetComponent<Rigidbody>();
-        _hingeJoint.connectedBody = _rotor;
+        _hingeJoint.connectedBody = connectedBody;
 
-        _rotor.maxAngularVelocity = 1048f;
+        connectedBody.maxAngularVelocity = maxAngularVelocity;
     }
     private void FixedUpdate()
     {
-        _rotor.AddRelativeTorque(gearboxAxis * inputTorque * ratio);
+        connectedBody.AddRelativeTorque(gearboxAxis * inputTorque * ratio);
 
         outputTorque = gearboxAxis * inputTorque * ratio;
 
         rigidbody.AddRelativeTorque(-gearboxAxis * inputTorque * ratio);
 
-        inputAngularVelocity = (_rotor.angularVelocity - rigidbody.angularVelocity).magnitude * ratio;
+        inputAngularVelocity = (connectedBody.angularVelocity - rigidbody.angularVelocity).magnitude * ratio;
     }
 
     private void OnDrawGizmos()
     {
-        Gizmos.color = Color.red;
-        Gizmos.DrawRay(transform.TransformPoint(anchor), (transform.right * gearboxAxis.x + transform.up * gearboxAxis.y + transform.forward * gearboxAxis.z) * 0.01f);
-        Gizmos.DrawSphere(transform.TransformPoint(anchor), 0.002f);
+        if (isDrawAnchors)
+        {
+            Gizmos.color = Color.red;
+            Gizmos.DrawRay(transform.TransformPoint(anchor), (transform.right * gearboxAxis.x + transform.up * gearboxAxis.y + transform.forward * gearboxAxis.z) * 0.01f);
+            Gizmos.DrawSphere(transform.TransformPoint(anchor), 0.002f);
 
-        Gizmos.color = Color.green;
-        Gizmos.DrawRay(transform.TransformPoint(connectedAnchor), (transform.right * gearboxAxis.x + transform.up * gearboxAxis.y + transform.forward * gearboxAxis.z) * 0.01f);
-        Gizmos.DrawSphere(transform.TransformPoint(connectedAnchor), 0.002f);
+            Gizmos.color = Color.green;
+            Gizmos.DrawRay(connectedBody.gameObject.transform.TransformPoint(connectedAnchor), (transform.right * gearboxAxis.x + transform.up * gearboxAxis.y + transform.forward * gearboxAxis.z) * 0.01f);
+            Gizmos.DrawSphere(connectedBody.gameObject.transform.TransformPoint(connectedAnchor), 0.002f);
+        }
     }
 }
