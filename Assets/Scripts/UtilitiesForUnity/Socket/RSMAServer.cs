@@ -1,3 +1,5 @@
+using System.Net.NetworkInformation;
+
 public class RSMAServer : SocketServer
 {
     public override void OnClientConnected(string clientName)
@@ -18,7 +20,16 @@ public class RSMAServer : SocketServer
     {
         if (CommandHandler.terminal != null)
         {
-            CommandHandler.terminal.Print($"\nRecived message from {clientName}: {message}");
+            if (message.Contains("<|CMD|>"))
+            {
+                message = message.Replace("<|CMD|>", "");
+                string reply = CommandHandler.Execute(message);
+                SendMessageToClientAsync(clientName, reply); 
+            }
+            else
+            {
+                CommandHandler.terminal.Print($"\nRecived message from {clientName}: {message}");
+            }
         }
     }
 }

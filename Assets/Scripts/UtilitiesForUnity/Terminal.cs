@@ -46,13 +46,17 @@ public class Terminal : MonoBehaviour
             _text.text += $"\n{response}";
 
             _inputField.text = "";
+
+            _inputField.ActivateInputField();
+        }
+        else if (Input.GetKey(KeyCode.LeftControl) && Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.T))
+        {
+            TurnOnOff();
         }
     }
 
     public void Print(string text)
     {
-        if (isEnabled)
-        {
             numOfLines++;
 
             if (numOfLines > 28)
@@ -62,6 +66,5 @@ public class Terminal : MonoBehaviour
             }
 
             _text.text += text;
-        }
     }
 }

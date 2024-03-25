@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public static class CommandHandler
 {
@@ -68,6 +69,13 @@ public static class CommandHandler
                     {
                         return "Invalid argument for server";
                     }
+                case "scene":
+                    if(splited.Length > 2 && splited[1] == "load")
+                    {
+                        SceneManager.LoadScene(splited[2]);
+                        return $"Loading scene {splited[2]}";
+                    }
+                    return "Invalid argument for scene";
                 default:
                     return "Invalid command";
             }
