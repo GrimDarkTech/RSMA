@@ -12,11 +12,11 @@ public class Gearbox : MonoBehaviour, IRotationPowered
     /// </summary>
     public float ratio;
     /// <summary>
-    /// Body used as a motor rotor
+    /// Body connected to output of the gearbox
     /// </summary>
     public Rigidbody connectedBody;
     /// <summary>
-    /// Driver connected to motor
+    /// Axis of output of the gearbox
     /// </summary>
     public Vector3 gearboxAxis;
     /// <summary>
