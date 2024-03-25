@@ -3,10 +3,9 @@ using UnityEngine;
 /// Simulates the behavior of the axial connection. The hinge joint is used to simulate the interaction of two rigid bodies
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
-[RequireComponent(typeof(HingeJoint))]
 public class RSMAHinge : MonoBehaviour
 {
-    private HingeJoint axisHingeJoint;
+    private HingeJoint _hingeJoint;
 
     /// <summary>
     /// Body connected to joint
@@ -17,28 +16,38 @@ public class RSMAHinge : MonoBehaviour
     /// </summary>
     public Vector3 axis;
 
+    public bool isResetAnchor;
+    /// <summary>
+    /// Represents the Motor Anchor
+    /// </summary>
+    public Vector3 anchor;
+    /// <summary>
+    /// Represents the anchor for connected body
+    /// </summary>
+    public Vector3 connectedAnchor;
 
+    public bool isDrawAnchors = true;
 
     void Start()
     {
-        Init();
-        SetAxis(axis);
-        axisHingeJoint.anchor= Vector3.zero;
-        axisHingeJoint.connectedBody= connectedBody;
+        _hingeJoint = gameObject.AddComponent<HingeJoint>();
+        
+        _hingeJoint.axis = axis;
+        _hingeJoint.connectedBody = connectedBody;
+        _hingeJoint.anchor = anchor;
+        _hingeJoint.connectedAnchor = connectedAnchor;
     }
-    /// <summary>
-    /// Sets up joint and gets refernce
-    /// </summary>
-    public void Init()
+    private void OnDrawGizmos()
     {
-        axisHingeJoint = gameObject.GetComponent<HingeJoint>();
-    }
-    /// <summary>
-    /// Sets axis
-    /// </summary>
-    /// <param name="axis">axis in relative tranform</param>
-    public void SetAxis(Vector3 axis)
-    {
-        axisHingeJoint.axis = axis;
+        if (isDrawAnchors)
+        {
+            Gizmos.color = Color.red;
+            Gizmos.DrawRay(transform.TransformPoint(anchor), (transform.right * axis.x + transform.up * axis.y + transform.forward * axis.z) * 0.01f);
+            Gizmos.DrawSphere(transform.TransformPoint(anchor), 0.002f);
+
+            Gizmos.color = Color.green;
+            Gizmos.DrawRay(connectedBody.gameObject.transform.TransformPoint(connectedAnchor), (transform.right * axis.x + transform.up * axis.y + transform.forward * axis.z) * 0.01f);
+            Gizmos.DrawSphere(connectedBody.gameObject.transform.TransformPoint(connectedAnchor), 0.002f);
+        }
     }
 }

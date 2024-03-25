@@ -1,5 +1,3 @@
-using System.ComponentModel.Design.Serialization;
-using UnityEditor.SceneManagement;
 using UnityEngine;
 
 /// <summary>

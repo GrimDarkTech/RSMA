@@ -9,124 +9,98 @@ public class RSMAServo : MonoBehaviour
     /// <summary>
     /// Body used as a motor rotor
     /// </summary>
-    public Rigidbody rotor;
+    public Rigidbody connectedBody;
     /// <summary>
     /// Represents the motor axis, emanating from origin
     /// </summary>
-    public Vector3 startMotorAxis;
+    public Vector3 axis;
     /// <summary>
     /// Microcontroller GPIO connected to servo
     /// </summary>
-    public RSMAGPIO connectMicrocontroller;
-    /// <summary>
-    /// Angles
-    /// </summary>
-    public Vector2 limits;
+    public RSMAGPIO microcontroller;
     /// <summary>
     /// Microcontroller GPIO port pin connected to servo
     /// </summary>
     public ConnectedPin connectedPin;
     /// <summary>
+    /// Is servo has limits
+    /// </summary>
+    public bool isUseLimits;
+    /// <summary>
+    /// Angles
+    /// </summary>
+    public Vector2 limits;
+    /// <summary>
     /// Maximum torque
     /// </summary>
     public float torque = 1;
     /// <summary>
-    /// Maximum angle
-    /// </summary>
-    public float maxAngle = 180;
-    /// <summary>
     /// Damper factor
     /// </summary>
     public float damper = 0.5f;
+
+
+    public bool isResetAnchor;
     /// <summary>
-    /// Is servo has limits
+    /// Represents the Motor Anchor
     /// </summary>
-    public bool isUseLimit;
+    public Vector3 anchor;
+    /// <summary>
+    /// Represents the anchor for connected body
+    /// </summary>
+    public Vector3 connectedAnchor;
 
-    protected HingeJoint motorHingeJoint;
-    protected Rigidbody motorRigidbody;
+    public bool isDrawAnchors = true;
+
+    protected HingeJoint _hingeJoint;
+    protected Rigidbody _rigidbody;
+
     protected float input = 0;
-
-    private JointSpring spring;
-    private JointLimits limit;
 
     void Start()
     {
-        MotorInit();
-        SetMotorAxis(startMotorAxis);
-        SetMotorAnchor(new Vector3(0, 0, 0));
-        SetSpringActive(true);
-        SetLimitsActive(isUseLimit);
-        SetRotor(rotor);
+        _hingeJoint = gameObject.GetComponent<HingeJoint>();
+        _rigidbody = gameObject.GetComponent<Rigidbody>();
+
+        _hingeJoint.axis = axis;
+        _hingeJoint.connectedBody = connectedBody;
+        _hingeJoint.anchor = anchor;
+        _hingeJoint.connectedAnchor = connectedAnchor;
+
+        _hingeJoint.useLimits = isUseLimits;
+        var jointLimits = new JointLimits();
+        jointLimits.min = limits.x;
+        jointLimits.max = limits.y;
+        _hingeJoint.limits = jointLimits;
+
+        _hingeJoint.useSpring = true;
+        var jointSpring = new JointSpring();
+        jointSpring.spring = torque;
+        jointSpring.damper = damper;
+
+        _hingeJoint.spring = jointSpring;
     }
     void FixedUpdate()
     {
-        input = connectMicrocontroller.GetPin(connectedPin).value + 0.005f;
-        SetTargetAngle(input * maxAngle);
-        SetDamper(damper);
-        SetTorque(torque);
-        SetLimits();
-    }
-    /// <summary>
-    /// Inits motor and sets up motor component
-    /// </summary>
-    public void MotorInit()
-    {
-        motorHingeJoint = gameObject.GetComponent<HingeJoint>();
-        motorRigidbody = gameObject.GetComponent<Rigidbody>();
+        input = microcontroller.GetPin(connectedPin).value;
 
-        spring = motorHingeJoint.spring;
-        limit = motorHingeJoint.limits;
-    }
-    public void SetMotorAxis(Vector3 newMotorAxis)
-    {
-        motorHingeJoint.axis = newMotorAxis;
-    }
-    public Vector3 GetMotorAxis()
-    {
-        return motorHingeJoint.axis;
-    }
-    public void SetMotorAxis(float newMotorX, float newMotorY, float newMotorZ)
-    {
-        Vector3 newMotorAxis = new Vector3(newMotorX, newMotorY, newMotorZ);
-        motorHingeJoint.axis = newMotorAxis;
-    }
-    public void SetMotorAnchor(Vector3 newMotorAnchor)
-    {
-        motorHingeJoint.anchor = newMotorAnchor;
+        var jointSpring = _hingeJoint.spring;
+        jointSpring.targetPosition = input * (limits.y - limits.x) + limits.x;
+        _hingeJoint.spring = jointSpring;
+
     }
 
-    public void SetSpringActive(bool isSpringActive)
+    private void OnDrawGizmos()
     {
-        motorHingeJoint.useSpring = isSpringActive;
-    }
-    public void SetLimitsActive(bool isLimitsActive)
-    {
-        motorHingeJoint.useLimits = isLimitsActive;
-    }
-    public void SetRotor(Rigidbody newRotor)
-    {
-        motorHingeJoint.connectedBody = newRotor;
-    }
-    public void SetTargetAngle(float targetAngle)
-    {
-        spring.targetPosition = targetAngle-maxAngle/2;
-        motorHingeJoint.spring = spring;
-    }
-    public void SetTorque(float newTorque)
-    {
-        spring.spring = newTorque;
-        motorHingeJoint.spring = spring;
-    }
-    public void SetDamper(float newDamper)
-    {
-        spring.damper = newDamper;
-        motorHingeJoint.spring = spring;
-    }
-    public void SetLimits()
-    {
-        limit.min = limits.x;
-        limit.max = limits.y;
-        motorHingeJoint.limits = limit;
+        if (isDrawAnchors)
+        {
+            Gizmos.color = Color.red;
+            Gizmos.DrawRay(transform.TransformPoint(anchor), (transform.right * axis.x + transform.up * axis.y + transform.forward * axis.z) * 0.01f);
+            Gizmos.DrawSphere(transform.TransformPoint(anchor), 0.002f);
+
+            Gizmos.color = Color.green;
+            Gizmos.DrawRay(connectedBody.gameObject.transform.TransformPoint(connectedAnchor), (transform.right * axis.x + transform.up * axis.y + transform.forward * axis.z) * 0.01f);
+            Gizmos.DrawSphere(connectedBody.gameObject.transform.TransformPoint(connectedAnchor), 0.002f);
+        }
     }
 }
