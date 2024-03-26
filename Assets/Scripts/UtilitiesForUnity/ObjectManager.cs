@@ -1,0 +1,115 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using Unity.Collections.LowLevel.Unsafe;
+using UnityEngine;
+using UnityEngine.UIElements;
+
+public class ObjectManager : MonoBehaviour
+{
+    public List<PrefabInfo> dronePrefabs;
+
+    public List<PrefabInfo> robotsPrefabs;
+
+    public List<PrefabInfo> wallsPrefabs;
+
+    public List<PrefabInfo> markersPrefabs;
+
+    [Space(15)]
+
+    public List<RSMADrone> drones;
+
+    public List<GameObject> robots;
+    public List<RSMAGPIO> GPIOs;
+
+    public List<GameObject> walls;
+
+    public List<GameObject> markers;
+
+    private void Start()
+    {
+        CommandHandler.objectManager = this;
+    }
+
+    public void InstantiateRobot(string name, Vector3 position, Vector3 rotation)
+    {
+        PrefabInfo prefabInfo = robotsPrefabs.Find(x => x.name == name);
+        if (prefabInfo != null)
+        {
+            var robot = Instantiate(prefabInfo.prefab, position, Quaternion.Euler(rotation));
+
+            robots.Add(robot);
+
+            RSMAGPIO gpio = robot.GetComponentInChildren<RSMAGPIO>();
+
+            GPIOs.Add(gpio);
+        }
+    }
+
+    public void GPIOWrite(int id, string portName, string pinName, float value)
+    {
+        RSMAGPIO gpio = GPIOs[id];
+        
+        gpio.WritePin(portName, pinName, value);    
+    }
+    public float GPIORead(int id, string portName, string pinName)
+    {
+        RSMAGPIO gpio = GPIOs[id];
+
+        return gpio.ReadPin(portName, pinName);
+    }
+
+    public void InstantiateWall(Vector3 start, Vector3 end, float height, float width)
+    {
+        PrefabInfo prefabInfo = wallsPrefabs.Find(x => x.name == "Wall");
+        if (prefabInfo != null)
+        {
+            var wall = Instantiate(prefabInfo.prefab);
+
+            wall.transform.localScale = new Vector3(width, height, Vector3.Distance(end, start));
+            wall.transform.rotation = Quaternion.LookRotation(end - start);
+
+            walls.Add(wall);
+        }
+    }
+
+    public void InstantiateMarker(string name, Vector3 position)
+    {
+        PrefabInfo prefabInfo = markersPrefabs.Find(x => x.name == name);
+        if (prefabInfo != null)
+        {
+            markers.Add(Instantiate(prefabInfo.prefab, position, prefabInfo.prefab.transform.rotation));
+        }
+    }
+    public void InstantiateDrone(Vector3 position)
+    {
+        PrefabInfo prefabInfo = dronePrefabs.Find(x => x.name == "RSMADrone");
+        if (prefabInfo != null)
+        {
+            var drone = Instantiate(prefabInfo.prefab, position, prefabInfo.prefab.transform.rotation);
+            drones.Add(drone.GetComponent<RSMADrone>());
+        }
+    }
+
+    public void DroneMove(int id, Vector3 acceleration, float yaw)
+    {
+        RSMADrone drone = drones[id];
+
+        drone.targetAcceleration = acceleration;
+        drone.yaw = yaw;
+    }
+    public void DroneCamera(int id, Vector3 rotation, float smooth)
+    {
+        RSMADrone drone = drones[id];
+
+        drone.cameraRotation = rotation;
+        drone.cameraTurnSmoothness = smooth;
+    }
+
+    [Serializable]
+    public class PrefabInfo
+    {
+        public string name;
+        public GameObject prefab;
+    }
+}

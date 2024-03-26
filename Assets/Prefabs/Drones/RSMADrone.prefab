@@ -262,7 +262,6 @@ GameObject:
   m_Component:
   - component: {fileID: 7730777890730172157}
   - component: {fileID: 7730777890730172159}
-  - component: {fileID: 7730777890730172158}
   m_Layer: 0
   m_Name: Camera
   m_TagString: Untagged
@@ -328,14 +327,6 @@ Camera:
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
   m_StereoSeparation: 0.022
---- !u!81 &7730777890730172158
-AudioListener:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7730777890730172156}
-  m_Enabled: 1
 --- !u!1 &7730777891183039099
 GameObject:
   m_ObjectHideFlags: 0
@@ -364,7 +355,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7730777891183039099}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.363, y: 0.553, z: 0.265}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -441,6 +432,9 @@ MonoBehaviour:
     position: {x: 0, y: 0, z: 0}
     angularVelocity: {x: 0, y: 0, z: 0}
     rotation: {x: 0, y: 0, z: 0}
+  isLockCamera: 0
+  cameraRotation: {x: 0, y: 0, z: 0}
+  cameraTurnSmoothness: 0.05
 --- !u!1 &7730777891792102849
 GameObject:
   m_ObjectHideFlags: 0

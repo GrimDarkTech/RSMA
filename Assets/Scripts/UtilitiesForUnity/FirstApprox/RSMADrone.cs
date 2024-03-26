@@ -15,6 +15,8 @@ public class RSMADrone : MonoBehaviour
 
     private Vector3 acceleration = Vector3.zero;
 
+    [Space(15)]
+
     public Vector3 targetAcceleration;
     public float yaw = 0f;
 
