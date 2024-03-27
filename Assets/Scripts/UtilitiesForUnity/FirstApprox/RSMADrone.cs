@@ -18,15 +18,20 @@ public class RSMADrone : MonoBehaviour
     [Space(15)]
 
     public Vector3 targetAcceleration;
+
     public float yaw = 0f;
 
-    public DroneGyro gyro;
+    public float droneTurnSmoothness = 0.4f;
+
+    [Space(15)]
 
     public bool isLockCamera;
 
     public Vector3 cameraRotation;
 
     public float cameraTurnSmoothness = 0.05f;
+
+    public DroneGyro gyro;
 
     private void Start()
     {
