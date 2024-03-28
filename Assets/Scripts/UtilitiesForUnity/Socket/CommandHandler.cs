@@ -125,7 +125,7 @@ public static class CommandHandler
                     }
                     return "Invalid argument for robot";
 
-                case "gpioWrite":
+                case "gpio_write":
                     if (splited.Length > 4)
                     {
                         int id = int.Parse(splited[1]);
@@ -138,7 +138,7 @@ public static class CommandHandler
                     }
                     return "Invalid argument for gpioWrite";
 
-                case "gpioRead":
+                case "gpio_read":
                     if (splited.Length > 3)
                     {
                         int id = int.Parse(splited[1]);
@@ -163,7 +163,7 @@ public static class CommandHandler
                     }
                     return "Invalid argument for drone";
 
-                case "droneMove":
+                case "drone_move":
                     if (splited.Length > 5)
                     {
                         int id = int.Parse(splited[1]);
@@ -176,9 +176,9 @@ public static class CommandHandler
                         objectManager.DroneMove(id, acceleration, yaw);
                         return $"Done";
                     }
-                    return "Invalid argument for droneMove";
+                    return "Invalid argument for drone_move";
 
-                case "droneCamera":
+                case "drone_camera":
                     if (splited.Length > 5)
                     {
                         int id = int.Parse(splited[1]);
@@ -191,7 +191,18 @@ public static class CommandHandler
                         objectManager.DroneCamera(id, rotation, smooth);
                         return $"Done";
                     }
-                    return "Invalid argument for droneCamera";
+                    return "Invalid argument for drone_camera";
+
+                case "drone_manual_control":
+                    if (splited.Length > 2)
+                    {
+                        int id = int.Parse(splited[1]);
+                        bool mode = bool.Parse(splited[2]);
+
+                        objectManager.DroneManualControl(id, mode);
+                        return $"Done";
+                    }
+                    return "Invalid argument for drone_manual_control";
                 default:
                     return "Invalid command";
             }

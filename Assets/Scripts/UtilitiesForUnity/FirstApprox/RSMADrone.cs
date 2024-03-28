@@ -44,7 +44,8 @@ public class RSMADrone : MonoBehaviour
     {
         float pitch = Mathf.Atan2(targetAcceleration.z, targetAcceleration.y + _gravity);
         float roll = Mathf.Atan2(-targetAcceleration.x, targetAcceleration.y + _gravity);
-        transform.localRotation = Quaternion.Euler(pitch * Mathf.Rad2Deg, yaw * Mathf.Rad2Deg, roll * Mathf.Rad2Deg);
+
+        transform.rotation = Quaternion.Euler(pitch * Mathf.Rad2Deg, yaw * Mathf.Rad2Deg, roll * Mathf.Rad2Deg);
 
         if (pitch == 0 && roll == 0)
         {

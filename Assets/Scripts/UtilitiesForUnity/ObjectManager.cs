@@ -1,21 +1,10 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
-using UnityEngine.UIElements;
 
 public class ObjectManager : MonoBehaviour
 {
-    public List<PrefabInfo> dronePrefabs;
-
-    public List<PrefabInfo> robotsPrefabs;
-
-    public List<PrefabInfo> wallsPrefabs;
-
-    public List<PrefabInfo> markersPrefabs;
-
-    [Space(15)]
+    public PrefabData prefabData;
 
     public List<RSMADrone> drones;
 
@@ -33,7 +22,7 @@ public class ObjectManager : MonoBehaviour
 
     public void InstantiateRobot(string name, Vector3 position, Vector3 rotation)
     {
-        PrefabInfo prefabInfo = robotsPrefabs.Find(x => x.name == name);
+        PrefabInfo prefabInfo = prefabData.robots.Find(x => x.name == name);
         if (prefabInfo != null)
         {
             var robot = Instantiate(prefabInfo.prefab, position, Quaternion.Euler(rotation));
@@ -61,7 +50,7 @@ public class ObjectManager : MonoBehaviour
 
     public void InstantiateWall(Vector3 start, Vector3 end, float height, float width)
     {
-        PrefabInfo prefabInfo = wallsPrefabs.Find(x => x.name == "Wall");
+        PrefabInfo prefabInfo = prefabData.walls.Find(x => x.name == "Wall");
         if (prefabInfo != null)
         {
             var wall = Instantiate(prefabInfo.prefab);
@@ -75,7 +64,7 @@ public class ObjectManager : MonoBehaviour
 
     public void InstantiateMarker(string name, Vector3 position)
     {
-        PrefabInfo prefabInfo = markersPrefabs.Find(x => x.name == name);
+        PrefabInfo prefabInfo = prefabData.markers.Find(x => x.name == name);
         if (prefabInfo != null)
         {
             markers.Add(Instantiate(prefabInfo.prefab, position, prefabInfo.prefab.transform.rotation));
@@ -83,7 +72,7 @@ public class ObjectManager : MonoBehaviour
     }
     public void InstantiateDrone(Vector3 position)
     {
-        PrefabInfo prefabInfo = dronePrefabs.Find(x => x.name == "RSMADrone");
+        PrefabInfo prefabInfo = prefabData.drones.Find(x => x.name == "RSMADrone");
         if (prefabInfo != null)
         {
             var drone = Instantiate(prefabInfo.prefab, position, prefabInfo.prefab.transform.rotation);
@@ -105,6 +94,12 @@ public class ObjectManager : MonoBehaviour
         drone.cameraRotation = rotation;
         drone.cameraTurnSmoothness = smooth;
     }
+    public void DroneManualControl(int id, bool mode)
+    {
+        RSMADrone drone = drones[id];
+
+        drone.gameObject.GetComponent<DroneInput>().enabled = mode;
+    }
 
     [Serializable]
     public class PrefabInfo
@@ -113,3 +108,4 @@ public class ObjectManager : MonoBehaviour
         public GameObject prefab;
     }
 }
+
