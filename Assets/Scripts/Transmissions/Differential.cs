@@ -60,6 +60,11 @@ public class Differential : MonoBehaviour, IRotationPowered
 
     [Space(10)]
 
+    /// <summary>
+    /// Braking factor
+    /// </summary>
+    public float brakingFactor = 0.01f;
+
     private HingeJoint _rightHingeJoint;
     private HingeJoint _leftHingeJoint;
 
@@ -103,6 +108,14 @@ public class Differential : MonoBehaviour, IRotationPowered
 
         rightConnectedBody.maxAngularVelocity = maxAngularVelocity;
         leftConnectedBody.maxAngularVelocity = maxAngularVelocity;
+
+        _rightHingeJoint.useSpring = true;
+        _leftHingeJoint.useSpring = true;
+
+        JointSpring spring = new JointSpring();
+        spring.damper = brakingFactor;
+        _rightHingeJoint.spring = spring;
+        _leftHingeJoint.spring = spring;
     }
 
     private void Update()

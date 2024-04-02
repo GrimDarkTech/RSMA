@@ -16,6 +16,10 @@ public class Gearbox : MonoBehaviour, IRotationPowered
     /// </summary>
     public Rigidbody connectedBody;
     /// <summary>
+    /// Braking factor
+    /// </summary>
+    public float brakingFactor = 0.01f;
+    /// <summary>
     /// Axis of output of the gearbox
     /// </summary>
     public Vector3 gearboxAxis;
@@ -67,14 +71,18 @@ public class Gearbox : MonoBehaviour, IRotationPowered
         _hingeJoint.connectedBody = connectedBody;
 
         connectedBody.maxAngularVelocity = maxAngularVelocity;
+
+        _hingeJoint.useSpring = true;
+
+        JointSpring spring = new JointSpring();
+        spring.damper = brakingFactor;
+        _hingeJoint.spring = spring;
     }
     private void FixedUpdate()
     {
         connectedBody.AddRelativeTorque(gearboxAxis * inputTorque * ratio);
 
         outputTorque = gearboxAxis * inputTorque * ratio;
-
-        rigidbody.AddRelativeTorque(-gearboxAxis * inputTorque * ratio);
 
         inputAngularVelocity = (connectedBody.angularVelocity - rigidbody.angularVelocity).magnitude * ratio;
     }

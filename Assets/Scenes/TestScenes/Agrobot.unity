@@ -922,26 +922,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5128b04e44b54d248a57639cbc82c2b4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  dronePrefabs:
-  - name: RSMADrone
-    prefab: {fileID: 7730777891183039099, guid: 9e672873a3f0d274b81bf6055a3cb7be, type: 3}
-  robotsPrefabs:
-  - name: DarkieBot_Altushka
-    prefab: {fileID: 4537476969886884029, guid: 666ad533e6c67ee4bbb3da609f2268c1, type: 3}
-  - name: DarkieBot_Skuf
-    prefab: {fileID: 1647682621787858675, guid: 001e28360af53a04e8a50b46e628041e, type: 3}
-  wallsPrefabs:
-  - name: Wall
-    prefab: {fileID: 8039270318204828453, guid: be856ee65c0f1214eb407685eed7a9eb, type: 3}
-  - name: Cylinder
-    prefab: {fileID: 1397243956302778260, guid: d72a8280846e51a4087c4ce760ca747f, type: 3}
-  markersPrefabs:
-  - name: Blue
-    prefab: {fileID: 8766721581085218871, guid: 4ca8c71960499b243a13da9db8530a68, type: 3}
-  - name: Green
-    prefab: {fileID: 8766721581085218871, guid: 29977343138741247991df026aef8135, type: 3}
-  - name: Red
-    prefab: {fileID: 8766721581085218871, guid: ac4fbb1b586f8794ba25b9f5b717c48d, type: 3}
+  prefabData: {fileID: 11400000, guid: 6d8450e258dffbc479d5effb9769f017, type: 2}
   drones:
   - {fileID: 662424688}
   robots: []

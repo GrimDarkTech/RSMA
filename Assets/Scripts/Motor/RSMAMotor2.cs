@@ -44,6 +44,10 @@ public class RSMAMotor2 : MonoBehaviour
     /// Represents the anchor for connected body
     /// </summary>
     public Vector3 connectedAnchor;
+    /// <summary>
+    /// Braking factor
+    /// </summary>
+    public float brakingFactor = 0.1f;
 
     public float outputTorque;
 
@@ -68,6 +72,12 @@ public class RSMAMotor2 : MonoBehaviour
                 _hingeJoint.connectedAnchor = connectedAnchor;
                 _hingeJoint.autoConfigureConnectedAnchor = true;
             }
+
+            _hingeJoint.useSpring = true;
+
+            JointSpring spring = new JointSpring();
+            spring.damper = brakingFactor;
+            _hingeJoint.spring = spring;
         }
     }
     private void FixedUpdate()

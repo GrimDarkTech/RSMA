@@ -270,6 +270,7 @@ MonoBehaviour:
   isResetMotorAnchor: 0
   motorAnchor: {x: 0, y: 0, z: 0}
   connectedAnchor: {x: 0, y: 0, z: 0}
+  brakingFactor: 0.1
   outputTorque: 0
 --- !u!65 &4537476968484377924
 BoxCollider:
@@ -377,8 +378,8 @@ BoxCollider:
   m_IsTrigger: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Size: {x: 0.008871486, y: 0.012638599, z: 0.01912655}
-  m_Center: {x: -0.0014891718, y: 0.0033748373, z: -0.005728633}
+  m_Size: {x: 0.011734359, y: 0.012639383, z: 0.030641641}
+  m_Center: {x: -0.002920608, y: 0.0033752294, z: 0.00002891291}
 --- !u!138 &4537476968905150328
 FixedJoint:
   m_ObjectHideFlags: 0
@@ -457,10 +458,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ratio: 2
   connectedBody: {fileID: 4537476969676534771}
+  brakingFactor: 0.005
   gearboxAxis: {x: 1, y: 0, z: 0}
   isResetAnchor: 1
-  anchor: {x: -0.0162, y: 0, z: 0}
-  connectedAnchor: {x: -0.007, y: 0, z: 0}
+  anchor: {x: -0.01, y: 0, z: 0}
+  connectedAnchor: {x: 0, y: 0, z: 0}
   maxAngularVelocity: 523
   isDrawAnchors: 1
   outputTorque: {x: 0, y: 0, z: 0}
@@ -608,8 +610,8 @@ BoxCollider:
   m_IsTrigger: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Size: {x: 0.008871486, y: 0.012638599, z: 0.01912655}
-  m_Center: {x: -0.0014891718, y: 0.0033748373, z: -0.005728633}
+  m_Size: {x: 0.011734359, y: 0.012639383, z: 0.030641641}
+  m_Center: {x: -0.002920608, y: 0.0033752294, z: 0.00002891291}
 --- !u!138 &4537476969744884589
 FixedJoint:
   m_ObjectHideFlags: 0
@@ -688,10 +690,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ratio: 2
   connectedBody: {fileID: 4537476968159344155}
+  brakingFactor: 0.005
   gearboxAxis: {x: -1, y: 0, z: 0}
   isResetAnchor: 1
-  anchor: {x: -0.0162, y: 0, z: 0}
-  connectedAnchor: {x: -0.007, y: 0, z: 0}
+  anchor: {x: -0.01, y: 0, z: 0}
+  connectedAnchor: {x: 0, y: 0, z: 0}
   maxAngularVelocity: 523
   isDrawAnchors: 1
   outputTorque: {x: 0, y: 0, z: 0}
@@ -704,6 +707,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4537476969886884028}
+  - component: {fileID: 6567838772565707089}
   m_Layer: 0
   m_Name: DarkieBot Model Altushka
   m_TagString: Untagged
@@ -733,8 +737,30 @@ Transform:
   - {fileID: 246421694210762668}
   - {fileID: 9034222969250727991}
   m_Father: {fileID: 0}
-  m_RootOrder: 6
+  m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &6567838772565707089
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4537476969886884029}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e9d4a4b643147c64ab06447f5e79ad72, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  name: DarkieBot_Altushka
+  targetTransforms:
+  - name: Frame
+    transform: {fileID: 4537476968190903161}
+  - name: Left wheel
+    transform: {fileID: 4537476968159344158}
+  - name: Right wheel
+    transform: {fileID: 4537476969676534774}
+  isWriting: 0
+  timestep: 0.02
 --- !u!1 &4537476969991397265
 GameObject:
   m_ObjectHideFlags: 0
@@ -830,6 +856,7 @@ MonoBehaviour:
   isResetMotorAnchor: 0
   motorAnchor: {x: 0, y: 0, z: 0}
   connectedAnchor: {x: 0, y: 0, z: 0}
+  brakingFactor: 0.1
   outputTorque: 0
 --- !u!65 &4537476969991397279
 BoxCollider:

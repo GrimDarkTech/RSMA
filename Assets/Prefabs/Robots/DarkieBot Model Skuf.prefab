@@ -771,6 +771,7 @@ MonoBehaviour:
   isResetLeftAnchor: 1
   leftAnchor: {x: -0.05, y: 0, z: 0}
   leftConnectedAnchor: {x: 0, y: 0, z: 0}
+  brakingFactor: 0.005
   maxAngularVelocity: 523
   isDrawAnchors: 1
   outputTorque: {x: 0, y: 0, z: 0}
@@ -824,6 +825,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1647682621787858684}
+  - component: {fileID: 2375159177329026524}
   m_Layer: 0
   m_Name: DarkieBot Model Skuf
   m_TagString: Untagged
@@ -857,8 +859,34 @@ Transform:
   - {fileID: 1647682620978635531}
   - {fileID: 1647682622261438226}
   m_Father: {fileID: 0}
-  m_RootOrder: 4
+  m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2375159177329026524
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1647682621787858675}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e9d4a4b643147c64ab06447f5e79ad72, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  name: DarkieBot_ Skuf
+  targetTransforms:
+  - name: Frame
+    transform: {fileID: 1647682620876923473}
+  - name: Front right wheel
+    transform: {fileID: 1647682621002351045}
+  - name: Front left wheel
+    transform: {fileID: 1647682620978635531}
+  - name: Rear right wheel
+    transform: {fileID: 1647682620561011691}
+  - name: Rear left wheel
+    transform: {fileID: 1647682621813669705}
+  isWriting: 0
+  timestep: 0.02
 --- !u!1 &1647682621813669704
 GameObject:
   m_ObjectHideFlags: 0
@@ -1033,6 +1061,7 @@ MonoBehaviour:
   isResetMotorAnchor: 0
   motorAnchor: {x: 0, y: 0, z: 0}
   connectedAnchor: {x: 0, y: 0, z: 0}
+  brakingFactor: 0.1
   outputTorque: 0
 --- !u!65 &1647682622008173654
 BoxCollider:
@@ -1199,7 +1228,7 @@ MonoBehaviour:
   isUseLimits: 1
   limits: {x: -70, y: 70}
   torque: 20
-  damper: 0.5
+  damper: 0.4
   isResetAnchor: 1
   anchor: {x: 0, y: -0.005, z: 0.018}
   connectedAnchor: {x: 0, y: 0, z: 0}
