@@ -13,7 +13,9 @@ public class Terminal : MonoBehaviour
 
     [SerializeField] private Text _text;
 
-    private int numOfLines = 1;
+    private int _numOfLines = 1;
+
+    private string _lastCommand = "";
 
     private void Start()
     {
@@ -33,21 +35,27 @@ public class Terminal : MonoBehaviour
     {
         if (isEnabled && Input.GetKeyDown(KeyCode.Return))
         {
-            numOfLines++;
+            _numOfLines++;
 
-            if (numOfLines > 28)
+            if (_numOfLines > 28)
             {
                 _text.text = "RSMA..";
-                numOfLines = 1;
+                _numOfLines = 1;
             }
 
             string response = CommandHandler.Execute(_inputField.text);
 
             _text.text += $"\n{response}";
 
+            _lastCommand = _inputField.text;
+
             _inputField.text = "";
 
             _inputField.ActivateInputField();
+        }
+        else if (isEnabled && Input.GetKeyDown(KeyCode.UpArrow))
+        {
+            _inputField.text = _lastCommand;
         }
         else if (Input.GetKey(KeyCode.LeftControl) && Input.GetKey(KeyCode.LeftAlt) && Input.GetKeyDown(KeyCode.T))
         {
@@ -57,12 +65,12 @@ public class Terminal : MonoBehaviour
 
     public void Print(string text)
     {
-            numOfLines++;
+        _numOfLines++;
 
-            if (numOfLines > 28)
+            if (_numOfLines > 28)
             {
                 _text.text = "RSMA..";
-                numOfLines = 1;
+            _numOfLines = 1;
             }
 
             _text.text += text;

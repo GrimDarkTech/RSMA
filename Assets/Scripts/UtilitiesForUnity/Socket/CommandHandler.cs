@@ -1,3 +1,4 @@
+using System.Globalization;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -11,7 +12,10 @@ public static class CommandHandler
 
     public static string Execute(string command)
     {
+        command = command.Replace(',', '.');
+
         var splited = command.Split(' ');
+
 
         if (splited.Length > 0 && splited[0] != "") 
         {
@@ -75,9 +79,9 @@ public static class CommandHandler
                     if (splited.Length > 4)
                     {
                         string name = splited[1];
-                        float x = float.Parse(splited[2]);
-                        float y = float.Parse(splited[3]);
-                        float z = float.Parse(splited[4]);
+                        float x = float.Parse(splited[2], CultureInfo.InvariantCulture);
+                        float y = float.Parse(splited[3], CultureInfo.InvariantCulture);
+                        float z = float.Parse(splited[4], CultureInfo.InvariantCulture);
 
                         objectManager.InstantiateMarker(splited[1], new Vector3(x, y, z));
                         return $"Done";
@@ -87,14 +91,14 @@ public static class CommandHandler
                 case "wall":
                     if (splited.Length > 8)
                     {
-                        float x = float.Parse(splited[1]);
-                        float y = float.Parse(splited[2]);
-                        float z = float.Parse(splited[3]);
+                        float x = float.Parse(splited[1], CultureInfo.InvariantCulture);
+                        float y = float.Parse(splited[2], CultureInfo.InvariantCulture);
+                        float z = float.Parse(splited[3], CultureInfo.InvariantCulture);
                         Vector3 start = new Vector3(x, y, z);
 
-                        x = float.Parse(splited[4]);
-                        y = float.Parse(splited[5]);
-                        z = float.Parse(splited[6]);
+                        x = float.Parse(splited[4], CultureInfo.InvariantCulture);
+                        y = float.Parse(splited[5], CultureInfo.InvariantCulture);
+                        z = float.Parse(splited[6], CultureInfo.InvariantCulture);
                         Vector3 end = new Vector3(x, y, z);
 
                         float height = float.Parse(splited[7]);
@@ -110,14 +114,14 @@ public static class CommandHandler
                     {
 
                         string name = splited[1];
-                        float x = float.Parse(splited[2]);
-                        float y = float.Parse(splited[3]);
-                        float z = float.Parse(splited[4]);
+                        float x = float.Parse(splited[2], CultureInfo.InvariantCulture);
+                        float y = float.Parse(splited[3], CultureInfo.InvariantCulture);
+                        float z = float.Parse(splited[4], CultureInfo.InvariantCulture);
                         Vector3 position = new Vector3(x, y, z);
 
-                        x = float.Parse(splited[5]);
-                        y = float.Parse(splited[6]);
-                        z = float.Parse(splited[7]);
+                        x = float.Parse(splited[5], CultureInfo.InvariantCulture);
+                        y = float.Parse(splited[6], CultureInfo.InvariantCulture);
+                        z = float.Parse(splited[7], CultureInfo.InvariantCulture);
                         Vector3 rotation = new Vector3(x, y, z);
 
                         objectManager.InstantiateRobot(name, position, rotation);
@@ -131,7 +135,7 @@ public static class CommandHandler
                         int id = int.Parse(splited[1]);
                         string port = splited[2];
                         string pin = splited[3];
-                        float value = float.Parse(splited[4]);
+                        float value = float.Parse(splited[4], CultureInfo.InvariantCulture);
 
                         objectManager.GPIOWrite(id, port, pin, value);  
                         return $"Done";
@@ -153,9 +157,9 @@ public static class CommandHandler
                 case "drone":
                     if (splited.Length > 3)
                     {
-                        float x = float.Parse(splited[1]);
-                        float y = float.Parse(splited[2]);
-                        float z = float.Parse(splited[3]);
+                        float x = float.Parse(splited[1], CultureInfo.InvariantCulture);
+                        float y = float.Parse(splited[2], CultureInfo.InvariantCulture);
+                        float z = float.Parse(splited[3], CultureInfo.InvariantCulture);
                         Vector3 position = new Vector3(x, y, z);
 
                         objectManager.InstantiateDrone(position);
@@ -167,10 +171,10 @@ public static class CommandHandler
                     if (splited.Length > 5)
                     {
                         int id = int.Parse(splited[1]);
-                        float x = float.Parse(splited[2]);
-                        float y = float.Parse(splited[3]);
-                        float z = float.Parse(splited[4]);
-                        float yaw = float.Parse(splited[5]);
+                        float x = float.Parse(splited[2], CultureInfo.InvariantCulture);
+                        float y = float.Parse(splited[3], CultureInfo.InvariantCulture);
+                        float z = float.Parse(splited[4], CultureInfo.InvariantCulture);
+                        float yaw = float.Parse(splited[5], CultureInfo.InvariantCulture);
                         Vector3 acceleration = new Vector3(x, y, z);
 
                         objectManager.DroneMove(id, acceleration, yaw);
@@ -182,10 +186,10 @@ public static class CommandHandler
                     if (splited.Length > 5)
                     {
                         int id = int.Parse(splited[1]);
-                        float x = float.Parse(splited[2]);
-                        float y = float.Parse(splited[3]);
-                        float z = float.Parse(splited[4]);
-                        float smooth = float.Parse(splited[5]);
+                        float x = float.Parse(splited[2], CultureInfo.InvariantCulture);
+                        float y = float.Parse(splited[3], CultureInfo.InvariantCulture);
+                        float z = float.Parse(splited[4], CultureInfo.InvariantCulture);
+                        float smooth = float.Parse(splited[5], CultureInfo.InvariantCulture);
                         Vector3 rotation = new Vector3(x, y, z);
 
                         objectManager.DroneCamera(id, rotation, smooth);
@@ -203,6 +207,27 @@ public static class CommandHandler
                         return $"Done";
                     }
                     return "Invalid argument for drone_manual_control";
+
+                case "writer_start":
+                    if (splited.Length > 1)
+                    {
+                        int id = int.Parse(splited[1]);
+
+                        objectManager.WriterStart(id);
+                        return $"Done";
+                    }
+                    return "Invalid argument for writer_start";
+
+                case "writer_stop":
+                    if (splited.Length > 1)
+                    {
+                        int id = int.Parse(splited[1]);
+
+                        objectManager.WriterStop(id);
+                        return $"Done";
+                    }
+                    return "Invalid argument for writer_stop";
+
                 default:
                     return "Invalid command";
             }
