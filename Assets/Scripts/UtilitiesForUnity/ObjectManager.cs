@@ -15,6 +15,8 @@ public class ObjectManager : MonoBehaviour
 
     public List<GameObject> markers;
 
+    public List<TransformWriter> writers;
+
     private void Start()
     {
         CommandHandler.objectManager = this;
@@ -32,6 +34,8 @@ public class ObjectManager : MonoBehaviour
             RSMAGPIO gpio = robot.GetComponentInChildren<RSMAGPIO>();
 
             GPIOs.Add(gpio);
+
+            writers.Add(robot.GetComponent<TransformWriter>());
         }
     }
 
@@ -57,6 +61,7 @@ public class ObjectManager : MonoBehaviour
 
             wall.transform.localScale = new Vector3(width, height, Vector3.Distance(end, start));
             wall.transform.rotation = Quaternion.LookRotation(end - start);
+            wall.transform.position = start;
 
             walls.Add(wall);
         }
@@ -99,6 +104,16 @@ public class ObjectManager : MonoBehaviour
         RSMADrone drone = drones[id];
 
         drone.gameObject.GetComponent<DroneInput>().enabled = mode;
+    }
+
+    public void WriterStart(int id)
+    {
+        writers[id].Write();
+    }
+
+    public void WriterStop(int id)
+    {
+        writers[id].Stop();
     }
 
     [Serializable]
