@@ -3,9 +3,6 @@ using System.IO;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using UnityEngine.UI;
-using static UnityEngine.GraphicsBuffer;
-using System.Runtime.Remoting.Messaging;
 
 /// <summary>
 /// Implements the recording of formatted data in a csv file

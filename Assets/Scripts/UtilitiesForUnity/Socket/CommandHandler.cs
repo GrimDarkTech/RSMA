@@ -26,54 +26,44 @@ public static class CommandHandler
                     return "Shutting down RSMA";
 
                 case "help":
-                    Application.OpenURL("https://github.com/GrimDarkTech/RSMADocs/blob/main/Manual/en/TerminalCommands.md");
+                    Application.OpenURL("https://github.com/GrimDarkTech/RSMADocs/blob/main/Manual/en/Utilities/TerminalCommands.md");
                     return "RSMA trying to help and recommends reading the documentation on https://github.com/GrimDarkTech/RSMADocs";
 
-                case "server":
+                case "server_start":
+                    server = new RSMAServer();
+
+                    server.serverIP = "127.0.0.1";
+                    server.serverPort = 7777;
+
+                    server.Run();
+                    return "Starting server on 127.0.0.1:7777";
+
+                case "server_stop":
+                    if (server != null)
+                    {
+                        server.Stop();
+                    }
+                    return "Stopping server";
+
+                case "server_send":
+                    if (splited.Length > 1)
+                    {
+                        string client = splited[1];
+                        string message = splited[2];
+
+                        server.SendMessageToClientAsync(client, message);
+                        return "Sending";
+                    }
+                    return "Invalid argument for server_send";
+
+                case "scene_load":
                     if(splited.Length > 1)
                     {
-                        switch (splited[1])
-                        {
-                            case "start":
-                                server = new RSMAServer();
-
-                                server.serverIP = "127.0.0.1";
-                                server.serverPort = 7777;
-
-                                server.Run();
-                                return "Starting server on 127.0.0.1:7777";
-                            case "stop":
-                                if (server != null)
-                                {
-                                    server.Stop();
-                                }
-                                return "Stopping server";
-                            case "send":
-                                if(splited.Length > 3)
-                                {
-                                    server.SendMessageToClientAsync(splited[2], splited[3]);
-                                    return "Sending";
-                                }
-                                else
-                                {
-                                    return "Invalid argument for server send";
-                                }
-                            default:
-                                return "Invalid argument for server";
-                        }
+                        string scene = splited[1];
+                        SceneManager.LoadScene(scene);
+                        return $"Loading scene {scene}";
                     }
-                    else
-                    {
-                        return "Invalid argument for server";
-                    }
-
-                case "scene":
-                    if(splited.Length > 2 && splited[1] == "load")
-                    {
-                        SceneManager.LoadScene(splited[2]);
-                        return $"Loading scene {splited[2]}";
-                    }
-                    return "Invalid argument for scene";
+                    return "Invalid argument for scene_load";
 
                 case "marker":
                     if (splited.Length > 4)
@@ -150,7 +140,7 @@ public static class CommandHandler
                         string pin = splited[3];
 
                         float value = objectManager.GPIORead(id, port, pin);
-                        return value.ToString();
+                        return  $"<|GPIO|>{id}<|s|>{port}<|s|>{pin}<|s|>{value}";
                     }
                     return "Invalid argument for gpioRead";
 
