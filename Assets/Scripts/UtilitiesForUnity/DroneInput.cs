@@ -18,9 +18,5 @@ public class DroneInput : MonoBehaviour
         float z = Input.GetAxis("Vertical");
 
         _drone.targetAcceleration = new Vector3(x, y, z);
-
-        _drone.yaw += Input.GetAxis("Yaw") * 0.02f;
-
-
     }
 }

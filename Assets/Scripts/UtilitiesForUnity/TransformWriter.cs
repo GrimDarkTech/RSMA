@@ -17,6 +17,7 @@ public class TransformWriter : MonoBehaviour
 
     public float timestep = 0.01f;
 
+    [ContextMenu("Start writing")]
     public void Write()
     {
         string path = Application.dataPath + "/" + name + ".csv";
@@ -40,6 +41,7 @@ public class TransformWriter : MonoBehaviour
         isWriting = true;
         StartCoroutine("WriteTransforms");
     }
+    [ContextMenu("Stop writing")]
     public void Stop()
     {
         isWriting = false;

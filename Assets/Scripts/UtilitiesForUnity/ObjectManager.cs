@@ -85,12 +85,11 @@ public class ObjectManager : MonoBehaviour
         }
     }
 
-    public void DroneMove(int id, Vector3 acceleration, float yaw)
+    public void DroneSetAcceleration(int id, Vector3 acceleration)
     {
         RSMADrone drone = drones[id];
 
         drone.targetAcceleration = acceleration;
-        drone.yaw = yaw;
     }
     public void DroneCamera(int id, Vector3 rotation, float smooth)
     {
@@ -104,6 +103,12 @@ public class ObjectManager : MonoBehaviour
         RSMADrone drone = drones[id];
 
         drone.gameObject.GetComponent<DroneInput>().enabled = mode;
+    }
+    public void DroneMoveToPosition(int id, Vector3 targetPosition, float kp, float ki, float kd)
+    {
+        RSMADrone drone = drones[id];
+
+        drone.MoveToPosition(targetPosition, kp, ki, kd);
     }
 
     public void WriterStart(int id)

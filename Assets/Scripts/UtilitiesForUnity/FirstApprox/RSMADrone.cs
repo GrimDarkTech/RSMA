@@ -1,7 +1,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEditor.Experimental.GraphView;
 using UnityEngine;
+using UnityEngine.UIElements;
+using static UnityEngine.RuleTile.TilingRuleOutput;
 
 public class RSMADrone : MonoBehaviour
 {
@@ -18,10 +21,6 @@ public class RSMADrone : MonoBehaviour
     [Space(15)]
 
     public Vector3 targetAcceleration;
-
-    public float yaw = 0f;
-
-    public float droneTurnSmoothness = 0.4f;
 
     [Space(15)]
 
@@ -42,20 +41,12 @@ public class RSMADrone : MonoBehaviour
 
     private void Update()
     {
-        float pitch = Mathf.Atan2(targetAcceleration.z, targetAcceleration.y + _gravity);
-        float roll = Mathf.Atan2(-targetAcceleration.x, targetAcceleration.y + _gravity);
+        acceleration = targetAcceleration;
 
-        transform.rotation = Quaternion.Euler(pitch * Mathf.Rad2Deg, yaw * Mathf.Rad2Deg, roll * Mathf.Rad2Deg);
+        Vector3 thrust = (targetAcceleration + _gravity * Vector3.up);
+        Quaternion targetRotation = Quaternion.FromToRotation(transform.up, thrust);
 
-        if (pitch == 0 && roll == 0)
-        {
-            acceleration = new Vector3(0, _mass * _gravity + targetAcceleration.y, 0);
-        }
-        else
-        {
-            acceleration = new Vector3(_mass * targetAcceleration.x, _mass * (targetAcceleration.y + _gravity), _mass * targetAcceleration.z);
-            acceleration = transform.up * acceleration.magnitude;
-        }
+        transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, 0.05f);
 
         gyro.acceleration = acceleration;
         gyro.velocity = _rigidbody.velocity;
@@ -76,7 +67,38 @@ public class RSMADrone : MonoBehaviour
 
     private void FixedUpdate()
     {
-        _rigidbody.AddForce(acceleration + new Vector3(0, - _mass * _gravity,0));
+        _rigidbody.AddForce(acceleration * _mass);
+    }
+
+    public void MoveToPosition(Vector3 targetPosition, float kp, float ki, float kd)
+    {
+        StopCoroutine("MoveToPositionAsync");
+        StartCoroutine(MoveToPositionAsync(targetPosition, kp, ki, kd));
+    }
+
+    private IEnumerator MoveToPositionAsync(Vector3 targetPosition, float kp, float ki, float kd)
+    {
+        Vector3 error = Vector3.zero;
+        Vector3 error_integral = Vector3.zero;
+        Vector3 error_derivative = Vector3.zero;
+        Vector3 error_prev = Vector3.zero;
+
+        while (!(Vector3.Distance(targetPosition, transform.position) < 0.03f && _rigidbody.velocity.magnitude < 0.03f))
+        {
+            error = targetPosition - transform.position;
+            error_integral += error * 0.01f;
+            error_derivative = (error - error_prev) / 0.01f;
+
+            Vector3 control = kp * error + ki * error_integral + kd * error_derivative;
+
+            targetAcceleration = control;
+
+            error_prev = error;
+
+            yield return new WaitForSeconds(0.01f);
+        }
+
+        targetAcceleration = Vector3.zero;
     }
 
     [Serializable]

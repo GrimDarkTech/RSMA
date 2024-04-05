@@ -157,20 +157,19 @@ public static class CommandHandler
                     }
                     return "Invalid argument for drone";
 
-                case "drone_move":
-                    if (splited.Length > 5)
+                case "drone_acceleration":
+                    if (splited.Length > 4)
                     {
                         int id = int.Parse(splited[1]);
                         float x = float.Parse(splited[2], CultureInfo.InvariantCulture);
                         float y = float.Parse(splited[3], CultureInfo.InvariantCulture);
                         float z = float.Parse(splited[4], CultureInfo.InvariantCulture);
-                        float yaw = float.Parse(splited[5], CultureInfo.InvariantCulture);
                         Vector3 acceleration = new Vector3(x, y, z);
 
-                        objectManager.DroneMove(id, acceleration, yaw);
+                        objectManager.DroneSetAcceleration(id, acceleration);
                         return $"Done";
                     }
-                    return "Invalid argument for drone_move";
+                    return "Invalid argument for drone_acceleration";
 
                 case "drone_camera":
                     if (splited.Length > 5)
@@ -197,6 +196,23 @@ public static class CommandHandler
                         return $"Done";
                     }
                     return "Invalid argument for drone_manual_control";
+
+                case "drone_move":
+                    if (splited.Length > 7)
+                    {
+                        int id = int.Parse(splited[1]);
+                        float x = float.Parse(splited[2], CultureInfo.InvariantCulture);
+                        float y = float.Parse(splited[3], CultureInfo.InvariantCulture);
+                        float z = float.Parse(splited[4], CultureInfo.InvariantCulture);
+                        float kp = float.Parse(splited[5], CultureInfo.InvariantCulture);
+                        float ki = float.Parse(splited[6], CultureInfo.InvariantCulture);
+                        float kd = float.Parse(splited[7], CultureInfo.InvariantCulture);
+                        Vector3 targetPosition = new Vector3(x, y, z);
+
+                        objectManager.DroneMoveToPosition(id, targetPosition, kp, ki, kd);
+                        return $"Done";
+                    }
+                    return "Invalid argument for drone_move";
 
                 case "writer_start":
                     if (splited.Length > 1)
