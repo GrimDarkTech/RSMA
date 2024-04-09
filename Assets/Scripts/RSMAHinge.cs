@@ -34,8 +34,13 @@ public class RSMAHinge : MonoBehaviour
         
         _hingeJoint.axis = axis;
         _hingeJoint.connectedBody = connectedBody;
-        _hingeJoint.anchor = anchor;
-        _hingeJoint.connectedAnchor = connectedAnchor;
+        if (isResetAnchor)
+        {
+            _hingeJoint.autoConfigureConnectedAnchor = false;
+            _hingeJoint.anchor = anchor;
+            _hingeJoint.connectedAnchor = connectedAnchor;
+        }
+
     }
     private void OnDrawGizmos()
     {

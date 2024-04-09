@@ -99,6 +99,11 @@ public class RSMADrone : MonoBehaviour
         targetAcceleration = Vector3.zero;
     }
 
+    public void SetCamera(bool mode) 
+    {
+        _camera.enabled = mode;
+    }
+
     [Serializable]
     public struct DroneGyro
     {

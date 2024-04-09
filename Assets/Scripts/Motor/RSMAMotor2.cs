@@ -51,6 +51,10 @@ public class RSMAMotor2 : MonoBehaviour
 
     public float outputTorque;
 
+    public float maxAngularVelocity = 523f;
+
+    public bool isDrawAnchors = false;
+
     private void Start()
     {
         _rigidbody= GetComponent<Rigidbody>();
@@ -78,6 +82,8 @@ public class RSMAMotor2 : MonoBehaviour
             JointSpring spring = new JointSpring();
             spring.damper = brakingFactor;
             _hingeJoint.spring = spring;
+
+            _rotor.maxAngularVelocity = maxAngularVelocity;
         }
     }
     private void FixedUpdate()
@@ -95,9 +101,9 @@ public class RSMAMotor2 : MonoBehaviour
             angularVelocity = (_rigidbody.angularVelocity - _rotor.angularVelocity).magnitude;
             torque = mechanicalCharacteristics.Evaluate(angularVelocity);
 
-            _rotor.AddTorque(motorAxis * torque * input);
+            _rotor.AddRelativeTorque(motorAxis * torque * input);
 
-            _rigidbody.AddRelativeTorque(-motorAxis * torque * input);
+ //           _rigidbody.AddRelativeTorque(-motorAxis * torque * input);
         }
         else
         {
@@ -106,9 +112,23 @@ public class RSMAMotor2 : MonoBehaviour
 
             rotationPowered.inputTorque = torque * input;
 
-            _rigidbody.AddRelativeTorque(-motorAxis * torque * input);
+ //           _rigidbody.AddRelativeTorque(-motorAxis * torque * input);
         }
 
         outputTorque = torque * input;
+    }
+
+    private void OnDrawGizmos()
+    {
+        if (isDrawAnchors)
+        {
+            Gizmos.color = Color.red;
+            Gizmos.DrawRay(transform.TransformPoint(motorAnchor), (transform.right * motorAxis.x + transform.up * motorAxis.y + transform.forward * motorAxis.z) * 0.01f);
+            Gizmos.DrawSphere(transform.TransformPoint(motorAnchor), 0.002f);
+
+            Gizmos.color = Color.green;
+            Gizmos.DrawRay(connectedBody.gameObject.transform.TransformPoint(connectedAnchor), (transform.right * motorAxis.x + transform.up * motorAxis.y + transform.forward * motorAxis.z) * 0.01f);
+            Gizmos.DrawSphere(connectedBody.gameObject.transform.TransformPoint(connectedAnchor), 0.002f);
+        }
     }
 }

@@ -98,6 +98,20 @@ public class ObjectManager : MonoBehaviour
         drone.cameraRotation = rotation;
         drone.cameraTurnSmoothness = smooth;
     }
+    public void DroneSwitch(int id)
+    {
+        RSMADrone drone = drones[id];
+
+        if(drone != null)
+        {
+            foreach (RSMADrone _drone in drones)
+            {
+                _drone.SetCamera(false);
+            }
+
+            drone.SetCamera(true);
+        }
+    }
     public void DroneManualControl(int id, bool mode)
     {
         RSMADrone drone = drones[id];

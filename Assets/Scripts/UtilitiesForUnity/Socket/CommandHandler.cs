@@ -91,8 +91,8 @@ public static class CommandHandler
                         z = float.Parse(splited[6], CultureInfo.InvariantCulture);
                         Vector3 end = new Vector3(x, y, z);
 
-                        float height = float.Parse(splited[7]);
-                        float width = float.Parse(splited[8]);
+                        float height = float.Parse(splited[7], CultureInfo.InvariantCulture);
+                        float width = float.Parse(splited[8], CultureInfo.InvariantCulture);
 
                         objectManager.InstantiateWall(start, end, height, width);
                         return $"Done";
@@ -213,6 +213,16 @@ public static class CommandHandler
                         return $"Done";
                     }
                     return "Invalid argument for drone_move";
+
+                case "drone_switch_camera":
+                    if (splited.Length > 1)
+                    {
+                        int id = int.Parse(splited[1]);
+
+                        objectManager.DroneSwitch(id);
+                        return $"Done";
+                    }
+                    return "Invalid argument for drone_switch_camera";
 
                 case "writer_start":
                     if (splited.Length > 1)
