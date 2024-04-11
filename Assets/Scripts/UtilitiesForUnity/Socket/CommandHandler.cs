@@ -142,7 +142,7 @@ public static class CommandHandler
                         float value = objectManager.GPIORead(id, port, pin);
                         return  $"<|GPIO|>{id}<|s|>{port}<|s|>{pin}<|s|>{value}";
                     }
-                    return "Invalid argument for gpioRead";
+                    return "Invalid argument for gpio_read";
 
                 case "drone":
                     if (splited.Length > 3)
@@ -243,6 +243,16 @@ public static class CommandHandler
                         return $"Done";
                     }
                     return "Invalid argument for writer_stop";
+
+                case "controller_position":
+                    if (splited.Length > 1)
+                    {
+                        int id = int.Parse(splited[1]);
+
+                        Vector3 position = objectManager.GetControllerPosition(id);
+                        return $"<|Position|>{id}<|s|>{position.x}<|s|>{position.y}<|s|>{position.z}";
+                    }
+                    return "Invalid argument for controller_position";
 
                 default:
                     return "Invalid command";

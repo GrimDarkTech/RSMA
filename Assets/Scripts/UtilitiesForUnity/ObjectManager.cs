@@ -134,6 +134,12 @@ public class ObjectManager : MonoBehaviour
     {
         writers[id].Stop();
     }
+    public Vector3 GetControllerPosition(int id)
+    {
+        RSMAGPIO gpio = GPIOs[id];
+
+        return gpio.gameObject.transform.position;
+    }
 
     [Serializable]
     public class PrefabInfo

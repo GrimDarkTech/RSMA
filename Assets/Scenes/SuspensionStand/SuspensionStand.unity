@@ -612,6 +612,33 @@ PrefabInstance:
     m_RemovedComponents: []
     m_AddedGameObjects: []
   m_SourcePrefab: {fileID: 100100000, guid: a17c604cf83ae594d9ef91c441d57590, type: 3}
+--- !u!1 &308993387 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1378698066896108796, guid: a17c604cf83ae594d9ef91c441d57590, type: 3}
+  m_PrefabInstance: {fileID: 308993386}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &308993388 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 1378698066896108798, guid: a17c604cf83ae594d9ef91c441d57590, type: 3}
+  m_PrefabInstance: {fileID: 308993386}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 308993387}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e9d4a4b643147c64ab06447f5e79ad72, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &308993389 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 6282799951936431383, guid: a17c604cf83ae594d9ef91c441d57590, type: 3}
+  m_PrefabInstance: {fileID: 308993386}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47b668f3756b2044f97c305fdab5b8c0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &318044563
 GameObject:
   m_ObjectHideFlags: 0
@@ -1423,11 +1450,14 @@ MonoBehaviour:
   prefabData: {fileID: 11400000, guid: 6d8450e258dffbc479d5effb9769f017, type: 2}
   drones:
   - {fileID: 484255980}
-  robots: []
-  GPIOs: []
+  robots:
+  - {fileID: 308993387}
+  GPIOs:
+  - {fileID: 308993389}
   walls: []
   markers: []
-  writers: []
+  writers:
+  - {fileID: 308993388}
 --- !u!4 &587822651
 Transform:
   m_ObjectHideFlags: 0
@@ -3967,7 +3997,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -47.00006, y: -56.12378}
+  m_AnchoredPosition: {x: -47, y: -56.12378}
   m_SizeDelta: {x: 49.140015, y: 31.940002}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1933914229
@@ -4238,7 +4268,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1992241635
 RectTransform:
   m_ObjectHideFlags: 0
@@ -4309,7 +4339,7 @@ Canvas:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1992241634}
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 3
   m_RenderMode: 0
   m_Camera: {fileID: 0}
