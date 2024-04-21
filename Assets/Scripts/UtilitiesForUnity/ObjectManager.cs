@@ -17,6 +17,8 @@ public class ObjectManager : MonoBehaviour
 
     public List<TransformWriter> writers;
 
+    public List<TrailsRenderer> trails;
+
     private void Start()
     {
         CommandHandler.objectManager = this;
@@ -36,6 +38,10 @@ public class ObjectManager : MonoBehaviour
             GPIOs.Add(gpio);
 
             writers.Add(robot.GetComponent<TransformWriter>());
+
+            TrailsRenderer trail = robot.GetComponentInChildren<TrailsRenderer>();
+
+            trails.Add(trail);
         }
     }
 
@@ -134,11 +140,18 @@ public class ObjectManager : MonoBehaviour
     {
         writers[id].Stop();
     }
-    public Vector3 GetControllerPosition(int id)
+    public Transform GetTransform(int id)
     {
-        RSMAGPIO gpio = GPIOs[id];
-
-        return gpio.gameObject.transform.position;
+        var wt = writers[id].targetTransforms[0];
+        return wt.transform;
+    }
+    public void TrailsStart(int id)
+    {
+        trails[id].StartRendering();
+    }
+    public void TrailsStop(int id)
+    {
+        trails[id].StopRendering();
     }
 
     [Serializable]

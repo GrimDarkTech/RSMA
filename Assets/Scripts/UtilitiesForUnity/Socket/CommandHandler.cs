@@ -249,10 +249,34 @@ public static class CommandHandler
                     {
                         int id = int.Parse(splited[1]);
 
-                        Vector3 position = objectManager.GetControllerPosition(id);
-                        return $"<|Position|>{id}<|s|>{position.x}<|s|>{position.y}<|s|>{position.z}";
+                        Transform transform = objectManager.GetTransform(id);
+                        Vector3 position = transform.position;
+                        Vector3 rotation = transform.rotation.eulerAngles;
+
+                        return $"<|Transform|>{id}<|s|>{position.x}<|s|>{position.y}<|s|>{position.z}" +
+                            $"<|s|>{rotation.x}<|s|>{rotation.y}<|s|>{rotation.z}";
                     }
                     return "Invalid argument for controller_position";
+
+                case "trails_start":
+                    if (splited.Length > 1)
+                    {
+                        int id = int.Parse(splited[1]);
+
+                        objectManager.TrailsStart(id);
+                        return $"Done";
+                    }
+                    return "Invalid argument for trails_start";
+
+                case "trails_stop":
+                    if (splited.Length > 1)
+                    {
+                        int id = int.Parse(splited[1]);
+
+                        objectManager.TrailsStop(id);
+                        return $"Done";
+                    }
+                    return "Invalid argument for trails_stop";
 
                 default:
                     return "Invalid command";

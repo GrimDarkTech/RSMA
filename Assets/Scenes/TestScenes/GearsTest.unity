@@ -1944,7 +1944,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1634247814}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 544271f3d45cf5e4b86473174ed1e138, type: 2}
   m_IsTrigger: 0
   m_Enabled: 1
   serializedVersion: 2
@@ -2981,6 +2981,10 @@ PrefabInstance:
     serializedVersion: 2
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 223407121504034557, guid: bbeaa41870d54a240b484f1318dfadfc, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6080026601461992552, guid: bbeaa41870d54a240b484f1318dfadfc, type: 3}
       propertyPath: m_Name
       value: DarkieBot Model Petya
