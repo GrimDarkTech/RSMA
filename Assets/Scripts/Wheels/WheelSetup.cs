@@ -6,7 +6,7 @@ using System;
 /// 
 /// </summary>
 [ExecuteInEditMode]
-public class WheelSetUp : MonoBehaviour
+public class WheelSetup : MonoBehaviour
 {
     /// <summary>
     /// 
