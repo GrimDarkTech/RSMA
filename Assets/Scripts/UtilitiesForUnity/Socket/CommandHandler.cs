@@ -32,7 +32,6 @@ public static class CommandHandler
                 case "server_start":
                     server = new RSMAServer();
 
-                    server.serverIP = "127.0.0.1";
                     server.serverPort = 7777;
 
                     server.Run();

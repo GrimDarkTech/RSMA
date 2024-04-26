@@ -1,17 +1,15 @@
 using UnityEngine;
 
 /// <summary>
-/// Controls of an object's position and rotation through physics simulation. Uses Rigidbody to simulate physics
+/// Controls of an object's position and rotation through physics simulation. Uses _rigidbody to simulate physics
 /// </summary>
-
 [RequireComponent(typeof(Rigidbody))]
-
-public class RSMAMechanicalPart: MonoBehaviour
+public class RSMAMechanicalPart : MonoBehaviour
 {
-    private Rigidbody rigidbody;
+    private Rigidbody _rigidbody;
 
     /// <summary>
-    /// The mass of part in kilograms
+    /// The mass of body in kilograms
     /// </summary>
     public float mass = 0.5f;
 
@@ -20,18 +18,22 @@ public class RSMAMechanicalPart: MonoBehaviour
     /// </summary>
     public Vector3 centerOfMassPosition = Vector3.zero;
 
+    /// <summary>
+    /// If True, the rendering of the position of the center of mass of the body is enabled. 
+    /// The center of mass is displayed as a yellow sphere.
+    /// </summary>
     public bool isDrawCenterOfMass = true;
 
 
     private void OnEnable()
     {
-        if(rigidbody == null)
+        if(_rigidbody == null)
         {
-            rigidbody = gameObject.GetComponent<Rigidbody>();
+            _rigidbody = gameObject.GetComponent<Rigidbody>();
         }
-        rigidbody.mass = mass;
-        rigidbody.centerOfMass = centerOfMassPosition;
-        rigidbody.WakeUp();
+        _rigidbody.mass = mass;
+        _rigidbody.centerOfMass = centerOfMassPosition;
+        _rigidbody.WakeUp();
     }
 
     private void OnDrawGizmos()

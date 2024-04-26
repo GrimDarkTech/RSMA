@@ -12,11 +12,6 @@ using System;
 public class SocketServer
 {
     /// <summary>
-    /// Server IP address
-    /// </summary>
-    public string serverIP = "127.0.0.1";
-
-    /// <summary>
     /// Port binded by the server
     /// </summary>
     public int serverPort = 7777;
@@ -43,7 +38,6 @@ public class SocketServer
     public SocketServer() { }
     public SocketServer(string serverIP, int serverPort)
     {
-        this.serverIP = serverIP;
         this.serverPort = serverPort;
     }
 
@@ -93,9 +87,7 @@ public class SocketServer
             return;
         }
 
-        IPAddress ipAddress = IPAddress.Parse(serverIP);
-
-        IPEndPoint ipEndPoint = new(ipAddress, serverPort);
+        IPEndPoint ipEndPoint = new(IPAddress.Any, serverPort);
 
         listener = new(ipEndPoint.AddressFamily,SocketType.Stream,ProtocolType.Tcp);
 
