@@ -23,10 +23,19 @@ public class AutoDocsMD : MonoBehaviour
     /// </summary>
     public string docsFolderPath;
 
+    /// <summary>
+    /// 
+    /// </summary>
     public List<string> lines;
 
+    /// <summary>
+    /// 
+    /// </summary>
     public List<string> docStrings;
 
+    /// <summary>
+    /// 
+    /// </summary>
     public List<SerializedClass> classes;
 
     [ContextMenu("Generate MD doc")]
@@ -43,33 +52,33 @@ public class AutoDocsMD : MonoBehaviour
         {
             string line = streamReader.ReadLine();
 
-            if(line is null)
+            if (line is null)
             {
                 break;
             }
 
-            if(line != "")
+            if (line != "")
             {
                 lines.Add(line);
             }
-            
+
         }
 
         streamReader.Close();
 
         foreach (string line in lines)
         {
-            if(line.IndexOf("class") > -1)
+            if (line.IndexOf("class") > -1)
             {
                 var words = line.Split(" ");
-                
-                for(int i = 0; i < words.Length; i++)
+
+                for (int i = 0; i < words.Length; i++)
                 {
-                    if(words[i] == "class")
+                    if (words[i] == "class")
                     {
                         Type classType = Type.GetType(words[i + 1]);
 
-                        if(classType != null)
+                        if (classType != null)
                         {
                             SerializedClass serClass = new SerializedClass();
 
@@ -78,7 +87,7 @@ public class AutoDocsMD : MonoBehaviour
                             serClass.fields = new List<SerializedField>();
 
                             var fields = classType.GetFields();
-                            
+
                             foreach (var field in fields)
                             {
                                 SerializedField serField = new SerializedField();
@@ -92,7 +101,7 @@ public class AutoDocsMD : MonoBehaviour
 
                             var properties = classType.GetProperties();
 
-                            foreach(var propertie in properties)
+                            foreach (var propertie in properties)
                             {
 
                                 SerializedProperty serPropertie = new SerializedProperty();
@@ -140,7 +149,7 @@ public class AutoDocsMD : MonoBehaviour
             {
                 docStrings.Add("</summary>");
 
-                if(lines[i + 1].IndexOf("<param name") == -1 && lines[i + 1].IndexOf("<returns>") == -1)
+                if (lines[i + 1].IndexOf("<param name") == -1 && lines[i + 1].IndexOf("<returns>") == -1)
                 {
                     docStrings.Add(lines[i + 1]);
                 }
@@ -188,7 +197,7 @@ public class AutoDocsMD : MonoBehaviour
                     if (docStrings[i - 1].IndexOf("</summary>") > -1)
                     {
                         int j = 2;
-                        while(docStrings[i - j].IndexOf("<summary>") == -1)
+                        while (docStrings[i - j].IndexOf("<summary>") == -1)
                         {
                             description += docStrings[i - j].Replace("///", "");
                             j++;
@@ -339,7 +348,7 @@ public class AutoDocsMD : MonoBehaviour
                     lines.Add($"### {method.name}");
                     lines.Add(method.description);
 
-                    if(method.declaration != "")
+                    if (method.declaration != "")
                     {
                         lines.Add("#### Declaration:");
                         lines.Add(method.declaration);
@@ -374,11 +383,34 @@ public class AutoDocsMD : MonoBehaviour
         lines.Clear();
 
         sw.Close();
+
+        Debug.Log($"Done for {docsFolderPath}{filename}.md");
     }
 
+    [ContextMenu("Generate from directory")]
     public void GenerateMDFromDirectory() 
     {
+        DirectoryInfo directory = new DirectoryInfo(filepath);
 
+        DirectoryInfo[] subdirectoryes = directory.GetDirectories();
+
+        foreach (var subdirectory in subdirectoryes)
+        {
+            FileInfo[] files = subdirectory.GetFiles();
+
+            foreach (var file in files)
+            {
+                if (file.Extension == ".cs")
+                {
+                    filepath = subdirectory.FullName;
+                    filename = file.Name;
+                    if(filename != "AutoDocsMD.cs")
+                    {
+                        GenerateMD();
+                    } 
+                }
+            }
+        }
     }
 
     [Serializable]

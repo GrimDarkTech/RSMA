@@ -2865,46 +2865,111 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fb0d70e03637ba840b3f7e5af607a69b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  filepath: F:/Unity Projects/RSMA/Assets/Scripts/
-  filename: RSMAMechanicalPart.cs
-  docsFolderPath: F:/Unity Projects/RSMADocs/Manual/en/Utilities
+  filepath: F:\Unity Projects\RSMA\Assets\Scripts\
+  filename: WheelSetup.cs
+  docsFolderPath: F:/Unity Projects/RSMADocs/Manual/en/
   lines: []
   docStrings:
   - <summary>
-  - ' Controls of an object''s position and rotation through physics simulation.
-    Uses _rigidbody to simulate physics'
+  - ' '
   - </summary>
-  - '[RequireComponent(typeof(Rigidbody))]'
+  - '[ExecuteInEditMode]'
   - <summary>
-  - '     The mass of body in kilograms'
+  - '     '
   - </summary>
-  - '    public float mass = 0.5f;'
+  - '    public GameObject Wheel;'
   - <summary>
-  - '     The center of mass relative to the transform''s origin position in meters'
+  - '     '
   - </summary>
-  - '    public Vector3 centerOfMassPosition = Vector3.zero;'
+  - '    public BetterVector WheelCus;'
   - <summary>
-  - '     If True, the rendering of the position of the center of mass of the body
-    is enabled. '
-  - '     The center of mass is displayed as a yellow sphere.'
+  - '     '
   - </summary>
-  - '    public bool isDrawCenterOfMass = true;'
+  - '    public GameObject MiniWheel;'
+  - <summary>
+  - '     '
+  - </summary>
+  - '    public BetterVector MiniWheelCus;'
+  - <summary>
+  - '     '
+  - </summary>
+  - '    [Range(0, 360)] public float Angle;'
+  - <summary>
+  - '     '
+  - </summary>
+  - '    [Min(0)] public int Count;'
+  - <summary>
+  - '     '
+  - </summary>
+  - '    [Min(0)] public float Size;'
+  - <summary>
+  - '     '
+  - </summary>
+  - '    [Min(0)] public float Range;'
+  - <summary>
+  - '     '
+  - </summary>
+  - '    public void Update()'
+  - <summary>
+  - ' '
+  - </summary>
+  - '[Serializable]'
+  - <summary>
+  - '     '
+  - </summary>
+  - '    public VecEnum right;'
+  - <summary>
+  - '     '
+  - </summary>
+  - '    public VecEnum forward;'
+  - <summary>
+  - '     '
+  - </summary>
+  - '    public VecEnum up;'
+  - <summary>
+  - ' '
+  - </summary>
+  - public enum VecEnum
+  - <summary>
+  - ' '
+  - </summary>
+  - '    right = 0,'
+  - <summary>
+  - '     '
+  - </summary>
+  - '    forward = 1,'
+  - <summary>
+  - '     '
+  - </summary>
+  - '    up = 2'
   classes:
-  - name: RSMAMechanicalPart
+  - name: WheelSetup
     description: 
     fields:
-    - name: mass
-      description: 
+    - name: Wheel
+      description: '     '
+      type: UnityEngine.GameObject
+    - name: WheelCus
+      description: '     '
+      type: BetterVector
+    - name: MiniWheel
+      description: '     '
+      type: UnityEngine.GameObject
+    - name: MiniWheelCus
+      description: '     '
+      type: BetterVector
+    - name: Angle
+      description: '     '
       type: System.Single
-    - name: centerOfMassPosition
-      description: '     The center of mass relative to the transform''s origin position
-        in meters'
-      type: UnityEngine.Vector3
-    - name: isDrawCenterOfMass
-      description: '     The center of mass is displayed as a yellow sphere.    
-        If True, the rendering of the position of the center of mass of the body
-        is enabled. '
-      type: System.Boolean
+    - name: Count
+      description: '     '
+      type: System.Int32
+    - name: Size
+      description: '     '
+      type: System.Single
+    - name: Range
+      description: '     '
+      type: System.Single
     properties:
     - name: useGUILayout
       description: 
@@ -2973,6 +3038,11 @@ MonoBehaviour:
       description: 
       type: UnityEngine.HideFlags
     methods:
+    - name: Update
+      declaration: '    public void Update()'
+      description: '     '
+      retunrs: 
+      parameters: []
     - name: IsInvoking
       declaration: 
       description: 
