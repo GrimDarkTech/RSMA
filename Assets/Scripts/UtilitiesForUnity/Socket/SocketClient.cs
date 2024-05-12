@@ -173,8 +173,8 @@ public class SocketClient
             return;
         }
         string message = $"{clientName}<|DR|><|EOM|>";
-
         var messageBytes = Encoding.UTF8.GetBytes(message);
+
         try
         {
             _ = await client.SendAsync(messageBytes, SocketFlags.None);
@@ -194,10 +194,10 @@ public class SocketClient
         while (true)
         {
             byte[] buffer = new byte[1024];
-            int received = 0;
+            int receivedBites = 0;
             try
             {
-                received = await client.ReceiveAsync(buffer, SocketFlags.None);
+                receivedBites = await client.ReceiveAsync(buffer, SocketFlags.None);
             }
             catch
             {
@@ -205,55 +205,63 @@ public class SocketClient
                 isConnected = false;
                 return;
             }
-            string response = Encoding.UTF8.GetString(buffer, 0, received);
+            string receivedText = Encoding.UTF8.GetString(buffer, 0, receivedBites);
 
-            if (response.IndexOf("<|EOM|>") > -1)
+            if (receivedText.IndexOf("<|EOM|>") > -1 || receivedText.IndexOf("<|ACK|>") > -1)
             {
-                response = response.Replace("<|EOM|>", "");
+                string[] messages = receivedText.Split("<|EOM|>");
+                string[] acks = receivedText.Split("<|ACK|>");
 
-                string messageText;
-                string clientName;
-                if (response.IndexOf("<|M|>") > -1)
+                if(messages.Length > 1)
                 {
-                    var separetedValues = response.Split("<|M|>");
-                    clientName = separetedValues[0];
-                    messageText = separetedValues[1];
+                    foreach (var message in messages)
+                    {
+                        if (message.IndexOf("<|M|>") > -1)
+                        {
+                            string text = message.Split("<|M|>")[1];
 
-                    string ackMessage = $"<|M|><|ACK|>";
-                    byte[] echoBytes = Encoding.UTF8.GetBytes(ackMessage);
-                    await client.SendAsync(echoBytes, 0);
+                            string ackMessage = $"<|M|><|ACK|>";
+                            byte[] echoBytes = Encoding.UTF8.GetBytes(ackMessage);
+                            await client.SendAsync(echoBytes, 0);
 
-                    RSMALogger.Logger.Log($"{clientName}: recived message from server");
-                    OnMessageRecived(messageText);
+                            RSMALogger.Logger.Log($"{clientName}: recived message from server");
+
+                            OnMessageRecived(text);
+                        }
+                    }
                 }
-            }
-            else if ((response.IndexOf("<|ACK|>") > -1))
-            {
-                if (response == "<|M|><|ACK|>")
+
+                if (acks.Length > 1)
                 {
-                    RSMALogger.Logger.Log($"{clientName}: Message delivered");
-                    OnMessageDelivered();
-                }
-                else if (response == "<|DR|><|ACK|>")
-                {   
-                    try
+                    foreach (var ack in acks)
                     {
-                        messageReciver.Dispose();
-                        client.Shutdown(SocketShutdown.Both);
+                        if (ack == "<|M|>")
+                        {
+                            RSMALogger.Logger.Log($"{clientName}: Message delivered");
+                            OnMessageDelivered();
+                        }
+                        else if (ack == "<|DR|>")
+                        {
+                            try
+                            {
+                                messageReciver.Dispose();
+                                client.Shutdown(SocketShutdown.Both);
+                            }
+                            catch (Exception ex)
+                            {
+                                RSMALogger.Logger.Log(ex.Message);
+                                return;
+                            }
+                            finally
+                            {
+                                client.Close();
+                                isConnected = false;
+                                RSMALogger.Logger.Log($"{clientName}: Disconnected");
+                                OnDisconnected();
+                            }
+                            return;
+                        }
                     }
-                    catch (Exception ex)
-                    {
-                        RSMALogger.Logger.Log(ex.Message);
-                        return;
-                    }
-                    finally
-                    {
-                        client.Close();
-                        isConnected = false;
-                        RSMALogger.Logger.Log($"{clientName}: Disconnected");
-                        OnDisconnected();
-                    }
-                    return;
                 }
             }
         }
