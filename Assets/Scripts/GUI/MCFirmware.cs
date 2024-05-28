@@ -28,7 +28,7 @@ public class FirmwareCreator: EditorWindow
 
         if (GUILayout.Button("Create Firmware"))
         {
-            string filepath = Application.dataPath.Replace("Assets", "") + path + filename + ".cs";
+            string filepath = Application.dataPath.Replace("Assets", "") + path + "/" + filename + ".cs";
             if (!File.Exists(filepath))
             {
                 StreamWriter sw = new StreamWriter(filepath);

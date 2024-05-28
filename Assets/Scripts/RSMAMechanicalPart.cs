@@ -25,11 +25,15 @@ public class RSMAMechanicalPart : MonoBehaviour
     public bool isDrawCenterOfMass = true;
 
 
-    private void OnEnable()
+    private void Start()
     {
         if(_rigidbody == null)
         {
             _rigidbody = gameObject.GetComponent<Rigidbody>();
+        }
+        if(mass <= 0)
+        {
+            mass = 0.01f;
         }
         _rigidbody.mass = mass;
         _rigidbody.centerOfMass = centerOfMassPosition;

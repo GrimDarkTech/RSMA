@@ -38,7 +38,7 @@ public class SocketServer
     /// </summary>
     public bool isStarted = false;
 
-    Socket listener;
+    private Socket listener;
 
     public SocketServer() { }
     public SocketServer(string serverIP, int serverPort)

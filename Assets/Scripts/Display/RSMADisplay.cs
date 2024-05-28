@@ -6,7 +6,10 @@ using UnityEngine;
 /// </summary>
 public class RSMADisplay : RSMADataTransferSlave
 {
-    [SerializeField] private TextMesh text;
+    /// <summary>
+    /// TextMesh component used to display text
+    /// </summary>
+    public TextMesh text;
 
     public override void ReciveData(string recivedData)
     {

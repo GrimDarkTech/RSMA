@@ -11,7 +11,10 @@ public class RSMADataTransferMaster : MonoBehaviour
     /// </summary>
     public List<RSMADataTransferSlave> dataBus = new List<RSMADataTransferSlave>();
 
-    protected string data;
+    /// <summary>
+    /// Data buffer. Used to store strings, used when sending and receiving data
+    /// </summary>
+    public string data;
 
     /// <summary>
     /// Sends data to target device
