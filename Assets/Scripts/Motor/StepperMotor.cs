@@ -49,16 +49,20 @@ public class StepperMotor : MonoBehaviour
     /// </summary>
     public float holdingTorque = 0.1f;
     /// <summary>
-    /// Holding torque
+    /// Rotation torque
     /// </summary>
     public float torque = 0.1f;
     /// <summary>
     /// Step angle
     /// </summary>
     public float stepAngle;
-
+    /// <summary>
+    /// The maximum value of the angular velocity of rotation of the body attached to the motor shaft. 523 radians per second - default
+    /// </summary>
     public float maxAngularVelocity = 523f;
-
+    /// <summary>
+    /// If True draws anchors
+    /// </summary>
     public bool isDrawAnchors = false;
 
     private void Start()

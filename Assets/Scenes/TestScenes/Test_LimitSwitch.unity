@@ -656,56 +656,98 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fb0d70e03637ba840b3f7e5af607a69b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  filepath: Assets/Scripts/LED/
-  filename: RSMALED.cs
+  filepath: Assets/Scripts/Motor/
+  filename: StepperMotor.cs
   docsFolderPath: F:\Unity Projects\RSMADocs\New
   lines: []
   docStrings:
   - <summary>
-  - ' Implements properties and functionality of Light Emitting Diode '
+  - ' Implements properties and functionality of stepper motor'
   - </summary>
-  - '[RequireComponent(typeof(Light))]'
+  - '[RequireComponent(typeof(Rigidbody))]'
   - <summary>
-  - '     LED body. Object which model will change color when the LED is turned on/off.
-    If the value is not set, the component will try to find it automatically on the
-    object to which it is attached'
+  - '     Body used as a motor rotor'
   - </summary>
-  - '    public Renderer colorBody;'
+  - '    public GameObject connectedBody;'
   - <summary>
-  - '     LED color '
+  - '     Driver connected to motor'
   - </summary>
-  - '    public Color color;'
+  - '    public StepperDriver motorDriver;'
   - <summary>
-  - '     GPIO port pin which LED is connected'
+  - '     Represents the motor axis, emanating from origin'
   - </summary>
-  - '    public ConnectedPin connectedPin;'
+  - '    public Vector3 motorAxis;'
   - <summary>
-  - '     GPIO which LED is connected'
+  - '     Resets MotorAnchor with startMotorAnchor'
   - </summary>
-  - '    public RSMAGPIO connectMicrocontroller;'
+  - '    public bool isResetMotorAnchor;'
   - <summary>
-  - '     Sets LED mode'
+  - '     Represents the Motor Anchor'
   - </summary>
-  - '<p>     mode=LED mode (1 - active, else - inactive) '
-  - '    public void SetMode(ushort mode)'
+  - '    public Vector3 motorAnchor;'
+  - <summary>
+  - '     Represents the anchor for connected body'
+  - </summary>
+  - '    public Vector3 connectedAnchor;'
+  - <summary>
+  - '     Holding torque'
+  - </summary>
+  - '    public float holdingTorque = 0.1f;'
+  - <summary>
+  - '     Rotation torque'
+  - </summary>
+  - '    public float torque = 0.1f;'
+  - <summary>
+  - '     Step angle'
+  - </summary>
+  - '    public float stepAngle;'
+  - <summary>
+  - '     The maximum value of the angular velocity of rotation of the body attached
+    to the motor shaft. 523 radians per second - default'
+  - </summary>
+  - '    public float maxAngularVelocity = 523f;'
+  - <summary>
+  - '     If True draws anchors'
+  - </summary>
+  - '    public bool isDrawAnchors = false;'
   classes:
-  - name: RSMALED
+  - name: StepperMotor
     description: 
     fields:
-    - name: colorBody
-      description: '     LED body. Object which model will change color when the
-        LED is turned on/off. If the value is not set, the component will try to
-        find it automatically on the object to which it is attached'
-      type: UnityEngine.Renderer
-    - name: color
-      description: '     LED color '
-      type: UnityEngine.Color
-    - name: connectedPin
-      description: '     GPIO port pin which LED is connected'
-      type: ConnectedPin
-    - name: connectMicrocontroller
-      description: '     GPIO which LED is connected'
-      type: RSMAGPIO
+    - name: connectedBody
+      description: '     Body used as a motor rotor'
+      type: UnityEngine.GameObject
+    - name: motorDriver
+      description: '     Driver connected to motor'
+      type: StepperDriver
+    - name: motorAxis
+      description: '     Represents the motor axis, emanating from origin'
+      type: UnityEngine.Vector3
+    - name: isResetMotorAnchor
+      description: '     Resets MotorAnchor with startMotorAnchor'
+      type: System.Boolean
+    - name: motorAnchor
+      description: '     Represents the Motor Anchor'
+      type: UnityEngine.Vector3
+    - name: connectedAnchor
+      description: '     Represents the anchor for connected body'
+      type: UnityEngine.Vector3
+    - name: holdingTorque
+      description: '     Holding torque'
+      type: System.Single
+    - name: torque
+      description: '     Rotation torque'
+      type: System.Single
+    - name: stepAngle
+      description: '     Step angle'
+      type: System.Single
+    - name: maxAngularVelocity
+      description: '     The maximum value of the angular velocity of rotation of
+        the body attached to the motor shaft. 523 radians per second - default'
+      type: System.Single
+    - name: isDrawAnchors
+      description: '     If True draws anchors'
+      type: System.Boolean
     properties:
     - name: useGUILayout
       description: 
@@ -774,11 +816,6 @@ MonoBehaviour:
       description: 
       type: UnityEngine.HideFlags
     methods:
-    - name: SetMode
-      declaration: '    public void SetMode(ushort mode)'
-      description: '     Sets LED mode'
-      retunrs: 
-      parameters: []
     - name: IsInvoking
       declaration: 
       description: 
