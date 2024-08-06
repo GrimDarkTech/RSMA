@@ -3,13 +3,13 @@ using System.Collections.Generic;
 using UnityEngine;
 using System;
 /// <summary>
-/// 
+/// Class for creating and configuring omnidirectional wheels
 /// </summary>
 [ExecuteInEditMode]
 public class WheelSetup : MonoBehaviour
 {
     /// <summary>
-    /// 
+    /// Wheel object used as the basis for an omnidirectional wheel
     /// </summary>
     public GameObject Wheel;
     /// <summary>
@@ -229,41 +229,21 @@ public class WheelSetup : MonoBehaviour
         return Vector3.zero;
     }
 }
-/// <summary>
-/// 
-/// </summary>
+
 [Serializable]
 public struct BetterVector
 {
-    /// <summary>
-    /// 
-    /// </summary>
+
     public VecEnum right;
-    /// <summary>
-    /// 
-    /// </summary>
+
     public VecEnum forward;
-    /// <summary>
-    /// 
-    /// </summary>
+
     public VecEnum up;
 }
-/// <summary>
-/// 
-/// </summary>
 public enum VecEnum
 {
-/// <summary>
-/// 
-/// </summary>
     right = 0,
-    /// <summary>
-    /// 
-    /// </summary>
     forward = 1,
-    /// <summary>
-    /// 
-    /// </summary>
     up = 2
 }
 

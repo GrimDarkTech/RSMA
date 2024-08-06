@@ -8,7 +8,7 @@ public class RSMALED : MonoBehaviour
 {
     protected ushort mode;
     /// <summary>
-    /// LED body 
+    /// LED body. Object which model will change color when the LED is turned on/off. If the value is not set, the component will try to find it automatically on the object to which it is attached
     /// </summary>
     public Renderer colorBody;
     /// <summary>
@@ -23,6 +23,7 @@ public class RSMALED : MonoBehaviour
     /// GPIO which LED is connected
     /// </summary>
     public RSMAGPIO connectMicrocontroller;
+
     private Color defaultColor;
     private Material ledMaterial;
     [SerializeField] private Light ledLight;

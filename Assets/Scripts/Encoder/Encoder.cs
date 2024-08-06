@@ -2,14 +2,23 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
+using static UnityEditor.Experimental.AssetDatabaseExperimental.AssetDatabaseCounters;
 
+/// <summary>
+/// Simulates the operation of an absolute and incremental encoder with a built-in pulse counter.
+/// </summary>
 public class Encoder : RSMADataTransferSlave
 {
+    /// <summary>
+    /// Type of device being modeled
+    /// </summary>
     public RSMA.EncoderType type;
-
+    /// <summary>
+    /// The resolution of the encoder. Number of pulses per revolution
+    /// </summary>
     public int resolution = 1;
     /// <summary>
-    /// Body used as a motor rotor
+    /// Body connected to encoder shaft
     /// </summary>
     public GameObject connectedBody;
     /// <summary>
@@ -17,29 +26,48 @@ public class Encoder : RSMADataTransferSlave
     /// </summary>
     public Vector3 axis;
 
-    private int _counter;
+    private Vector3 _currentAngles;
+
+    [SerializeField]
+    private float _measuredAngles;
 
     private void Start()
     {
-        if(type == RSMA.EncoderType.Incremental)
+        if (type == RSMA.EncoderType.Incremental)
         {
-            _counter = 0;
+            _measuredAngles = 0f;
         }
         else
         {
-            Vector3 euler = connectedBody.transform.rotation.eulerAngles;
-            float angle = Vector3.Dot(euler, axis);
-            _counter = (int)(angle / 360 * resolution);
+            _measuredAngles = Vector3.Dot(connectedBody.transform.eulerAngles, axis);
         }
+
+        _currentAngles = connectedBody.transform.eulerAngles;
+    }
+
+    private void Update()
+    {
+        float delta = Vector3.Dot(connectedBody.transform.eulerAngles - _currentAngles, axis);
+
+        if (delta > 180)
+        {
+            delta -= 360;
+        }
+        else if (delta < -180)
+        {
+            delta += 360;
+        }
+
+        _measuredAngles += delta;
+
+        _currentAngles = connectedBody.transform.eulerAngles;
     }
 
     public override string SendData()
     {
-        Vector3 euler = connectedBody.transform.localRotation.eulerAngles;
-        float angle = Vector3.Dot(euler, axis);
-        int current = (int)(angle / 360 * resolution);
+        int counter = (int)(_measuredAngles / 360 * resolution);
 
-        return (current - _counter).ToString();
+        return counter.ToString();
     }
 
 }
