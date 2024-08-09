@@ -1,8 +1,5 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UIElements;
-using static UnityEditor.Experimental.AssetDatabaseExperimental.AssetDatabaseCounters;
+
 
 /// <summary>
 /// Simulates the operation of an absolute and incremental encoder with a built-in pulse counter.
@@ -62,7 +59,10 @@ public class Encoder : RSMADataTransferSlave
 
         _currentAngles = connectedBody.transform.eulerAngles;
     }
-
+    /// <summary>
+    /// Sends the number of pulses measured by the encoder
+    /// </summary>
+    /// <returns>Number of pulses measured by the encoder counter</returns>
     public override string SendData()
     {
         int counter = (int)(_measuredAngles / 360 * resolution);

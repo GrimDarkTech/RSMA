@@ -17,19 +17,22 @@ public class RSMAMotorDriver : MonoBehaviour
     /// GPIO port pin connected to driver's PWM input
     /// </summary>
     public ConnectedPin connectedPinPWM;
-    private float portIn1;
-    private float portIn2;
-    private float portSpeed;
-    private float output = 0;
+
     /// <summary>
     /// Microcontroller GPIO that connected to driver
     /// </summary>
     public RSMAGPIO connectMicrocontroller;
+
+    private float portIn1;
+    private float portIn2;
+    private float portPWM;
+    private float output = 0;
+
     /// <summary>
     /// Returns output signal from driver
     /// </summary>
     /// <returns>float value of output signal from driver</returns>
-    public float getOutput()
+    public float GetOutput()
     {
         return output;
     }
@@ -40,11 +43,11 @@ public class RSMAMotorDriver : MonoBehaviour
         else
             return 0;
     }
-    void Update()
+    private void Update()
     {
         portIn1 = connectMicrocontroller.GetPin(connectedPin1).value;
         portIn2 = connectMicrocontroller.GetPin(connectedPin2).value;
-        portSpeed = connectMicrocontroller.GetPin(connectedPinPWM).value;
-        output = portSpeed * (portIn1 - portIn2);
+        portPWM = connectMicrocontroller.GetPin(connectedPinPWM).value;
+        output = portPWM * (portIn1 - portIn2);
     }
 }

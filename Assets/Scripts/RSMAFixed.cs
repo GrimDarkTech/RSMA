@@ -1,7 +1,6 @@
 using UnityEngine;
-using UnityEditor;
 /// <summary>
-/// Implements properties and functionality of connectable module
+/// Connects two Rigidbody with fixed joint
 /// </summary>
 [HelpURL("https://github.com/GrimDarkTech/RSMADocs/blob/main/API/en/RSMAModule.cs.md")]
 [RequireComponent(typeof(Rigidbody))]
@@ -9,30 +8,20 @@ using UnityEditor;
 
 public class RSMAFixed : MonoBehaviour
 {
-     
     private Rigidbody moduleRigidbody;
     private FixedJoint fixedJoint;
+
+    /// <summary>
+    /// The body that is attached. If the body is not specified, the object will be bound to a point in space
+    /// </summary>
     public Rigidbody connectedBody;
-    void Start()
+    private void Start()
     {
         moduleRigidbody = GetComponent<Rigidbody>();
         fixedJoint = GetComponent<FixedJoint>();
-        if (connectedBody != null)
+        if(connectedBody == null)
         {
-            SetConnectedBody(connectedBody);
-        }
-        else
-        {
-            Debug.LogError("ConnectedBody (ModuleBase in" + gameObject.name + ") is null.");
+            Debug.LogError("ConnectedBody (RSMAFixed in" + gameObject.name + ") is null.");
         }
     }
-    /// <summary>
-    /// Sets connected rigid body 
-    /// </summary>
-    /// <param name="connectedBody">Body to connect</param>
-    public void SetConnectedBody(Rigidbody connectedBody)
-    {
-        fixedJoint.connectedBody = connectedBody;
-    }
-
 }

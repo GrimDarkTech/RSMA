@@ -636,9 +636,8 @@ GameObject:
   m_Component:
   - component: {fileID: 1358971231}
   - component: {fileID: 1358971230}
-  - component: {fileID: 1358971232}
   m_Layer: 0
-  m_Name: GameObject (1)
+  m_Name: Docs
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -656,15 +655,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fb0d70e03637ba840b3f7e5af607a69b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  filepath: Assets/Scripts/Motor/
-  filename: StepperMotor.cs
-  docsFolderPath: F:\Unity Projects\RSMADocs\New
+  filepath: Assets/Scripts/MotorDriver/
+  filename: StepperDriver.cs
+  docsFolderPath: C:\UnityProjects\RSMADocs\New
   lines: []
   docStrings:
   - <summary>
   - ' Implements properties and functionality of stepper motor'
   - </summary>
-  - '[RequireComponent(typeof(Rigidbody))]'
+  - 'public class StepperMotor : MonoBehaviour'
   - <summary>
   - '     Body used as a motor rotor'
   - </summary>
@@ -712,7 +711,7 @@ MonoBehaviour:
   - '    public bool isDrawAnchors = false;'
   classes:
   - name: StepperMotor
-    description: 
+    description: ' Implements properties and functionality of stepper motor'
     fields:
     - name: connectedBody
       description: '     Body used as a motor rotor'
@@ -1271,32 +1270,6 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 9
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1358971232
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1358971229}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d2e187b903d95ec478eb9bbf667eb236, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  Wheel: {fileID: 0}
-  WheelCus:
-    right: 0
-    forward: 0
-    up: 0
-  MiniWheel: {fileID: 0}
-  MiniWheelCus:
-    right: 0
-    forward: 0
-    up: 0
-  Angle: 0
-  Count: 0
-  Size: 0
-  Range: 0
 --- !u!1 &1428040598
 GameObject:
   m_ObjectHideFlags: 0

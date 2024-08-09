@@ -65,7 +65,10 @@ public class RSMADisplay : RSMADataTransferSlave
             text.lineSpacing = lineSpacing - 24f;
         }
     }
-
+    /// <summary>
+    /// Sets display text
+    /// </summary>
+    /// <param name="recivedData">Data</param>
     public override void ReciveData(string recivedData)
     {
         text.text = recivedData;

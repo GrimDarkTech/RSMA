@@ -1,8 +1,8 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Windows;
 
+/// <summary>
+/// Converts the incoming flow of rotational energy into one outgoing flow by changing the torque of the output shaft and the angular velocity
+/// </summary>
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(HingeJoint))]
 public class Gearbox : MonoBehaviour, IRotationPowered
@@ -24,32 +24,44 @@ public class Gearbox : MonoBehaviour, IRotationPowered
     /// </summary>
     public Vector3 gearboxAxis;
     /// <summary>
-    /// Resets MotorAnchor with startMotorAnchor
+    /// If True, resets anchors with anchor and connectedAnchor
     /// </summary>
     public bool isResetAnchor;
     /// <summary>
-    /// Represents the Motor Anchor
+    /// Anchor position
     /// </summary>
     public Vector3 anchor;
     /// <summary>
-    /// Represents the anchor for connected body
+    /// Connected body anchor position
     /// </summary>
     public Vector3 connectedAnchor;
-
+    /// <summary>
+    /// Max value of angular velocity for connected body
+    /// </summary>
     public float maxAngularVelocity = 523f;
-
+    /// <summary>
+    /// If True, draws anchors position with spheres and axis with lines
+    /// </summary>
     public bool isDrawAnchors = true;
-
+    /// <summary>
+    /// Value of the torque of rotation of the output shaft
+    /// </summary>
     public Vector3 outputTorque;
 
 
     private HingeJoint _hingeJoint;
 
-
+    /// <summary>
+    /// Body of gearbox
+    /// </summary>
     public Rigidbody rigidbody { get; set; }
-
+    /// <summary>
+    /// Value of the angular velocity of rotation of the input shaft
+    /// </summary>
     public float inputAngularVelocity { get; set; }
-
+    /// <summary>
+    /// Value of the torque of rotation of the input shaft
+    /// </summary>
     public float inputTorque { get; set; }
 
 

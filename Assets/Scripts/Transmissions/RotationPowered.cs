@@ -1,7 +1,8 @@
-using System;
 using UnityEngine;
 
-
+/// <summary>
+/// Implements the functionality and properties of a device powered by rotational energy
+/// </summary>
 public interface IRotationPowered
 {
     /// <summary>

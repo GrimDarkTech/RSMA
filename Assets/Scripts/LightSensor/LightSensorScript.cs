@@ -17,11 +17,11 @@ public class LightSensorScript : RSMADataTransferSlave
     
     private Light[] lights;
 
-    void Start()
+    private void Start()
     {
         lights = FindObjectsOfType<Light>();
     }
-    void Update()
+    private void Update()
     {
         lightIntensity = 0;
         foreach(Light light in lights)
@@ -43,6 +43,10 @@ public class LightSensorScript : RSMADataTransferSlave
         }
         data = lightIntensity.ToString();
     }
+    /// <summary>
+    /// Sends light intensity data via a data transfer protocol
+    /// </summary>
+    /// <returns>Returns light intensity value</returns>
     public override string SendData()
     {
         return data;

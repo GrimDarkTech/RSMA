@@ -149,7 +149,7 @@ public class AutoDocsMD : MonoBehaviour
             {
                 docStrings.Add("</summary>");
 
-                if (lines[i + 1].IndexOf("<param name") == -1 && lines[i + 1].IndexOf("<returns>") == -1)
+                if (lines[i + 1].IndexOf("<param name") == -1 && lines[i + 1].IndexOf("<returns>") == -1 && lines[i + 1].IndexOf("<remarks>") == -1 && lines[i + 1].IndexOf("[") == -1)
                 {
                     docStrings.Add(lines[i + 1]);
                 }
@@ -161,7 +161,7 @@ public class AutoDocsMD : MonoBehaviour
                 words[1] = words[1].Replace("</param>", "");
                 docStrings.Add("<p>" + words[0].Replace("///", "") + "=" + words[1]);
 
-                if (lines[i + 1].IndexOf("<param name") == -1 && lines[i + 1].IndexOf("<returns>") == -1)
+                if (lines[i + 1].IndexOf("<param name") == -1 && lines[i + 1].IndexOf("<returns>") == -1 && lines[i + 1].IndexOf("<remarks>") == -1)
                 {
                     docStrings.Add(lines[i + 1]);
                 }
@@ -175,6 +175,20 @@ public class AutoDocsMD : MonoBehaviour
                 docStrings.Add("<r>" + ret);
 
                 docStrings.Add(lines[i + 1]);
+            }
+            else if (line.IndexOf("<remarks>") > -1 || line.IndexOf("</remarks>") > -1)
+            {
+                if (lines[i + 1].IndexOf("<param name") == -1 && lines[i + 1].IndexOf("<returns>") == -1)
+                {
+                    docStrings.Add(lines[i + 1]);
+                }
+            }
+            else if (line.StartsWith("["))
+            {
+                if (lines[i + 1].IndexOf("<param name") == -1 && lines[i + 1].IndexOf("<returns>") == -1)
+                {
+                    docStrings.Add(lines[i + 1]);
+                }
             }
             else if (line.IndexOf("///") > -1)
             {
@@ -316,7 +330,7 @@ public class AutoDocsMD : MonoBehaviour
         foreach (SerializedClass sClass in classes)
         {
             lines.Add($"# {sClass.name}");
-            lines.Add($"[switch to API](../../../Documentation/ScriptingAPI/en/{filename}.md)");
+            lines.Add($"[switch to ](/ScriptingAPI/-/{filename}.md)");
             lines.Add("");
             lines.Add($"{sClass.description}");
             lines.Add("");

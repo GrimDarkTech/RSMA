@@ -1,9 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// Implements properties and functionality of DC electric motor
+/// Implements properties and functionality of electric motor
 /// </summary>
-
 [RequireComponent(typeof(Rigidbody))]
 public class RSMAMotor2 : MonoBehaviour
 {
@@ -16,7 +15,9 @@ public class RSMAMotor2 : MonoBehaviour
     private IRotationPowered rotationPowered;
 
     protected float input = 0;
-
+    /// <summary>
+    /// A curve describing the mechanical characteristic of an electric motor (the dependence of the torque on the angular velocity of the shaft)
+    /// </summary>
     public AnimationCurve mechanicalCharacteristics;
 
     /// <summary>
@@ -32,7 +33,7 @@ public class RSMAMotor2 : MonoBehaviour
     /// </summary>
     public Vector3 motorAxis;
     /// <summary>
-    /// Resets MotorAnchor with startMotorAnchor
+    /// If True, resets the Anchor according to the anchor and connectedAnchor fields
     /// </summary>
     public bool isResetMotorAnchor;
 
@@ -48,11 +49,17 @@ public class RSMAMotor2 : MonoBehaviour
     /// Braking factor
     /// </summary>
     public float brakingFactor = 0.1f;
-
+    /// <summary>
+    /// Value of the torque of rotation of the output shaft
+    /// </summary>
     public float outputTorque;
-
+    /// <summary>
+    /// Max value of angular velocity for connected body
+    /// </summary>
     public float maxAngularVelocity = 523f;
-
+    /// <summary>
+    /// If True, draws anchors position with spheres and axis with lines
+    /// </summary>
     public bool isDrawAnchors = false;
 
     private void Start()
@@ -90,7 +97,7 @@ public class RSMAMotor2 : MonoBehaviour
     {
         if(motorDriver != null)
         {
-            input = motorDriver.getOutput();
+            input = motorDriver.GetOutput();
         }
 
         float angularVelocity;

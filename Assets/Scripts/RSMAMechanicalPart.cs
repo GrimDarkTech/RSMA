@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Controls of an object's position and rotation through physics simulation. Uses _rigidbody to simulate physics
+/// Controls of an object's position and rotation through physics simulation. Uses Rigidbody to simulate physics
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
 public class RSMAMechanicalPart : MonoBehaviour

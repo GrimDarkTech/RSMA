@@ -3,19 +3,22 @@ using UnityEngine;
 /// Simulates the behavior of the axial connection. The hinge joint is used to simulate the interaction of two rigid bodies
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
+
 public class RSMAHinge : MonoBehaviour
 {
     private HingeJoint _hingeJoint;
 
     /// <summary>
-    /// Body connected to joint
+    /// Body connected to hinge joint
     /// </summary>
     public Rigidbody connectedBody;
     /// <summary>
     /// Connection axis direction relative local transfrom
     /// </summary>
     public Vector3 axis;
-
+    /// <summary>
+    /// If True, resets the Anchor according to the anchor and connectedAnchor fields
+    /// </summary>
     public bool isResetAnchor;
     /// <summary>
     /// Represents the Motor Anchor
@@ -25,10 +28,12 @@ public class RSMAHinge : MonoBehaviour
     /// Represents the anchor for connected body
     /// </summary>
     public Vector3 connectedAnchor;
-
+    /// <summary>
+    /// If True, draws anchors position with spheres and axis with lines
+    /// </summary>
     public bool isDrawAnchors = true;
 
-    void Start()
+    private void Start()
     {
         _hingeJoint = gameObject.AddComponent<HingeJoint>();
         

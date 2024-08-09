@@ -30,13 +30,16 @@ public class StepperDriver : MonoBehaviour
 
     private int outputSingal;
 
+    /// <summary>
+    /// Output signal value
+    /// </summary>
     public int output 
     {
         get { return outputSingal; }
     }
 
 
-    void Update()
+    private void Update()
     {
         int[] input = new int[4];
 
@@ -65,7 +68,5 @@ public class StepperDriver : MonoBehaviour
         {
             outputSingal = 0;
         }
-
-        
     }
 }

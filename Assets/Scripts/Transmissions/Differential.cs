@@ -1,9 +1,7 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 
+/// Decomposes  incoming flow of rotational power into two outgoing flows that are interdependent in their angular velocities
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
 public class Differential : MonoBehaviour, IRotationPowered
@@ -31,11 +29,11 @@ public class Differential : MonoBehaviour, IRotationPowered
     /// </summary>
     public bool isResetRightAnchor;
     /// <summary>
-    /// Represents the gearbox Anchor
+    /// Right anchor position
     /// </summary>
     public Vector3 rightAnchor;
     /// <summary>
-    /// Represents the anchor for connected body
+    /// Right connected body anchor position
     /// </summary>
     public Vector3 rightConnectedAnchor;
 
@@ -49,15 +47,15 @@ public class Differential : MonoBehaviour, IRotationPowered
     /// </summary>
     public Vector3 leftAxis;
     /// <summary>
-    /// Resets right anchor setting
+    /// Resets left anchor setting
     /// </summary>
     public bool isResetLeftAnchor;
     /// <summary>
-    /// Represents the gearbox Anchor
+    /// Left anchor position
     /// </summary>
     public Vector3 leftAnchor;
     /// <summary>
-    /// Represents the anchor for connected body
+    /// Left connected body anchor position
     /// </summary>
     public Vector3 leftConnectedAnchor;
 
@@ -71,17 +69,33 @@ public class Differential : MonoBehaviour, IRotationPowered
     private HingeJoint _rightHingeJoint;
     private HingeJoint _leftHingeJoint;
 
+    /// <summary>
+    /// Rigidbody of differetial
+    /// </summary>
     public Rigidbody rigidbody { get; set; }
 
+    /// <summary>
+    /// Value of the angular velocity of rotation of the input shaft
+    /// </summary>
     public float inputAngularVelocity { get; set; }
-
+    /// <summary>
+    /// Value of the torque of rotation of the input shaft
+    /// </summary>
     public float inputTorque { get; set; }
 
-
+    /// <summary>
+    /// Max value of angular velocity for connected bodies
+    /// </summary>
     public float maxAngularVelocity = 523f;
 
+    /// <summary>
+    /// If True, draws anchors position with spheres and axis with lines
+    /// </summary>
     public bool isDrawAnchors = true;
 
+    /// <summary>
+    /// Value of the torque of rotation of the output shafts
+    /// </summary>
     public Vector3 outputTorque;
 
     private void Start()

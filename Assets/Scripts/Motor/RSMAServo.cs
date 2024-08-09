@@ -11,7 +11,7 @@ public class RSMAServo : MonoBehaviour
     /// </summary>
     public Rigidbody connectedBody;
     /// <summary>
-    /// Represents the motor axis, emanating from origin
+    /// Represents the motor axis, emanating from anchor
     /// </summary>
     public Vector3 axis;
     /// <summary>
@@ -23,33 +23,36 @@ public class RSMAServo : MonoBehaviour
     /// </summary>
     public ConnectedPin connectedPin;
     /// <summary>
-    /// Is servo has limits
+    /// If True, servo has limits
     /// </summary>
     public bool isUseLimits;
     /// <summary>
-    /// Angles
+    /// Angles, that limits servo shaft rotation
     /// </summary>
     public Vector2 limits;
     /// <summary>
-    /// Maximum torque
+    /// Maximum torque value
     /// </summary>
     public float torque = 1;
     /// <summary>
-    /// Damper factor
+    /// Damping factor
     /// </summary>
     public float damper = 0.5f;
-
-
+    /// <summary>
+    /// If True, resets the Anchor according to the anchor and connectedAnchor fields
+    /// </summary>
     public bool isResetAnchor;
     /// <summary>
-    /// Represents the Motor Anchor
+    /// Represents the motor Anchor position
     /// </summary>
     public Vector3 anchor;
     /// <summary>
-    /// Represents the anchor for connected body
+    /// Represents the anchor position for connected body
     /// </summary>
     public Vector3 connectedAnchor;
-
+    /// <summary>
+    /// If True, draws anchors position with spheres and axis with lines
+    /// </summary>
     public bool isDrawAnchors = true;
 
     protected HingeJoint _hingeJoint;
@@ -57,7 +60,7 @@ public class RSMAServo : MonoBehaviour
 
     protected float input = 0;
 
-    void Start()
+    private void Start()
     {
         _hingeJoint = gameObject.GetComponent<HingeJoint>();
         _rigidbody = gameObject.GetComponent<Rigidbody>();
@@ -80,7 +83,7 @@ public class RSMAServo : MonoBehaviour
 
         _hingeJoint.spring = jointSpring;
     }
-    void FixedUpdate()
+    private void FixedUpdate()
     {
         input = microcontroller.GetPin(connectedPin).value;
 

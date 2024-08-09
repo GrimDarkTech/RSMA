@@ -1,5 +1,3 @@
-using UnityEngine;
-
 /// <summary>
 /// Implements behavior and properties of microcontroller programm
 /// </summary>
@@ -19,5 +17,4 @@ public interface IMicrocontollerProgram
     /// Entry point to microcontroller program
     /// </summary>
     public abstract System.Collections.IEnumerator MainProgramm();
-    
 }

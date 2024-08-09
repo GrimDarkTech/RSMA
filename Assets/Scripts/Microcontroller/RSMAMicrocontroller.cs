@@ -1,21 +1,24 @@
 using System.Collections;
 using UnityEngine;
 
+/// <summary>
+/// Implements the properties and behaviors of AVR/STM-like microcontrollers. Contains GPIO, DataTransferMaster device and controller program
+/// </summary>
 public abstract class RSMAMicrocontroller : MonoBehaviour
 {
     [SerializeField] protected RSMAGPIO GPIO;
     [SerializeField] protected RSMADataTransferMaster dataBus;
-    [SerializeField] protected IMicrocontollerProgram programm;
+    [SerializeField] protected IMicrocontollerProgram program;
     protected IEnumerator programmCoroutine;
 
     protected virtual void OnEnable()
     {
-        programm = gameObject.GetComponent<IMicrocontollerProgram>();
-        if (programm != null)
+        program = gameObject.GetComponent<IMicrocontollerProgram>();
+        if (program != null)
         {
-            programm.GPIO = this.GPIO;
-            programm.dataBus = this.dataBus;
-            programmCoroutine = programm.MainProgramm();
+            program.GPIO = this.GPIO;
+            program.dataBus = this.dataBus;
+            programmCoroutine = program.MainProgramm();
             StartCoroutine(programmCoroutine);
         }
         else
@@ -25,7 +28,7 @@ public abstract class RSMAMicrocontroller : MonoBehaviour
     }
     protected virtual void OnDisable()
     {
-        if (programm != null)
+        if (program != null)
         {
             StopCoroutine(programmCoroutine);
         }
