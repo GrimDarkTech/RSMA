@@ -2,8 +2,6 @@ using System;
 using UnityEditor;
 using UnityEngine;
 
-
-
 /// <summary>
 /// Class for creating and configuring omnidirectional wheels
 /// </summary>
@@ -187,6 +185,8 @@ public enum CoordinateAxis
     z
 }
 
+#if UNITY_EDITOR
+
 [CustomEditor(typeof(OmnidirectionalWheel))]
 public class WheelEditor : Editor
 {
@@ -202,3 +202,5 @@ public class WheelEditor : Editor
         }
     }
 }
+
+#endif
