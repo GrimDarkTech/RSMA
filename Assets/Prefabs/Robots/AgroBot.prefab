@@ -400,6 +400,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   mass: 0.05
   centerOfMassPosition: {x: 0, y: 0, z: 0}
+  isDrawCenterOfMass: 1
 --- !u!64 &8575675955508004210
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -440,7 +441,6 @@ GameObject:
   - component: {fileID: 1280250820701521882}
   - component: {fileID: 1558936908493681519}
   - component: {fileID: 1558936908493681518}
-  - component: {fileID: 1558936908493681517}
   - component: {fileID: 1558936908493681513}
   - component: {fileID: 1558936908493681512}
   - component: {fileID: 1558936908493681514}
@@ -568,26 +568,6 @@ HingeJoint:
   m_EnablePreprocessing: 1
   m_MassScale: 1
   m_ConnectedMassScale: 1
---- !u!114 &1558936908493681517
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 516479352385763596}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0f439c269cf7a234588a09365b52af2c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  rotor: {fileID: 5424532066795380709}
-  motorDriver: {fileID: 3606021486395526837}
-  motorAxis: {x: 0, y: 1, z: 0}
-  resetMotorAnchor: 1
-  motorAnchor: {x: 0, y: 0, z: 0}
-  connectedAnchor: {x: 0, y: 0.02839923, z: 0}
-  torque: 0.3
-  angularVelocity: 1200
 --- !u!138 &1558936908493681513
 FixedJoint:
   m_ObjectHideFlags: 0
@@ -630,6 +610,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   mass: 0.1
   centerOfMassPosition: {x: 0, y: 0, z: 0}
+  isDrawCenterOfMass: 1
 --- !u!1 &548329716402073725
 GameObject:
   m_ObjectHideFlags: 0
@@ -726,7 +707,6 @@ GameObject:
   - component: {fileID: 944520468477537526}
   - component: {fileID: 944520468477537521}
   - component: {fileID: 944520468477537520}
-  - component: {fileID: 944520468477537527}
   - component: {fileID: 944520468477537523}
   - component: {fileID: 944520468477537522}
   - component: {fileID: 944520468477537532}
@@ -854,26 +834,6 @@ HingeJoint:
   m_EnablePreprocessing: 1
   m_MassScale: 1
   m_ConnectedMassScale: 1
---- !u!114 &944520468477537527
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 749701501903595410}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0f439c269cf7a234588a09365b52af2c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  rotor: {fileID: 9157323604562037209}
-  motorDriver: {fileID: 3606021487582106250}
-  motorAxis: {x: 0, y: 1, z: 0}
-  resetMotorAnchor: 1
-  motorAnchor: {x: 0, y: 0, z: 0}
-  connectedAnchor: {x: 0, y: 0.02839923, z: 0}
-  torque: 0.3
-  angularVelocity: 1200
 --- !u!138 &944520468477537523
 FixedJoint:
   m_ObjectHideFlags: 0
@@ -916,6 +876,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   mass: 0.1
   centerOfMassPosition: {x: 0, y: 0, z: 0}
+  isDrawCenterOfMass: 1
 --- !u!1 &862634880866275448
 GameObject:
   m_ObjectHideFlags: 0
@@ -1286,6 +1247,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   mass: 0.15
   centerOfMassPosition: {x: 0, y: 0, z: 0}
+  isDrawCenterOfMass: 1
 --- !u!59 &962775399836395262
 HingeJoint:
   m_ObjectHideFlags: 0
@@ -1336,6 +1298,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   connectedBody: {fileID: 6751810160411151736}
   axis: {x: 0, y: 0, z: 1}
+  isResetAnchor: 0
+  anchor: {x: 0, y: 0, z: 0}
+  connectedAnchor: {x: 0, y: 0, z: 0}
+  isDrawAnchors: 1
 --- !u!1 &1059376039340473018
 GameObject:
   m_ObjectHideFlags: 0
@@ -1601,7 +1567,6 @@ GameObject:
   - component: {fileID: 8894337104148650913}
   - component: {fileID: 6356209642147105122}
   - component: {fileID: 6356209642147105121}
-  - component: {fileID: 6356209642147105120}
   - component: {fileID: 6356209642147105132}
   - component: {fileID: 6356209642147105123}
   - component: {fileID: 6356209642147105133}
@@ -1729,26 +1694,6 @@ HingeJoint:
   m_EnablePreprocessing: 1
   m_MassScale: 1
   m_ConnectedMassScale: 1
---- !u!114 &6356209642147105120
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1195922585509400138}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0f439c269cf7a234588a09365b52af2c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  rotor: {fileID: 8575675955508004220}
-  motorDriver: {fileID: 2871955494592638929}
-  motorAxis: {x: 0, y: 1, z: 0}
-  resetMotorAnchor: 1
-  motorAnchor: {x: 0, y: 0, z: 0}
-  connectedAnchor: {x: 0, y: -0.028399229, z: 0}
-  torque: 0.3
-  angularVelocity: 1200
 --- !u!138 &6356209642147105132
 FixedJoint:
   m_ObjectHideFlags: 0
@@ -1791,6 +1736,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   mass: 0.1
   centerOfMassPosition: {x: 0, y: 0, z: 0}
+  isDrawCenterOfMass: 1
 --- !u!1 &1213744671146201264
 GameObject:
   m_ObjectHideFlags: 0
@@ -2660,6 +2606,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   mass: 0.6
   centerOfMassPosition: {x: 0.05, y: 0, z: 0}
+  isDrawCenterOfMass: 1
 --- !u!65 &2307654211260268758
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -2769,7 +2716,6 @@ GameObject:
   - component: {fileID: 1081132913740827504}
   - component: {fileID: 6178424865788326284}
   - component: {fileID: 6178424865788326275}
-  - component: {fileID: 6178424865788326274}
   - component: {fileID: 6178424865788326286}
   - component: {fileID: 6178424865788326285}
   - component: {fileID: 6178424865788326287}
@@ -2897,26 +2843,6 @@ HingeJoint:
   m_EnablePreprocessing: 1
   m_MassScale: 1
   m_ConnectedMassScale: 1
---- !u!114 &6178424865788326274
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2998008334933178786}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0f439c269cf7a234588a09365b52af2c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  rotor: {fileID: 5568691107731992178}
-  motorDriver: {fileID: 2871955493472252910}
-  motorAxis: {x: 0, y: 1, z: 0}
-  resetMotorAnchor: 1
-  motorAnchor: {x: 0, y: 0, z: 0}
-  connectedAnchor: {x: 0, y: -0.028399229, z: 0}
-  torque: 0.3
-  angularVelocity: 1200
 --- !u!138 &6178424865788326286
 FixedJoint:
   m_ObjectHideFlags: 0
@@ -2959,6 +2885,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   mass: 0.1
   centerOfMassPosition: {x: 0, y: 0, z: 0}
+  isDrawCenterOfMass: 1
 --- !u!1 &3332397245738960143
 GameObject:
   m_ObjectHideFlags: 0
@@ -3443,6 +3370,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   mass: 0.15
   centerOfMassPosition: {x: 0.02, y: -0.03, z: 0}
+  isDrawCenterOfMass: 1
 --- !u!1 &3730655960255683634
 GameObject:
   m_ObjectHideFlags: 0
@@ -3560,6 +3488,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   mass: 0.05
   centerOfMassPosition: {x: 0, y: 0, z: 0}
+  isDrawCenterOfMass: 1
 --- !u!64 &5424532066795380699
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -4566,6 +4495,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   mass: 0.15
   centerOfMassPosition: {x: 0.02, y: -0.03, z: 0}
+  isDrawCenterOfMass: 1
 --- !u!1 &4638572277673471031
 GameObject:
   m_ObjectHideFlags: 0
@@ -4770,6 +4700,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   mass: 0.15
   centerOfMassPosition: {x: 0, y: 0, z: 0}
+  isDrawCenterOfMass: 1
 --- !u!59 &6772350354063372305
 HingeJoint:
   m_ObjectHideFlags: 0
@@ -4820,6 +4751,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   connectedBody: {fileID: 6622784054529006303}
   axis: {x: 0, y: 0, z: 1}
+  isResetAnchor: 0
+  anchor: {x: 0, y: 0, z: 0}
+  connectedAnchor: {x: 0, y: 0, z: 0}
+  isDrawAnchors: 1
 --- !u!1 &4820419289096950805
 GameObject:
   m_ObjectHideFlags: 0
@@ -6938,6 +6873,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   mass: 0.05
   centerOfMassPosition: {x: 0, y: 0, z: 0}
+  isDrawCenterOfMass: 1
 --- !u!64 &5432873045142482211
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -8028,6 +7964,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   dataBus: []
+  data: 
 --- !u!114 &7211543478237630818
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8478,6 +8415,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   mass: 0.05
   centerOfMassPosition: {x: 0, y: 0, z: 0}
+  isDrawCenterOfMass: 1
 --- !u!64 &5568691107731992176
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -9784,6 +9722,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   mass: 0.05
   centerOfMassPosition: {x: 0, y: 0, z: 0}
+  isDrawCenterOfMass: 1
 --- !u!64 &9157323604562037215
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -10011,6 +9950,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   mass: 0.05
   centerOfMassPosition: {x: 0, y: 0, z: 0}
+  isDrawCenterOfMass: 1
 --- !u!64 &8694187413436386236
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -10581,7 +10521,6 @@ GameObject:
   - component: {fileID: 8655140274029287289}
   - component: {fileID: 4942846739106354622}
   - component: {fileID: 4942846739106354621}
-  - component: {fileID: 4942846739106354620}
   - component: {fileID: 4942846739106354616}
   - component: {fileID: 4942846739106354623}
   - component: {fileID: 4942846739106354617}
@@ -10709,26 +10648,6 @@ HingeJoint:
   m_EnablePreprocessing: 1
   m_MassScale: 1
   m_ConnectedMassScale: 1
---- !u!114 &4942846739106354620
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9076151186175874811}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0f439c269cf7a234588a09365b52af2c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  rotor: {fileID: 8694187413436386238}
-  motorDriver: {fileID: 2871955494522846039}
-  motorAxis: {x: 0, y: 1, z: 0}
-  resetMotorAnchor: 1
-  motorAnchor: {x: 0, y: 0, z: 0}
-  connectedAnchor: {x: 0, y: -0.028399229, z: 0}
-  torque: 0.3
-  angularVelocity: 1200
 --- !u!138 &4942846739106354616
 FixedJoint:
   m_ObjectHideFlags: 0
@@ -10771,6 +10690,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   mass: 0.1
   centerOfMassPosition: {x: 0, y: 0, z: 0}
+  isDrawCenterOfMass: 1
 --- !u!1 &9149701755159874559
 GameObject:
   m_ObjectHideFlags: 0
@@ -10784,7 +10704,6 @@ GameObject:
   - component: {fileID: 6478732729853617528}
   - component: {fileID: 6478732729853617531}
   - component: {fileID: 6478732729853617530}
-  - component: {fileID: 6478732729853617529}
   - component: {fileID: 6478732729853622917}
   - component: {fileID: 6478732729853622916}
   - component: {fileID: 6478732729853622918}
@@ -10912,26 +10831,6 @@ HingeJoint:
   m_EnablePreprocessing: 1
   m_MassScale: 1
   m_ConnectedMassScale: 1
---- !u!114 &6478732729853617529
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9149701755159874559}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0f439c269cf7a234588a09365b52af2c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  rotor: {fileID: 5432873045142482221}
-  motorDriver: {fileID: 3606021486464670259}
-  motorAxis: {x: 0, y: 1, z: 0}
-  resetMotorAnchor: 1
-  motorAnchor: {x: 0, y: 0, z: 0}
-  connectedAnchor: {x: 0, y: 0.02839923, z: 0}
-  torque: 0.3
-  angularVelocity: 1200
 --- !u!138 &6478732729853622917
 FixedJoint:
   m_ObjectHideFlags: 0
@@ -10974,3 +10873,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   mass: 0.1
   centerOfMassPosition: {x: 0, y: 0, z: 0}
+  isDrawCenterOfMass: 1
