@@ -5,7 +5,6 @@ using UnityEngine;
 [HelpURL("https://github.com/GrimDarkTech/RSMADocs/blob/main/API/en/RSMAModule.cs.md")]
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(FixedJoint))]
-
 public class RSMAFixed : MonoBehaviour
 {
     private Rigidbody moduleRigidbody;
@@ -19,7 +18,12 @@ public class RSMAFixed : MonoBehaviour
     {
         moduleRigidbody = GetComponent<Rigidbody>();
         fixedJoint = GetComponent<FixedJoint>();
-        if(connectedBody == null)
+
+        if(connectedBody != null)
+        { 
+            fixedJoint.connectedBody = connectedBody; 
+        }
+        else
         {
             Debug.LogError("ConnectedBody (RSMAFixed in" + gameObject.name + ") is null.");
         }
