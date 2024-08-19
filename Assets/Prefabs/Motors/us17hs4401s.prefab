@@ -33,7 +33,7 @@ Transform:
   m_Children:
   - {fileID: 5163498175852248858}
   m_Father: {fileID: 0}
-  m_RootOrder: 1
+  m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!65 &4621492866238841255
 BoxCollider:
@@ -139,6 +139,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -7511558181221131132, guid: ecf017ff0e95cb64ca392957021b2ca9, type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: ac0db686da132134faee903442429dd0, type: 2}
     - target: {fileID: 919132149155446097, guid: ecf017ff0e95cb64ca392957021b2ca9, type: 3}
       propertyPath: m_Name
       value: us17hs4401s
