@@ -53,7 +53,7 @@ public class RSMAServo : MonoBehaviour
     /// <summary>
     /// If True, draws anchors position with spheres and axis with lines
     /// </summary>
-    public bool isDrawAnchors = true;
+    public bool isDrawAnchors = false;
 
     protected HingeJoint _hingeJoint;
     protected Rigidbody _rigidbody;

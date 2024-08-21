@@ -31,7 +31,7 @@ public class RSMAHinge : MonoBehaviour
     /// <summary>
     /// If True, draws anchors position with spheres and axis with lines
     /// </summary>
-    public bool isDrawAnchors = true;
+    public bool isDrawAnchors = false;
 
     private void Start()
     {

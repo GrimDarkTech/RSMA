@@ -91,7 +91,7 @@ public class Differential : MonoBehaviour, IRotationPowered
     /// <summary>
     /// If True, draws anchors position with spheres and axis with lines
     /// </summary>
-    public bool isDrawAnchors = true;
+    public bool isDrawAnchors = false;
 
     /// <summary>
     /// Value of the torque of rotation of the output shafts
