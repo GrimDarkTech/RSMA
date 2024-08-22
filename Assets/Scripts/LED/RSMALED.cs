@@ -31,14 +31,11 @@ public class RSMALED : MonoBehaviour
     private void Start()
     {
         
-        if(colorBody != null)
+        if(colorBody == null)
         {
-            ledMaterial = colorBody.material;
+            colorBody = gameObject.GetComponent<Renderer>();
         }
-        else
-        {
-            ledMaterial = gameObject.GetComponent<Renderer>().material;
-        }
+        ledMaterial = colorBody.material;
         ledLight = gameObject.GetComponent<Light>();
         ledLight.color = color;
         defaultColor = ledMaterial.color;
