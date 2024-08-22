@@ -26,6 +26,11 @@ public class FirmwareCreator: EditorWindow
 
         EditorGUILayout.EndHorizontal();
 
+        EditorGUILayout.BeginHorizontal();
+        GUILayout.Space(20);
+        GUILayout.Label("File path: " + path);
+        EditorGUILayout.EndHorizontal();
+
         if (GUILayout.Button("Create Firmware"))
         {
             string filepath = Application.dataPath.Replace("Assets", "") + path + "/" + filename + ".cs";
