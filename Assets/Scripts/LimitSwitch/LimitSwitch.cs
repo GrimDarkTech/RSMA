@@ -49,7 +49,7 @@ public class LimitSwitch : RSMADataTransferSlave
     /// <summary>
     /// If True, draws anchors position with spheres
     /// </summary>
-    public bool isDrawAnchors = true;
+    public bool isDrawAnchors = false;
 
     private Rigidbody _bodyBody;
     [Space(5)]

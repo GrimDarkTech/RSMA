@@ -24,19 +24,21 @@ public class LightSensorScript : RSMADataTransferSlave
     private void Update()
     {
         lightIntensity = 0;
-        foreach(Light light in lights)
+        foreach (Light light in lights)
         {
-            float distance = Vector3.Distance(gameObject.transform.position, light.transform.position);
-            Vector3 rayDirection = Vector3.Normalize(light.transform.position - gameObject.transform.position);
-            RaycastHit hit;
-            if(Physics.Raycast(gameObject.transform.position, rayDirection, out hit))
+            if (light != null)
             {
-                if (hit.distance >= distance)
+                Vector3 rayDirection = Vector3.Normalize(gameObject.transform.position - light.transform.position);
+                RaycastHit hit;
+                if (Physics.Raycast(light.transform.position, rayDirection, out hit))
                 {
-                    if (light.enabled)
+                    if (hit.collider.gameObject == this.gameObject)
                     {
-                        Debug.DrawLine(gameObject.transform.position, light.transform.position, Color.blue);
-                        lightIntensity += light.intensity * (Mathf.Pow(light.range, 2) / Mathf.Pow(distance, 2)) * lightCoefficient / Mathf.Sqrt(distance);
+                        if (light.enabled)
+                        {
+                            Debug.DrawLine(gameObject.transform.position, light.transform.position, Color.blue);
+                            lightIntensity += light.intensity * (Mathf.Pow(light.range, 2) / Mathf.Pow(hit.distance, 2)) * lightCoefficient / Mathf.Sqrt(hit.distance);
+                        }
                     }
                 }
             }
