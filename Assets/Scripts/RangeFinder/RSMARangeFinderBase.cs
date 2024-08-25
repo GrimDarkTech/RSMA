@@ -12,21 +12,28 @@ public class RSMARangeFinderBase : RSMADataTransferSlave
     /// <summary>
     /// Viewing angle of the rangefinder. The angle lies in the zx plane (horizontal) , z axis (forward) - is the bisector of the angle
     /// </summary>
+    [Min(0.5f)]
     public float angle = 1;
     /// <summary>
     /// Number of rays casted on angle
     /// </summary>
+    [Min(0)]
     public int numberOfRays = 1;
+    /// <summary>
+    /// If True, draws rays of rangefinder
+    /// </summary>
+    public bool isDrawRays = false;
+    
 
     [ContextMenu("MeasureRange")]
     private float MeasureRange()
     {
-        float step = angle / (numberOfRays + 1f);
-        float range = maxRange+10;
+        float step = angle / (numberOfRays + 1);
+        float range = maxRange;
 
-        for (int i = -numberOfRays / 2; i < numberOfRays /2 ; i++)
+        for (float i = -angle * 0.5f; i <= angle * 0.5f; i = i + step)
         {
-            Vector3 rayDirection = Quaternion.AngleAxis(step * i, transform.up) * transform.forward;
+            Vector3 rayDirection = Quaternion.AngleAxis(i, transform.up) * transform.forward;
 
             RaycastHit hit;
             Ray ray;
@@ -38,10 +45,6 @@ public class RSMARangeFinderBase : RSMADataTransferSlave
 
                 if (hit.distance < range)
                     range = hit.distance;
-            }
-            else
-            {
-                range = maxRange;
             }
         }
         return range;
@@ -57,5 +60,21 @@ public class RSMARangeFinderBase : RSMADataTransferSlave
     private void Start()
     {
         gameObject.layer = 2;
+    }
+
+    private void OnDrawGizmos()
+    {
+        if (isDrawRays)
+        {
+            Gizmos.color = Color.red;
+            float step = angle / (numberOfRays + 1);
+            for (float i = -angle * 0.5f; i <= angle * 0.5f; i = i + step)
+            {
+                Vector3 directon = Quaternion.AngleAxis(i, transform.up) * transform.forward;
+
+                Gizmos.DrawLine(transform.position, transform.position + directon * maxRange);
+            }
+
+        }
     }
 }

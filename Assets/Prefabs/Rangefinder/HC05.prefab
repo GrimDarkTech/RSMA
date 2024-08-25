@@ -1878,8 +1878,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxRange: 8
-  angle: 60
+  angle: 50
   numberOfRays: 15
+  isDrawRays: 0
 --- !u!65 &1136514526789689404
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -1923,6 +1924,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   mass: 0.015
   centerOfMassPosition: {x: 0, y: 0, z: 0}
+  isDrawCenterOfMass: 1
 --- !u!138 &1136514526789689402
 FixedJoint:
   m_ObjectHideFlags: 0
