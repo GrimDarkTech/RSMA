@@ -41,32 +41,35 @@ public class StepperDriver : MonoBehaviour
 
     private void Update()
     {
-        int[] input = new int[4];
+        if(connectMicrocontroller != null)
+        {
+            int[] input = new int[4];
 
-        input[0] = (int)connectMicrocontroller.GetPin(channel1Pin).value;
-        input[1] = (int)connectMicrocontroller.GetPin(channel2Pin).value;
-        input[2] = (int)connectMicrocontroller.GetPin(channel3Pin).value;
-        input[3] = (int)connectMicrocontroller.GetPin(channel4Pin).value;
+            input[0] = (int)connectMicrocontroller.GetPin(channel1Pin).value;
+            input[1] = (int)connectMicrocontroller.GetPin(channel2Pin).value;
+            input[2] = (int)connectMicrocontroller.GetPin(channel3Pin).value;
+            input[3] = (int)connectMicrocontroller.GetPin(channel4Pin).value;
 
-        if (Enumerable.SequenceEqual(input, new int[] { 1, 1, 0, 0 }))
-        {
-            outputSingal = 1;
-        }
-        else if (Enumerable.SequenceEqual(input, new int[] { 0, 1, 1, 0 }))
-        {
-            outputSingal = 2;
-        }
-        else if (Enumerable.SequenceEqual(input, new int[] { 0, 0, 1, 1 }))
-        {
-            outputSingal = 3;
-        }
-        else if (Enumerable.SequenceEqual(input, new int[] { 1, 0, 0, 1 }))
-        {
-            outputSingal = 4;
-        }
-        else
-        {
-            outputSingal = 0;
+            if (Enumerable.SequenceEqual(input, new int[] { 1, 1, 0, 0 }))
+            {
+                outputSingal = 1;
+            }
+            else if (Enumerable.SequenceEqual(input, new int[] { 0, 1, 1, 0 }))
+            {
+                outputSingal = 2;
+            }
+            else if (Enumerable.SequenceEqual(input, new int[] { 0, 0, 1, 1 }))
+            {
+                outputSingal = 3;
+            }
+            else if (Enumerable.SequenceEqual(input, new int[] { 1, 0, 0, 1 }))
+            {
+                outputSingal = 4;
+            }
+            else
+            {
+                outputSingal = 0;
+            }
         }
     }
 }

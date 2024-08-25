@@ -43,11 +43,15 @@ public class RSMAMotorDriver : MonoBehaviour
         else
             return 0;
     }
+
     private void Update()
     {
-        portIn1 = connectMicrocontroller.GetPin(connectedPin1).value;
-        portIn2 = connectMicrocontroller.GetPin(connectedPin2).value;
-        portPWM = connectMicrocontroller.GetPin(connectedPinPWM).value;
-        output = portPWM * (portIn1 - portIn2);
+        if(connectMicrocontroller != null)
+        {
+            portIn1 = connectMicrocontroller.GetPin(connectedPin1).value;
+            portIn2 = connectMicrocontroller.GetPin(connectedPin2).value;
+            portPWM = connectMicrocontroller.GetPin(connectedPinPWM).value;
+            output = portPWM * (portIn1 - portIn2);
+        }
     }
 }
