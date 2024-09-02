@@ -4,6 +4,7 @@ using UnityEngine;
 /// Controls of an object's position and rotation through physics simulation. Uses Rigidbody to simulate physics
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
+[HelpURL("https://github.com/GrimDarkTech/RSMADocs/blob/main/Manual/ru/Mechanics/Setting_up_the_physics_of_models.md")]
 public class RSMAMechanicalPart : MonoBehaviour
 {
     private Rigidbody _rigidbody;

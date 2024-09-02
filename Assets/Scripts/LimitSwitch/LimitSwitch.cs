@@ -3,6 +3,7 @@ using UnityEngine;
 /// <summary>
 /// Implements the properties and functionality of the limit switch
 /// </summary>
+[HelpURL("https://github.com/GrimDarkTech/RSMADocs/blob/main/Manual/ru/Electronics/Setting_up_switches.md")]
 public class LimitSwitch : RSMADataTransferSlave
 {
     /// <summary>

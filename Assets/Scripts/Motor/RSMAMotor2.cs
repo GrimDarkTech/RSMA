@@ -4,6 +4,7 @@ using UnityEngine;
 /// Implements properties and functionality of electric motor
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
+[HelpURL("https://github.com/GrimDarkTech/RSMADocs/blob/main/Manual/ru/Motors/Setting_up_motors.md")]
 public class RSMAMotor2 : MonoBehaviour
 {
     private HingeJoint _hingeJoint;

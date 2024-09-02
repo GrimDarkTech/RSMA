@@ -5,6 +5,7 @@ using UnityEngine;
 /// <summary>
 /// Implements properties and functionality of GPIO
 /// </summary>
+[HelpURL("https://github.com/GrimDarkTech/RSMADocs/blob/main/Manual/ru/Electronics/Setting_up_microcontrollers.md")]
 public class RSMAGPIO : MonoBehaviour
 {
     /// <summary>

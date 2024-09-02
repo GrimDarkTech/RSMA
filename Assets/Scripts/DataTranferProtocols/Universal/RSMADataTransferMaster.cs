@@ -4,6 +4,7 @@ using UnityEngine;
 /// <summary>
 /// Implements properties and functionality of master device in data transfer protocol
 /// </summary>
+[HelpURL("https://github.com/GrimDarkTech/RSMADocs/blob/main/Manual/ru/Electronics/Setting_up_microcontrollers.md")]
 public class RSMADataTransferMaster : MonoBehaviour
 {
     /// <summary>

@@ -3,6 +3,7 @@ using UnityEngine;
 /// <summary>
 /// Implements properties and functionality of electric motor driver
 /// </summary>
+[HelpURL("https://github.com/GrimDarkTech/RSMADocs/blob/main/Manual/ru/Electronics/Setting_up_motor_drivers.md")]
 public class RSMAMotorDriver : MonoBehaviour
 {
     /// <summary>

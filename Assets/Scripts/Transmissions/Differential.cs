@@ -4,6 +4,7 @@ using UnityEngine;
 /// Decomposes  incoming flow of rotational power into two outgoing flows that are interdependent in their angular velocities
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
+[HelpURL("https://github.com/GrimDarkTech/RSMADocs/blob/main/Manual/ru/Mechanics/Setting_up_mechanical_differential.md")]
 public class Differential : MonoBehaviour, IRotationPowered
 {
     /// <summary>

@@ -4,6 +4,7 @@ using UnityEngine;
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(HingeJoint))]
+[HelpURL("https://github.com/GrimDarkTech/RSMADocs/blob/main/Manual/ru/Motors/Setting_up_servos.md")]
 public class RSMAServo : MonoBehaviour
 {
     /// <summary>

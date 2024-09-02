@@ -5,6 +5,7 @@ using UnityEngine;
 /// <summary>
 /// Class for creating and configuring omnidirectional wheels
 /// </summary>
+[HelpURL("https://github.com/GrimDarkTech/RSMADocs/blob/main/Manual/ru/Mechanics/Setting_up_omnidirectional_wheels.md")]
 public class OmnidirectionalWheel : MonoBehaviour
 {
     /// <summary>

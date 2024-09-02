@@ -4,6 +4,7 @@ using UnityEngine;
 /// <summary>
 /// Simulates the operation of an absolute and incremental encoder with a built-in pulse counter.
 /// </summary>
+[HelpURL("https://github.com/GrimDarkTech/RSMADocs/blob/main/Manual/ru/Electronics/Setting_up_encoders.md")]
 public class Encoder : RSMADataTransferSlave
 {
     /// <summary>

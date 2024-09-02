@@ -3,7 +3,7 @@ using UnityEngine;
 /// Simulates the behavior of the axial connection. The hinge joint is used to simulate the interaction of two rigid bodies
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
-
+[HelpURL("https://github.com/GrimDarkTech/RSMADocs/blob/main/Manual/ru/Mechanics/Setting_up_hinge_joints.md")]
 public class RSMAHinge : MonoBehaviour
 {
     private HingeJoint _hingeJoint;

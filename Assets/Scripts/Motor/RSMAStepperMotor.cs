@@ -8,6 +8,7 @@ using UnityEngine;
 /// Implements properties and functionality of stepper motor
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
+[HelpURL("https://github.com/GrimDarkTech/RSMADocs/blob/main/Manual/ru/Motors/Setting_up_stepper_motors.md")]
 public class RSMAStepperMotor : RSMADataTransferSlave
 {
     /// <summary>

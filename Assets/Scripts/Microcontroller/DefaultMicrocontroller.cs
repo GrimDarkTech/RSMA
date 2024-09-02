@@ -4,6 +4,7 @@ using UnityEngine;
 /// <summary>
 /// Implements the properties and behaviors of AVR/STM-like microcontrollers. When turned on, the PowerLED LED activates
 /// </summary>
+[HelpURL("https://github.com/GrimDarkTech/RSMADocs/blob/main/Manual/ru/Electronics/Setting_up_microcontrollers.md")]
 public class DefaultMicrocontroller : RSMAMicrocontroller
 {
     [SerializeField] private RSMALED powerLed;

@@ -2,7 +2,7 @@ using UnityEngine;
 /// <summary>
 /// Connects two Rigidbody with fixed joint
 /// </summary>
-[HelpURL("https://github.com/GrimDarkTech/RSMADocs/blob/main/API/en/RSMAModule.cs.md")]
+[HelpURL("https://github.com/GrimDarkTech/RSMADocs/blob/main/Manual/ru/Mechanics/Setting_up_fixed_joints.md")]
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(FixedJoint))]
 public class RSMAFixed : MonoBehaviour

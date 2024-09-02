@@ -4,6 +4,7 @@ using UnityEngine;
 /// Implements properties and functionality of Light Emitting Diode 
 /// </summary>
 [RequireComponent(typeof(Light))]
+[HelpURL("https://github.com/GrimDarkTech/RSMADocs/blob/main/Manual/ru/Electronics/Setting_up_leds.md")]
 public class RSMALED : MonoBehaviour
 {
     protected ushort mode;

@@ -5,6 +5,7 @@ using TMPro;
 /// <summary>
 /// Implements properties and functionality of text display
 /// </summary>
+[HelpURL("https://github.com/GrimDarkTech/RSMADocs/blob/main/Manual/ru/Electronics/Setting_up_display.md")]
 public class RSMADisplay : RSMADataTransferSlave
 {
     /// <summary>
