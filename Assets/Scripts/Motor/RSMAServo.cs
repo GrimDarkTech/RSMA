@@ -86,7 +86,10 @@ public class RSMAServo : MonoBehaviour
     }
     private void FixedUpdate()
     {
-        input = microcontroller.GetPin(connectedPin).value;
+        if (microcontroller != null)
+        {
+            input = microcontroller.GetPin(connectedPin).value;
+        }
 
         var jointSpring = _hingeJoint.spring;
         jointSpring.targetPosition = input * (limits.y - limits.x) + limits.x;
