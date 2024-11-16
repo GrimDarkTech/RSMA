@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using UnityEngine;
 
 /// <summary>
@@ -46,7 +47,7 @@ public class AutoDocsMD : MonoBehaviour
 
         classes.Clear();
 
-        StreamReader streamReader = new StreamReader(filepath + "/" + filename);
+        StreamReader streamReader = new StreamReader(filepath + "/" + filename, Encoding.Default);
 
         while (true)
         {

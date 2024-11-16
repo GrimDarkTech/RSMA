@@ -417,8 +417,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 149622517}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.882, y: 0, z: 0}
-  m_LocalScale: {x: 0.8, y: 1, z: 0.3}
+  m_LocalPosition: {x: -0.368, y: -0.329, z: 0}
+  m_LocalScale: {x: 0.8, y: 0.8, z: 0.3}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1428040603}
@@ -1972,563 +1972,112 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fb0d70e03637ba840b3f7e5af607a69b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  filepath: Assets/Scripts/LimitSwitch/
-  filename: LimitSwitch.cs
-  docsFolderPath: F:\Unity Projects\RSMADocs\New
+  filepath: Assets/Scenes/
+  filename: NavAgent.cs
+  docsFolderPath: F:\Cpp\MxEngine\samples\MxDrone\Docs
   lines: []
   docStrings:
   - <summary>
-  - ' Class for creating and configuring omnidirectional wheels'
+  - " \u0420\u0435\u0436\u0438\u043C \u0440\u0430\u0431\u043E\u0442\u044B \u0430\u0433\u0435\u043D\u0442\u0430.
+    \u0415\u0441\u043B\u0438 Teleport - \u0442\u0435\u043B\u0435\u043F\u043E\u0440\u0442\u0438\u0440\u0443\u0435\u0442
+    \u043E\u0431\u044A\u0435\u043A\u0442 \u043F\u043E \u043A\u043E\u043E\u0440\u0434\u0438\u043D\u0430\u0442\u0430\u043C
+    \u0441 \u0437\u0430\u0434\u0430\u043D\u043D\u043E\u0439 \u0441\u043A\u043E\u0440\u043E\u0441\u0442\u044C\u044E.
+    \u0415\u0441\u043B\u0438 TeleportAndRotate - \u0442\u0435\u043B\u0435\u043F\u043E\u0440\u0442\u0438\u0440\u0443\u0435\u0442
+    \u0438 \u043F\u043E\u0432\u043E\u0440\u0430\u0447\u0438\u0432\u0430\u0435\u0442
+    \u043F\u0435\u0440\u0435\u0434\u043E\u043C \u0432 \u0446\u0435\u043B\u0435\u0432\u0443\u044E
+    \u0442\u043E\u0447\u043A\u0443"
   - </summary>
-  - 'public class OmnidirectionalWheel : MonoBehaviour'
+  - public enum AgentMode
   - <summary>
-  - '     Wheel object used as the basis for an omnidirectional wheel'
+  - "     \u0422\u0435\u043B\u0435\u043F\u043E\u0440\u0442\u0430\u0446\u0438\u044F"
   - </summary>
-  - '    public GameObject wheel;'
+  - '    Teleport,'
   - <summary>
-  - '     Rotation of the wheel object'
+  - "     \u0422\u0435\u043B\u0435\u043F\u043E\u0440\u0442\u0430\u0446\u0438\u044F
+    \u0438 \u0432\u0440\u0430\u0449\u0435\u043D\u0438\u0435"
   - </summary>
-  - '    public Quaternion wheelRotation;'
+  - '    TeleportAndRotate'
   - <summary>
-  - '     Roller object used to form an omnidirectional wheel'
+  - " \u041B\u0438\u043D\u0435\u0439\u043D\u043E \u043F\u0435\u0440\u0435\u043C\u0435\u0449\u0430\u0435\u0442
+    \u043E\u0431\u044A\u0435\u043A\u0442 \u0441 \u0437\u0430\u0434\u0430\u043D\u043D\u043E\u0439
+    \u0441\u043A\u043E\u0440\u043E\u0441\u0442\u044C\u044E \u043F\u043E \u0437\u0430\u0434\u0430\u043D\u043D\u044B\u043C
+    \u0432 \u0441\u043F\u0438\u0441\u043A\u0435 \u043A\u043E\u043E\u0440\u0434\u0438\u043D\u0430\u0442\u0430\u043C"
   - </summary>
-  - '    public GameObject roller;'
+  - public class NavAgent
   - <summary>
-  - '     The number of rollers mounted on the wheel'
+  - "     \u0415\u0441\u043B\u0438 True - \u0430\u043A\u0442\u0438\u0432\u0438\u0440\u0443\u0435\u0442\u0441\u044F
+    \u043F\u0435\u0440\u0435\u043C\u0435\u0449\u0435\u043D\u0438\u0435 \u043E\u0431\u044A\u0435\u043A\u0442\u0430
+    \u043A \u0446\u0435\u043B\u0435\u0432\u043E\u0439 \u0442\u043E\u0447\u043A\u0435
+    \u0438\u0437 \u0441\u043F\u0438\u0441\u043A\u0430"
   - </summary>
+  - '    public bool isMoving;'
   - <summary>
-  - '     The radius of installation of the rollers'
+  - "     \u0420\u0435\u0436\u0438\u043C \u043F\u0435\u0440\u0435\u043C\u0435\u0449\u0435\u043D\u0438\u044F
+    \u043E\u0431\u044A\u0435\u043A\u0442\u0430"
   - </summary>
+  - '    public AgentMode moveMode;'
   - <summary>
-  - '     Additional rotation of the rollers object'
+  - "     \u0417\u0430\u0434\u0430\u0435\u0442 \u043F\u0435\u0440\u0435\u043C\u0435\u0449\u0430\u0435\u043C\u044B\u0439
+    \u043E\u0431\u044A\u0435\u043A\u0442, \u043E\u0447\u0438\u0449\u0430\u0435\u0442
+    \u0441\u043F\u0438\u0441\u043E\u043A \u0442\u043E\u0447\u0435\u043A \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u0430,
+    \u043E\u0431\u043D\u0443\u043B\u044F\u0435\u0442 \u043F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u044B
+    \u0434\u0432\u0438\u0436\u0435\u043D\u0438\u044F."
   - </summary>
-  - '    public Quaternion additionalRollerRotation;'
+  - "<p>     gameObject=\u041F\u0435\u0440\u0435\u043C\u0435\u0449\u0430\u0435\u043C\u044B\u0439
+    \u043E\u0431\u044A\u0435\u043A\u0442"
+  - '    public void Start(MxObjectHandle gameObject)'
   - <summary>
-  - '     The plane of rotation of the wheel in the local coordinate system'
+  - "     \u041E\u0431\u043D\u043E\u0432\u043B\u044F\u0435\u0442 \u043F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u0435
+    \u043E\u0431\u044A\u0435\u043A\u0442\u0430, \u043F\u0435\u0440\u0435\u043C\u0435\u0449\u0430\u044F
+    \u0435\u0433\u043E \u043A \u0446\u0435\u043B\u0435\u0432\u043E\u0439 \u0442\u043E\u0447\u043A\u0435
+    \u0441 \u0437\u0430\u0434\u0430\u043D\u043D\u043E\u0439 \u0441\u043A\u043E\u0440\u043E\u0441\u0442\u044C\u044E,
+    \u0435\u0441\u043B\u0438 \u0444\u043B\u0430\u0433 isMoving = True \u0438 \u043E\u0431\u044A\u0435\u043A\u0442
+    \u043D\u0435 \u043D\u0430\u0445\u043E\u0434\u0438\u0442\u0441\u044F \u0432 \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u0435\u0439
+    \u0442\u043E\u0447\u043A\u0435 \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u0430. "
   - </summary>
-  - '    public CoordinatePlane wheelPlane = CoordinatePlane.yz;'
+  - '    public void Update()'
   - <summary>
-  - '     The angle of inclination of the rollers relative to the circumference of
-    the wheel'
+  - "     \u0414\u043E\u0431\u0430\u0432\u043B\u044F\u0435\u0442 \u043D\u043E\u0432\u0443\u044E
+    \u0442\u043E\u0447\u043A\u0443 \u0432 \u043C\u0430\u0440\u0448\u0440\u0443\u0442.
+    \u0422\u043E\u0447\u043A\u0430 \u043F\u043E\u043C\u0435\u0449\u0430\u0435\u0442\u0441\u044F
+    \u0432 \u043A\u043E\u043D\u0435\u0446 \u0441\u043F\u0438\u0441\u043A\u0430"
   - </summary>
+  - "<p>     position=\u041D\u043E\u0432\u0430\u044F \u0442\u043E\u0447\u043A\u0430
+    \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u0430"
+  - '    public void AddRoutePosition(Vector3 position)'
   - <summary>
-  - '     The axis relative to which the roller is rotated to the wheel plane'
+  - "     \u0417\u0430\u0434\u0430\u0435\u0442 \u0441\u043A\u043E\u0440\u043E\u0441\u0442\u044C
+    \u0434\u0432\u0438\u0436\u0435\u043D\u0438\u044F \u043E\u0431\u044A\u0435\u043A\u0442\u0430
+    \u0432 \u043C/c"
   - </summary>
-  - '    public CoordinateAxis rollerRotationAxis = CoordinateAxis.x;'
+  - "<p>     velocity=\u0417\u043D\u0430\u0447\u0435\u043D\u0438\u0435 \u0441\u043A\u043E\u0440\u043E\u0441\u0442\u0438
+    \u0434\u0432\u0438\u0436\u0435\u043D\u0438\u044F"
+  - '    public void SetVelocity(float velocity)'
   - <summary>
-  - '     The axis of rotation of the roller'
+  - "     \u0412\u044B\u0432\u043E\u0434\u0438\u0442 \u0432 \u0442\u0435\u0440\u043C\u0438\u043D\u0430\u043B
+    \u0441\u043F\u0438\u0441\u043E\u043A \u0442\u043E\u0447\u0435\u043A \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u0430"
   - </summary>
-  - '    public CoordinateAxis rollerHingeAxis = CoordinateAxis.y;'
+  - '    public void PrintRoute()'
   - <summary>
-  - '     Creates a wheel with the specified parameters on the attached object'
+  - "     \u0417\u0430\u043F\u0443\u0441\u043A\u0430\u0435\u0442 \u0434\u0432\u0438\u0436\u0435\u043D\u0438\u0435
+    \u043F\u043E \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u0443"
   - </summary>
-  - public enum CoordinatePlane
-  - 'public class WheelEditor : Editor'
+  - "<p>     isResetCurrentPoint=\u0415\u0441\u043B\u0438 True - \u043F\u0440\u043E\u0438\u0437\u043E\u0439\u0434\u0435\u0442
+    \u0441\u0431\u0440\u043E\u0441 \u0442\u0435\u043A\u0443\u0449\u0435\u0439 \u0442\u043E\u0447\u043A\u0438
+    \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u0430. \u041E\u0431\u044A\u0435\u043A\u0442
+    \u043D\u0430\u0447\u043D\u0435\u0442 \u0434\u0432\u0438\u0436\u0435\u043D\u0438\u0435
+    \u0441 \u043F\u0435\u0440\u0432\u043E\u0439 \u0442\u043E\u0447\u043A\u0438"
+  - '    public void FollowRoute(bool isResetCurrentPoint)'
   classes:
-  - name: OmnidirectionalWheel
-    description: ' Class for creating and configuring omnidirectional wheels'
+  - name: MxObjectHandle
+    description: 
     fields:
-    - name: wheel
-      description: 
-      type: UnityEngine.GameObject
-    - name: wheelRotation
-      description: '     Rotation of the wheel object'
-      type: UnityEngine.Quaternion
-    - name: roller
-      description: '     The axis of rotation of the roller'
-      type: UnityEngine.GameObject
-    - name: rollerCount
-      description: 
-      type: System.Int32
-    - name: installationRadius
-      description: 
-      type: System.Single
-    - name: additionalRollerRotation
-      description: '     Additional rotation of the rollers object'
-      type: UnityEngine.Quaternion
-    - name: wheelPlane
-      description: '     The plane of rotation of the wheel in the local coordinate
-        system'
-      type: CoordinatePlane
-    - name: rollerAngle
-      description: 
-      type: System.Single
-    - name: rollerRotationAxis
-      description: '     The axis relative to which the roller is rotated to the
-        wheel plane'
-      type: CoordinateAxis
-    - name: rollerHingeAxis
-      description: '     The axis of rotation of the roller'
-      type: CoordinateAxis
-    properties:
-    - name: useGUILayout
-      description: 
-      type: System.Boolean
-    - name: runInEditMode
-      description: 
-      type: System.Boolean
-    - name: enabled
-      description: 
-      type: System.Boolean
-    - name: isActiveAndEnabled
-      description: 
-      type: System.Boolean
     - name: transform
       description: 
       type: UnityEngine.Transform
-    - name: gameObject
-      description: 
-      type: UnityEngine.GameObject
-    - name: tag
-      description: 
-      type: System.String
-    - name: rigidbody
-      description: 
-      type: UnityEngine.Component
-    - name: rigidbody2D
-      description: 
-      type: UnityEngine.Component
-    - name: camera
-      description: 
-      type: UnityEngine.Component
-    - name: light
-      description: 
-      type: UnityEngine.Component
-    - name: animation
-      description: 
-      type: UnityEngine.Component
-    - name: constantForce
-      description: 
-      type: UnityEngine.Component
-    - name: renderer
-      description: 
-      type: UnityEngine.Component
-    - name: audio
-      description: 
-      type: UnityEngine.Component
-    - name: networkView
-      description: 
-      type: UnityEngine.Component
-    - name: collider
-      description: 
-      type: UnityEngine.Component
-    - name: collider2D
-      description: 
-      type: UnityEngine.Component
-    - name: hingeJoint
-      description: 
-      type: UnityEngine.Component
-    - name: particleSystem
-      description: 
-      type: UnityEngine.Component
-    - name: name
-      description: 
-      type: System.String
-    - name: hideFlags
-      description: 
-      type: UnityEngine.HideFlags
+    properties: []
     methods:
-    - name: FormWheel
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: IsInvoking
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: CancelInvoke
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: Invoke
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: InvokeRepeating
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: CancelInvoke
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: IsInvoking
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: StartCoroutine
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: StartCoroutine
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: StartCoroutine
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: StartCoroutine_Auto
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: StopCoroutine
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: StopCoroutine
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: StopCoroutine
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: StopAllCoroutines
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: get_useGUILayout
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: set_useGUILayout
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: get_runInEditMode
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: set_runInEditMode
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: get_enabled
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: set_enabled
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: get_isActiveAndEnabled
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: get_transform
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: get_gameObject
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetComponent
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetComponent
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: TryGetComponent
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: TryGetComponent
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetComponent
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetComponentInChildren
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetComponentInChildren
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetComponentInChildren
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetComponentInChildren
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetComponentsInChildren
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetComponentsInChildren
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetComponentsInChildren
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetComponentsInChildren
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetComponentsInChildren
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetComponentsInChildren
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetComponentInParent
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetComponentInParent
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetComponentInParent
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetComponentInParent
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetComponentsInParent
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetComponentsInParent
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetComponentsInParent
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetComponentsInParent
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetComponentsInParent
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetComponents
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetComponents
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetComponents
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: get_tag
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: set_tag
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetComponents
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: CompareTag
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: SendMessageUpwards
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: SendMessageUpwards
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: SendMessageUpwards
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: SendMessageUpwards
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: SendMessage
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: SendMessage
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: SendMessage
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: SendMessage
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: BroadcastMessage
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: BroadcastMessage
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: BroadcastMessage
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: BroadcastMessage
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: get_rigidbody
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: get_rigidbody2D
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: get_camera
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: get_light
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: get_animation
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: get_constantForce
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: get_renderer
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: get_audio
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: get_networkView
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: get_collider
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: get_collider2D
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: get_hingeJoint
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: get_particleSystem
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetInstanceID
+    - name: Equals
       declaration: 
       description: 
       retunrs: 
@@ -2538,27 +2087,7 @@ MonoBehaviour:
       description: 
       retunrs: 
       parameters: []
-    - name: Equals
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: get_name
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: set_name
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: get_hideFlags
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: set_hideFlags
+    - name: GetType
       declaration: 
       description: 
       retunrs: 
@@ -2568,157 +2097,70 @@ MonoBehaviour:
       description: 
       retunrs: 
       parameters: []
-    - name: GetType
-      declaration: 
+  - name: NavAgent
+    description: " \u041B\u0438\u043D\u0435\u0439\u043D\u043E \u043F\u0435\u0440\u0435\u043C\u0435\u0449\u0430\u0435\u0442
+      \u043E\u0431\u044A\u0435\u043A\u0442 \u0441 \u0437\u0430\u0434\u0430\u043D\u043D\u043E\u0439
+      \u0441\u043A\u043E\u0440\u043E\u0441\u0442\u044C\u044E \u043F\u043E \u0437\u0430\u0434\u0430\u043D\u043D\u044B\u043C
+      \u0432 \u0441\u043F\u0438\u0441\u043A\u0435 \u043A\u043E\u043E\u0440\u0434\u0438\u043D\u0430\u0442\u0430\u043C"
+    fields:
+    - name: isMoving
       description: 
-      retunrs: 
-      parameters: []
-  - name: WheelEditor
-    description: 
-    fields: []
-    properties:
-    - name: target
-      description: 
-      type: UnityEngine.Object
-    - name: targets
-      description: 
-      type: UnityEngine.Object[]
-    - name: serializedObject
-      description: 
-      type: UnityEditor.SerializedObject
-    - name: name
-      description: 
-      type: System.String
-    - name: hideFlags
-      description: 
-      type: UnityEngine.HideFlags
+      type: System.Boolean
+    - name: moveMode
+      description: "     \u0420\u0435\u0436\u0438\u043C \u043F\u0435\u0440\u0435\u043C\u0435\u0449\u0435\u043D\u0438\u044F
+        \u043E\u0431\u044A\u0435\u043A\u0442\u0430"
+      type: AgentMode
+    properties: []
     methods:
-    - name: OnInspectorGUI
-      declaration: 
-      description: 
+    - name: Start
+      declaration: '    public void Start(MxObjectHandle gameObject)'
+      description: "     \u0417\u0430\u0434\u0430\u0435\u0442 \u043F\u0435\u0440\u0435\u043C\u0435\u0449\u0430\u0435\u043C\u044B\u0439
+        \u043E\u0431\u044A\u0435\u043A\u0442, \u043E\u0447\u0438\u0449\u0430\u0435\u0442
+        \u0441\u043F\u0438\u0441\u043E\u043A \u0442\u043E\u0447\u0435\u043A \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u0430,
+        \u043E\u0431\u043D\u0443\u043B\u044F\u0435\u0442 \u043F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u044B
+        \u0434\u0432\u0438\u0436\u0435\u043D\u0438\u044F."
       retunrs: 
       parameters: []
-    - name: get_target
-      declaration: 
-      description: 
+    - name: Update
+      declaration: '    public void Update()'
+      description: "     \u041E\u0431\u043D\u043E\u0432\u043B\u044F\u0435\u0442 \u043F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u0435
+        \u043E\u0431\u044A\u0435\u043A\u0442\u0430, \u043F\u0435\u0440\u0435\u043C\u0435\u0449\u0430\u044F
+        \u0435\u0433\u043E \u043A \u0446\u0435\u043B\u0435\u0432\u043E\u0439 \u0442\u043E\u0447\u043A\u0435
+        \u0441 \u0437\u0430\u0434\u0430\u043D\u043D\u043E\u0439 \u0441\u043A\u043E\u0440\u043E\u0441\u0442\u044C\u044E,
+        \u0435\u0441\u043B\u0438 \u0444\u043B\u0430\u0433 isMoving = True \u0438
+        \u043E\u0431\u044A\u0435\u043A\u0442 \u043D\u0435 \u043D\u0430\u0445\u043E\u0434\u0438\u0442\u0441\u044F
+        \u0432 \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u0435\u0439 \u0442\u043E\u0447\u043A\u0435
+        \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u0430. "
       retunrs: 
       parameters: []
-    - name: set_target
-      declaration: 
-      description: 
+    - name: AddRoutePosition
+      declaration: '    public void AddRoutePosition(Vector3 position)'
+      description: "     \u0414\u043E\u0431\u0430\u0432\u043B\u044F\u0435\u0442 \u043D\u043E\u0432\u0443\u044E
+        \u0442\u043E\u0447\u043A\u0443 \u0432 \u043C\u0430\u0440\u0448\u0440\u0443\u0442.
+        \u0422\u043E\u0447\u043A\u0430 \u043F\u043E\u043C\u0435\u0449\u0430\u0435\u0442\u0441\u044F
+        \u0432 \u043A\u043E\u043D\u0435\u0446 \u0441\u043F\u0438\u0441\u043A\u0430"
       retunrs: 
       parameters: []
-    - name: get_targets
-      declaration: 
-      description: 
+    - name: SetVelocity
+      declaration: '    public void SetVelocity(float velocity)'
+      description: "     \u0417\u0430\u0434\u0430\u0435\u0442 \u0441\u043A\u043E\u0440\u043E\u0441\u0442\u044C
+        \u0434\u0432\u0438\u0436\u0435\u043D\u0438\u044F \u043E\u0431\u044A\u0435\u043A\u0442\u0430
+        \u0432 \u043C/c"
       retunrs: 
       parameters: []
-    - name: get_serializedObject
-      declaration: 
-      description: 
+    - name: PrintRoute
+      declaration: '    public void PrintRoute()'
+      description: "     \u0412\u044B\u0432\u043E\u0434\u0438\u0442 \u0432 \u0442\u0435\u0440\u043C\u0438\u043D\u0430\u043B
+        \u0441\u043F\u0438\u0441\u043E\u043A \u0442\u043E\u0447\u0435\u043A \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u0430"
       retunrs: 
       parameters: []
-    - name: DrawDefaultInspector
-      declaration: 
-      description: 
+    - name: FollowRoute
+      declaration: '    public void FollowRoute(bool isResetCurrentPoint)'
+      description: "     \u0417\u0430\u043F\u0443\u0441\u043A\u0430\u0435\u0442 \u0434\u0432\u0438\u0436\u0435\u043D\u0438\u0435
+        \u043F\u043E \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u0443"
       retunrs: 
       parameters: []
-    - name: Repaint
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: CreateInspectorGUI
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: RequiresConstantRepaint
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: DrawHeader
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: HasPreviewGUI
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetPreviewTitle
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: RenderStaticPreview
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: OnPreviewGUI
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: OnInteractivePreviewGUI
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: OnPreviewSettings
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetInfoString
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: DrawPreview
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: ReloadPreviewInstances
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: UseDefaultMargins
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: Initialize
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: Cleanup
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: MoveNextTarget
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: ResetTarget
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: SetDirty
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetInstanceID
+    - name: Equals
       declaration: 
       description: 
       retunrs: 
@@ -2728,37 +2170,12 @@ MonoBehaviour:
       description: 
       retunrs: 
       parameters: []
-    - name: Equals
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: get_name
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: set_name
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: get_hideFlags
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: set_hideFlags
+    - name: GetType
       declaration: 
       description: 
       retunrs: 
       parameters: []
     - name: ToString
-      declaration: 
-      description: 
-      retunrs: 
-      parameters: []
-    - name: GetType
       declaration: 
       description: 
       retunrs: 
@@ -2870,8 +2287,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1428040603}
-  - component: {fileID: 1428040602}
-  - component: {fileID: 1428040601}
   - component: {fileID: 1428040600}
   - component: {fileID: 1428040599}
   m_Layer: 0
@@ -2910,56 +2325,6 @@ BoxCollider:
   serializedVersion: 2
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!23 &1428040601
-MeshRenderer:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1428040598}
-  m_Enabled: 1
-  m_CastShadows: 1
-  m_ReceiveShadows: 1
-  m_DynamicOccludee: 1
-  m_StaticShadowCaster: 0
-  m_MotionVectors: 1
-  m_LightProbeUsage: 1
-  m_ReflectionProbeUsage: 1
-  m_RayTracingMode: 2
-  m_RayTraceProcedural: 0
-  m_RenderingLayerMask: 1
-  m_RendererPriority: 0
-  m_Materials:
-  - {fileID: 2100000, guid: b6f95e08be9c59b4d9356ae0778ed294, type: 2}
-  m_StaticBatchInfo:
-    firstSubMesh: 0
-    subMeshCount: 0
-  m_StaticBatchRoot: {fileID: 0}
-  m_ProbeAnchor: {fileID: 0}
-  m_LightProbeVolumeOverride: {fileID: 0}
-  m_ScaleInLightmap: 1
-  m_ReceiveGI: 1
-  m_PreserveUVs: 0
-  m_IgnoreNormalsForChartDetection: 0
-  m_ImportantGI: 0
-  m_StitchLightmapSeams: 1
-  m_SelectedEditorRenderState: 3
-  m_MinimumChartSize: 4
-  m_AutoUVMaxDistance: 0.5
-  m_AutoUVMaxAngle: 89
-  m_LightmapParameters: {fileID: 0}
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
-  m_SortingOrder: 0
-  m_AdditionalVertexStreams: {fileID: 0}
---- !u!33 &1428040602
-MeshFilter:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1428040598}
-  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
 --- !u!4 &1428040603
 Transform:
   m_ObjectHideFlags: 0
@@ -3429,7 +2794,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2142831298}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.06072752, y: -0.012500001, z: -0.073976934}
+  m_LocalPosition: {x: 0.06072752, y: -0.012500001, z: -0.1326}
   m_LocalScale: {x: 0.012, y: 0.004, z: 0.012}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -3451,7 +2816,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3877601199308575534, guid: 52f0d1340d48be0478c5cfa605c3cc0a, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0.0128
+      value: 0.0052
       objectReference: {fileID: 0}
     - target: {fileID: 3877601199308575534, guid: 52f0d1340d48be0478c5cfa605c3cc0a, type: 3}
       propertyPath: m_LocalPosition.y
@@ -3459,7 +2824,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3877601199308575534, guid: 52f0d1340d48be0478c5cfa605c3cc0a, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -0.0508
+      value: -0.0463
       objectReference: {fileID: 0}
     - target: {fileID: 3877601199308575534, guid: 52f0d1340d48be0478c5cfa605c3cc0a, type: 3}
       propertyPath: m_LocalRotation.w
@@ -3736,7 +3101,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1334824390171032848, guid: 3c2248430c973464faef913754296f33, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0.068
+      value: 0.0494
       objectReference: {fileID: 0}
     - target: {fileID: 1334824390171032848, guid: 3c2248430c973464faef913754296f33, type: 3}
       propertyPath: m_LocalPosition.y
