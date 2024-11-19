@@ -57,7 +57,6 @@ public class Encoder : RSMADataTransferSlave
         }
 
         _measuredAngles += delta;
-
         _currentAngles = connectedBody.transform.eulerAngles;
     }
     /// <summary>

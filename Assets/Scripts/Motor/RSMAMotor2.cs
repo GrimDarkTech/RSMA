@@ -111,7 +111,7 @@ public class RSMAMotor2 : MonoBehaviour
 
             _rotor.AddTorque(transform.TransformPoint(motorAxis) * torque * input);
 
- //           _rigidbody.AddRelativeTorque(-motorAxis * torque * input);
+ //          _rigidbody.AddTorque(-transform.TransformPoint(motorAxis) * torque * input);
         }
         else
         {
