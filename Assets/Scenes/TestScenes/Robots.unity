@@ -225,6 +225,10 @@ PrefabInstance:
     serializedVersion: 2
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 3773596605926151802, guid: 1c42c15afb8a3e7429fd7ae97037f080, type: 3}
+      propertyPath: m_Constraints
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3982402837593023039, guid: 1c42c15afb8a3e7429fd7ae97037f080, type: 3}
       propertyPath: m_Size.y
       value: 0.07736993
@@ -236,6 +240,10 @@ PrefabInstance:
     - target: {fileID: 3982402837593023039, guid: 1c42c15afb8a3e7429fd7ae97037f080, type: 3}
       propertyPath: m_Center.y
       value: -0.001115039
+      objectReference: {fileID: 0}
+    - target: {fileID: 4329716763660883963, guid: 1c42c15afb8a3e7429fd7ae97037f080, type: 3}
+      propertyPath: m_Enabled
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4673406312253744989, guid: 1c42c15afb8a3e7429fd7ae97037f080, type: 3}
       propertyPath: ports.Array.data[0].pins.Array.data[2].value
