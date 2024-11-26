@@ -24,7 +24,15 @@ public class RSMARangeFinderBase : RSMADataTransferSlave
     /// If True, draws rays of rangefinder
     /// </summary>
     public bool isDrawRays = false;
-    
+    /// <summary>
+    /// If True, draws rays of rangefinder
+    /// </summary>
+    public bool isDebugMode = false;
+    /// <summary>
+    /// If isDebugMode is True, contains measured range
+    /// </summary>
+    public float debugRange = 0f;
+
 
     [ContextMenu("MeasureRange")]
     private float MeasureRange()
@@ -76,6 +84,10 @@ public class RSMARangeFinderBase : RSMADataTransferSlave
                 Gizmos.DrawLine(transform.position, transform.position + directon * maxRange);
             }
 
+        }
+        if (isDebugMode) 
+        {
+            debugRange = MeasureRange();
         }
     }
 }
