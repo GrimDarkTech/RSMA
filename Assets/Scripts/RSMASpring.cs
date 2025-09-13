@@ -90,6 +90,9 @@ public class RSMASpring : MonoBehaviour
             Gizmos.color = Color.green;
             Gizmos.DrawRay(connectedBody.gameObject.transform.TransformPoint(connectedAnchor), (transform.right * axis.x + transform.up * axis.y + transform.forward * axis.z) * 0.01f);
             Gizmos.DrawSphere(connectedBody.gameObject.transform.TransformPoint(connectedAnchor), 0.002f);
+
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawSphere(connectedBody.gameObject.transform.TransformPoint(relaxedPosition), 0.0025f);
         }
     }
 }
