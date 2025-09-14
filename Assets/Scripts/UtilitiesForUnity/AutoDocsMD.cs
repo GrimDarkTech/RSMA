@@ -1,0 +1,469 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
+using UnityEngine;
+
+/// <summary>
+/// Generates docfx-like documentation file via markdown format
+/// </summary>
+public class AutoDocsMD : MonoBehaviour
+{
+    /// <summary>
+    /// Absolute file directory path
+    /// </summary>
+    public string filepath;
+
+    /// <summary>
+    /// .cs file name
+    /// </summary>
+    public string filename;
+
+    /// <summary>
+    /// Absolute path to doc folder
+    /// </summary>
+    public string docsFolderPath;
+
+    /// <summary>
+    /// 
+    /// </summary>
+    public List<string> lines;
+
+    /// <summary>
+    /// 
+    /// </summary>
+    public List<string> docStrings;
+
+    /// <summary>
+    /// 
+    /// </summary>
+    public List<SerializedClass> classes;
+
+    [ContextMenu("Generate MD doc")]
+    public void GenerateMD()
+    {
+        lines = new List<string>();
+        lines.Clear();
+
+        classes.Clear();
+
+        StreamReader streamReader = new StreamReader(filepath + "/" + filename, Encoding.Default);
+
+        while (true)
+        {
+            string line = streamReader.ReadLine();
+
+            if (line is null)
+            {
+                break;
+            }
+
+            if (line != "")
+            {
+                lines.Add(line);
+            }
+
+        }
+
+        streamReader.Close();
+
+        foreach (string line in lines)
+        {
+            if (line.IndexOf("class") > -1)
+            {
+                var words = line.Split(" ");
+
+                for (int i = 0; i < words.Length; i++)
+                {
+                    if (words[i] == "class")
+                    {
+                        Type classType = Type.GetType(words[i + 1]);
+
+                        if (classType != null)
+                        {
+                            SerializedClass serClass = new SerializedClass();
+
+                            serClass.name = words[i + 1];
+
+                            serClass.fields = new List<SerializedField>();
+
+                            var fields = classType.GetFields();
+
+                            foreach (var field in fields)
+                            {
+                                SerializedField serField = new SerializedField();
+                                serField.name = field.Name;
+                                serField.type = field.FieldType.ToString();
+
+                                serClass.fields.Add(serField);
+                            }
+
+                            serClass.properties = new List<SerializedProperty>();
+
+                            var properties = classType.GetProperties();
+
+                            foreach (var propertie in properties)
+                            {
+
+                                SerializedProperty serPropertie = new SerializedProperty();
+                                serPropertie.name = propertie.Name;
+                                serPropertie.type = propertie.PropertyType.ToString();
+
+                                serClass.properties.Add(serPropertie);
+                            }
+
+                            serClass.methods = new List<SerializedMethod>();
+
+                            var methods = classType.GetMethods();
+
+                            foreach (var method in methods)
+                            {
+
+                                SerializedMethod serMethod = new SerializedMethod();
+                                serMethod.name = method.Name;
+
+                                serMethod.parameters = new List<SerializedMethodParam>();
+
+                                serClass.methods.Add(serMethod);
+                            }
+
+                            classes.Add(serClass);
+
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        docStrings = new List<string>();
+        docStrings.Clear();
+
+        for (int i = 0; i < lines.Count; i++)
+        {
+            var line = lines[i];
+            if (line.IndexOf("<summary>") > -1)
+            {
+                docStrings.Add("<summary>");
+            }
+            else if (line.IndexOf("</summary>") > -1)
+            {
+                docStrings.Add("</summary>");
+
+                if (lines[i + 1].IndexOf("<param name") == -1 && lines[i + 1].IndexOf("<returns>") == -1 && lines[i + 1].IndexOf("<remarks>") == -1 && lines[i + 1].IndexOf("[") == -1)
+                {
+                    docStrings.Add(lines[i + 1]);
+                }
+            }
+            else if (line.IndexOf("<param name") > -1)
+            {
+                var words = line.Split("\">");
+                words[0] = words[0].Replace("<param name=\"", "");
+                words[1] = words[1].Replace("</param>", "");
+                docStrings.Add("<p>" + words[0].Replace("///", "") + "=" + words[1]);
+
+                if (lines[i + 1].IndexOf("<param name") == -1 && lines[i + 1].IndexOf("<returns>") == -1 && lines[i + 1].IndexOf("<remarks>") == -1)
+                {
+                    docStrings.Add(lines[i + 1]);
+                }
+            }
+            else if (line.IndexOf("<returns>") > -1)
+            {
+                string ret = line.Replace("///", "");
+                ret = ret.Replace("<returns>", "");
+                ret = ret.Replace("</returns>", "");
+
+                docStrings.Add("<r>" + ret);
+
+                docStrings.Add(lines[i + 1]);
+            }
+            else if (line.IndexOf("<remarks>") > -1 || line.IndexOf("</remarks>") > -1)
+            {
+                if (lines[i + 1].IndexOf("<param name") == -1 && lines[i + 1].IndexOf("<returns>") == -1)
+                {
+                    docStrings.Add(lines[i + 1]);
+                }
+            }
+            else if (line.StartsWith("["))
+            {
+                if (lines[i + 1].IndexOf("<param name") == -1 && lines[i + 1].IndexOf("<returns>") == -1)
+                {
+                    docStrings.Add(lines[i + 1]);
+                }
+            }
+            else if (line.IndexOf("///") > -1)
+            {
+                docStrings.Add(line.Replace("///", ""));
+            }
+        }
+
+        for (int cn = 0; cn < classes.Count; cn++)
+        {
+            var serClass = classes[cn];
+
+            for (int i = 0; i < docStrings.Count; i++)
+            {
+                var docLine = docStrings[i];
+
+                if (docLine.IndexOf("class " + serClass.name) > -1)
+                {
+                    var description = "";
+
+                    if (docStrings[i - 1].IndexOf("</summary>") > -1)
+                    {
+                        int j = 2;
+                        while (docStrings[i - j].IndexOf("<summary>") == -1)
+                        {
+                            description += docStrings[i - j].Replace("///", "");
+                            j++;
+                        }
+                    }
+
+                    serClass.description = description;
+                }
+                else
+                {
+                    for (int fn = 0; fn < serClass.fields.Count; fn++)
+                    {
+                        var field = serClass.fields[fn];
+
+                        if (docLine.IndexOf(field.name) > -1)
+                        {
+                            var description = "";
+
+                            if (docStrings[i - 1].IndexOf("</summary>") > -1)
+                            {
+                                int j = 2;
+                                while (docStrings[i - j].IndexOf("<summary>") == -1)
+                                {
+                                    description += docStrings[i - j].Replace("///", "");
+                                    j++;
+                                }
+                            }
+
+                            field.description = description;
+                        }
+
+                        serClass.fields[fn] = field;
+                    }
+
+                    for (int pn = 0; pn < serClass.properties.Count; pn++)
+                    {
+                        var propertie = serClass.properties[pn];
+
+                        if (docLine.IndexOf(propertie.name) > -1)
+                        {
+                            var description = "";
+
+                            if (docStrings[i - 1].IndexOf("</summary>") > -1)
+                            {
+                                int j = 2;
+                                while (docStrings[i - j].IndexOf("<summary>") == -1)
+                                {
+                                    description += docStrings[i - j].Replace("///", "");
+                                    j++;
+                                }
+                            }
+
+                            propertie.description = description;
+                        }
+
+                        serClass.properties[pn] = propertie;
+                    }
+
+                    for (int mn = 0; mn < serClass.methods.Count; mn++)
+                    {
+                        var method = serClass.methods[mn];
+
+                        if (docLine.IndexOf(method.name) > -1)
+                        {
+                            var description = "";
+
+                            method.declaration = docLine;
+
+                            if (docStrings[i - 1].Contains("</summary>") || docStrings[i - 1].Contains("<p>") || docStrings[i - 1].Contains("<r>"))
+                            {
+                                int j = 1;
+                                while (!docStrings[i - j].Contains("<summary>"))
+                                {
+                                    if (docStrings[i - j].Contains("<r>"))
+                                    {
+                                        method.retunrs = docStrings[i - 1].Replace("<r>", "");
+                                    }
+
+                                    else if (docStrings[i - j].Contains("<p>"))
+                                    {
+                                        SerializedMethodParam param = new SerializedMethodParam();
+
+                                        while (docStrings[i - j].Contains("<r>"))
+                                        {
+                                            var str = "";
+                                            str = docStrings[i - j].Replace("<p>", "");
+
+                                            param.name = str.Split("=")[0];
+                                            param.description = str.Split("=")[1];
+
+                                            method.parameters.Add(param);
+
+                                            j++;
+                                        }
+                                    }
+                                    else if (!docStrings[i - j].Contains("</summary>"))
+                                    {
+                                        description += docStrings[i - j].Replace("///", "");
+                                    }
+                                    j++;
+                                }
+                            }
+                            method.description = description;
+                        }
+
+                        serClass.methods[mn] = method;
+                    }
+                }
+            }
+
+            classes[cn] = serClass;
+        }
+
+        lines.Clear();
+
+        foreach (SerializedClass sClass in classes)
+        {
+            lines.Add($"# {sClass.name}");
+            lines.Add($"[switch to ](/ScriptingAPI/-/{filename}.md)");
+            lines.Add("");
+            lines.Add($"{sClass.description}");
+            lines.Add("");
+            if (sClass.fields.Count > 0)
+            {
+                lines.Add("## Fields");
+                lines.Add("| Field | Description | Type |");
+                lines.Add("|--|--|--|");
+                foreach (SerializedField field in sClass.fields)
+                {
+                    lines.Add($"|{field.name}|{field.description}|{field.type}|");
+                }
+            }
+            if (sClass.properties.Count > 0)
+            {
+                lines.Add("## Properties");
+                lines.Add("| Property | Description | Type |");
+                lines.Add("|--|--|--|");
+                foreach (SerializedProperty property in sClass.properties)
+                {
+                    lines.Add($"|{property.name}|{property.description}|{property.type}|");
+                }
+            }
+            if (sClass.methods.Count > 0)
+            {
+                lines.Add("## Methods");
+                foreach (SerializedMethod method in sClass.methods)
+                {
+                    lines.Add($"### {method.name}");
+                    lines.Add(method.description);
+
+                    if (method.declaration != "")
+                    {
+                        lines.Add("#### Declaration:");
+                        lines.Add(method.declaration);
+                    }
+
+                    if (method.retunrs != "")
+                    {
+                        lines.Add("#### Returns:");
+                        lines.Add(method.retunrs);
+                    }
+                    if (method.parameters.Count > 0)
+                    {
+                        lines.Add("#### Parameters");
+                        lines.Add("| Name | Description |");
+                        lines.Add("|--|--|");
+                        foreach (SerializedMethodParam param in method.parameters)
+                        {
+                            lines.Add($"|{param.name}|{param.description}|");
+                        }
+                    }
+                }
+            }
+        }
+
+        StreamWriter sw = new StreamWriter($"{docsFolderPath}\\{filename}.md");
+
+        foreach (string line in lines)
+        {
+            sw.WriteLine(line);
+        }
+
+        lines.Clear();
+
+        sw.Close();
+
+        Debug.Log($"Done for {docsFolderPath}{filename}.md");
+    }
+
+    [ContextMenu("Generate from directory")]
+    public void GenerateMDFromDirectory() 
+    {
+        DirectoryInfo directory = new DirectoryInfo(filepath);
+
+        DirectoryInfo[] subdirectoryes = directory.GetDirectories();
+
+        foreach (var subdirectory in subdirectoryes)
+        {
+            FileInfo[] files = subdirectory.GetFiles();
+
+            foreach (var file in files)
+            {
+                if (file.Extension == ".cs")
+                {
+                    filepath = subdirectory.FullName;
+                    filename = file.Name;
+                    if(filename != "AutoDocsMD.cs")
+                    {
+                        GenerateMD();
+                    } 
+                }
+            }
+        }
+    }
+
+    [Serializable]
+    public struct SerializedClass
+    {
+        public string name;
+        public string description;
+        public List<SerializedField> fields;
+        public List<SerializedProperty> properties;
+        public List<SerializedMethod> methods;
+    }
+    [Serializable]
+    public struct SerializedField
+    {
+        public string name;
+        public string description;
+        public string type;
+    }
+    [Serializable]
+    public struct SerializedProperty
+    {
+        public string name;
+        public string description;
+        public string type;
+    }
+    [Serializable]
+    public struct SerializedMethod
+    {
+        public string name;
+        public string declaration;
+        public string description;
+        public string retunrs;
+        public List<SerializedMethodParam> parameters;
+    }
+    [Serializable]
+    public struct SerializedMethodParam
+    {
+        public string name;
+        public string description;
+    }
+}
