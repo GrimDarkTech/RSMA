@@ -14,12 +14,14 @@ public class RSMASpring : MonoBehaviour
     /// </summary>
     public Rigidbody connectedBody;
     /// <summary>
-    /// Connection axis direction relative local transfrom
+    /// The axis of movement of the stock in local coordinates
     /// </summary>
-    public Vector3 axis;
+    public CoordinateAxis stockAxis;
     /// <summary>
-    /// Spring relaxed position relative local transfrom
+    /// Determines the free stroke of the stock
     /// </summary>
+    [Min(0)]
+    public float stockFreeStroke = 0.1f;
     public Vector3 relaxedPosition;
     /// <summary>
     /// Spring elasticity coefficient
@@ -46,21 +48,19 @@ public class RSMASpring : MonoBehaviour
     /// </summary>
     public bool isDrawAnchors = false;
 
+    private Vector3 axis = new Vector3(0, 0, 1);
+
     private void Start()
     {
         _joint = gameObject.AddComponent<ConfigurableJoint>();
 
-        _joint.axis = axis;
-
         _joint.connectedBody = connectedBody;
-
-        _joint.angularXMotion = ConfigurableJointMotion.Locked;
-        _joint.angularYMotion = ConfigurableJointMotion.Locked;
-        _joint.angularZMotion = ConfigurableJointMotion.Locked;
 
         _joint.xMotion = ConfigurableJointMotion.Free;
         _joint.yMotion = ConfigurableJointMotion.Free;
         _joint.zMotion = ConfigurableJointMotion.Free;
+
+        SetupJointMotion();
 
         _joint.targetPosition = relaxedPosition;
 
@@ -79,6 +79,39 @@ public class RSMASpring : MonoBehaviour
             _joint.connectedAnchor = connectedAnchor;
         }
     }
+
+    private void SetupJointMotion()
+    {
+        _joint.angularXMotion = ConfigurableJointMotion.Locked;
+        _joint.angularYMotion = ConfigurableJointMotion.Locked;
+        _joint.angularZMotion = ConfigurableJointMotion.Locked;
+
+        if (stockAxis == CoordinateAxis.x)
+        {
+            axis = new Vector3(1, 0, 0);
+            _joint.axis = axis;
+            _joint.xMotion = ConfigurableJointMotion.Free;
+            _joint.yMotion = ConfigurableJointMotion.Locked;
+            _joint.zMotion = ConfigurableJointMotion.Locked;
+        }
+        else if (stockAxis == CoordinateAxis.y)
+        {
+            axis = new Vector3(0, 1, 0);
+            _joint.axis = axis;
+            _joint.xMotion = ConfigurableJointMotion.Locked;
+            _joint.yMotion = ConfigurableJointMotion.Free;
+            _joint.zMotion = ConfigurableJointMotion.Locked;
+        }
+        else if (stockAxis == CoordinateAxis.z)
+        {
+            axis = new Vector3(0, 0, 1);
+            _joint.axis = axis;
+            _joint.xMotion = ConfigurableJointMotion.Locked;
+            _joint.yMotion = ConfigurableJointMotion.Locked;
+            _joint.zMotion = ConfigurableJointMotion.Free;
+        }
+    }
+
     private void OnDrawGizmos()
     {
         if (isDrawAnchors)
@@ -92,7 +125,7 @@ public class RSMASpring : MonoBehaviour
             Gizmos.DrawSphere(connectedBody.gameObject.transform.TransformPoint(connectedAnchor), 0.002f);
 
             Gizmos.color = Color.cyan;
-            Gizmos.DrawSphere(connectedBody.gameObject.transform.TransformPoint(relaxedPosition), 0.0025f);
+            Gizmos.DrawSphere(transform.TransformPoint(relaxedPosition), 0.0025f);
         }
     }
 }
