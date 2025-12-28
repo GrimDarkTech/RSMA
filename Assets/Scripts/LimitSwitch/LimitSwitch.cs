@@ -77,7 +77,7 @@ public class LimitSwitch : RSMADataTransferSlave
         SoftJointLimit stockLimit = new SoftJointLimit();
         stockLimit.limit = stockFreeStroke;
         joint.linearLimit = stockLimit;
-        joint.targetPosition = -1 * AxisToLocalVector(stock, stockAxis) * stockFreeStroke;
+        joint.targetPosition = -1 * AxisToLocalVector(stockAxis) * stockFreeStroke;
         SetJointDrives(joint, stockAxis);
 
 
@@ -139,7 +139,7 @@ public class LimitSwitch : RSMADataTransferSlave
             joint.zMotion = ConfigurableJointMotion.Limited;
         }
     }
-    private Vector3 AxisToLocalVector(GameObject target, CoordinateAxis axis)
+    private Vector3 AxisToLocalVector(CoordinateAxis axis)
     {
         Vector3 direction = new Vector3();
 

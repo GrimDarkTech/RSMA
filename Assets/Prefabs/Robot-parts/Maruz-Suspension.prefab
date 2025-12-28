@@ -767,20 +767,20 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3682348180376039861}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 339eff6e233841d408cdcee3b8dcdc32, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   connectedBody: {fileID: 154764485632331422}
-  axis: {x: 0, y: 0, z: -1}
-  relaxedPosition: {x: 0, y: 0, z: 0}
-  elasticity: 10
-  damping: 1
+  stockAxis: 2
+  stockFreeStroke: 0.145
+  elasticity: 1800
+  damping: 20
   isResetAnchor: 1
   anchor: {x: 0, y: 0, z: 0}
-  connectedAnchor: {x: 0, y: 0, z: 0}
-  isDrawAnchors: 0
+  connectedAnchor: {x: 0, y: 0, z: -0.0001607429}
+  isDrawAnchors: 1
 --- !u!1 &3892786455909173735
 GameObject:
   m_ObjectHideFlags: 0
