@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Simulates the behavior of the axial connection. The hinge joint is used to simulate the interaction of two rigid bodies
+/// Simulates the behavior of the spring connection
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
 [HelpURL("https://github.com/GrimDarkTech/RSMADocs/blob/main/Manual/ru/Mechanics/Setting_up_spring_joints.md")]
@@ -22,7 +22,6 @@ public class RSMASpring : MonoBehaviour
     /// </summary>
     [Min(0)]
     public float stockFreeStroke = 0.1f;
-    public Vector3 relaxedPosition;
     /// <summary>
     /// Spring elasticity coefficient
     /// </summary>
@@ -56,21 +55,33 @@ public class RSMASpring : MonoBehaviour
 
         _joint.connectedBody = connectedBody;
 
-        _joint.xMotion = ConfigurableJointMotion.Free;
-        _joint.yMotion = ConfigurableJointMotion.Free;
-        _joint.zMotion = ConfigurableJointMotion.Free;
-
         SetupJointMotion();
 
-        _joint.targetPosition = relaxedPosition;
+        
+        SoftJointLimit linearLimits = new SoftJointLimit();
+
+        linearLimits.limit = stockFreeStroke;
+        _joint.linearLimit = linearLimits;
+
+        _joint.targetPosition = -1 * AxisToLocalVector(stockAxis) * stockFreeStroke;
 
         JointDrive drive = new JointDrive();
         drive.positionSpring = elasticity;
         drive.positionDamper = damping;
+        drive.maximumForce = 3.402822e+38f;
 
-        _joint.xDrive = drive;
-        _joint.yDrive = drive;
-        _joint.zDrive = drive;
+        if (stockAxis == CoordinateAxis.x)
+        {
+            _joint.xDrive = drive;
+        }
+        else if (stockAxis == CoordinateAxis.y)
+        {
+            _joint.yDrive = drive;
+        }
+        else if (stockAxis == CoordinateAxis.z)
+        {
+            _joint.zDrive = drive;
+        }
 
         if (isResetAnchor)
         {
@@ -78,6 +89,25 @@ public class RSMASpring : MonoBehaviour
             _joint.anchor = anchor;
             _joint.connectedAnchor = connectedAnchor;
         }
+    }
+    private Vector3 AxisToLocalVector(CoordinateAxis axis)
+    {
+        Vector3 direction = new Vector3();
+
+        if (axis == CoordinateAxis.x)
+        {
+            direction = new Vector3(1, 0, 0);
+        }
+        else if (axis == CoordinateAxis.y)
+        {
+            direction = new Vector3(0, 1, 0);
+        }
+        else if (axis == CoordinateAxis.z)
+        {
+            direction = new Vector3(0, 0, 1);
+        }
+
+        return direction;
     }
 
     private void SetupJointMotion()
@@ -88,27 +118,21 @@ public class RSMASpring : MonoBehaviour
 
         if (stockAxis == CoordinateAxis.x)
         {
-            axis = new Vector3(1, 0, 0);
-            _joint.axis = axis;
-            _joint.xMotion = ConfigurableJointMotion.Free;
+            _joint.xMotion = ConfigurableJointMotion.Limited;
             _joint.yMotion = ConfigurableJointMotion.Locked;
             _joint.zMotion = ConfigurableJointMotion.Locked;
         }
         else if (stockAxis == CoordinateAxis.y)
         {
-            axis = new Vector3(0, 1, 0);
-            _joint.axis = axis;
             _joint.xMotion = ConfigurableJointMotion.Locked;
-            _joint.yMotion = ConfigurableJointMotion.Free;
+            _joint.yMotion = ConfigurableJointMotion.Limited;
             _joint.zMotion = ConfigurableJointMotion.Locked;
         }
         else if (stockAxis == CoordinateAxis.z)
         {
-            axis = new Vector3(0, 0, 1);
-            _joint.axis = axis;
             _joint.xMotion = ConfigurableJointMotion.Locked;
             _joint.yMotion = ConfigurableJointMotion.Locked;
-            _joint.zMotion = ConfigurableJointMotion.Free;
+            _joint.zMotion = ConfigurableJointMotion.Limited;
         }
     }
 
@@ -125,7 +149,8 @@ public class RSMASpring : MonoBehaviour
             Gizmos.DrawSphere(connectedBody.gameObject.transform.TransformPoint(connectedAnchor), 0.002f);
 
             Gizmos.color = Color.cyan;
-            Gizmos.DrawSphere(transform.TransformPoint(relaxedPosition), 0.0025f);
+            //Gizmos.DrawSphere(transform.TransformPoint(_joint.targetPosition), 0.0025f);
         }
     }
 }
+
