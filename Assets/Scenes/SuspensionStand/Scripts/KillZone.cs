@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace SuspensionTest
@@ -8,9 +6,7 @@ namespace SuspensionTest
     {
         private void OnTriggerEnter(Collider other)
         {
-            RSMADrone drone = other.gameObject.GetComponent<RSMADrone>();
-
-            if (drone == null)
+           if(!other.gameObject.TryGetComponent<Camera>(out Camera camera))
             {
                 Destroy(other.gameObject);
             }

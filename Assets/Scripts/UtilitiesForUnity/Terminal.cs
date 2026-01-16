@@ -1,13 +1,11 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class Terminal : MonoBehaviour
 {
-    public bool isEnabled;
+    private bool isEnabled = true;
 
-    public Canvas terminal;
+    public GameObject terminal;
 
     private InputField _inputField;
 
@@ -21,12 +19,13 @@ public class Terminal : MonoBehaviour
     {
         _inputField = GetComponentInChildren<InputField>();
         CommandHandler.terminal = this;
+        TurnOnOff();
     }
     public void TurnOnOff()
     {
         if(terminal != null)
         {
-            terminal.enabled = !isEnabled;
+            terminal.SetActive(!isEnabled);
         }
         isEnabled = !isEnabled;
     }

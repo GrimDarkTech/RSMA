@@ -1,11 +1,5 @@
 using System.Collections;
-using System.Collections.Generic;
-using System.Globalization;
-using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.UI;
-using UnityEngine.UIElements;
-
 namespace SuspensionTest
 {
     public class IrregularitiesSpawner : MonoBehaviour
@@ -80,7 +74,7 @@ namespace SuspensionTest
                 function += offset;
 
                 position.y += function;
-                IrregularitiesMover spawned = Instantiate(irregularitie, position, transform.rotation).GetComponent<IrregularitiesMover>();
+                IrregularitiesMover spawned = Instantiate(irregularitie, position, transform.rotation, transform).GetComponent<IrregularitiesMover>();
 
                 spawned.direction = Vector3.left;
                 spawned.velocity = 0.1f;

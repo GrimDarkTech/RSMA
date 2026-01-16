@@ -9,8 +9,8 @@ using System.Collections.Generic;
 /// </summary>
 public class TransformWriter : MonoBehaviour
 {
-    public string name;
-
+    public string fileName;
+    public SuspensionDraw chart;
     public List<WritableTransform> targetTransforms = new List<WritableTransform>();
 
     public bool isWriting = false;
@@ -20,7 +20,7 @@ public class TransformWriter : MonoBehaviour
     [ContextMenu("Start writing")]
     public void Write()
     {
-        string path = Application.dataPath + "/" + name + ".csv";
+        string path = Application.dataPath + "/" + fileName + ".csv";
 
         if (!File.Exists(path))
         {
@@ -52,7 +52,7 @@ public class TransformWriter : MonoBehaviour
     {
         float time = 0f;
 
-        string path = Application.dataPath + "/" + name + ".csv";
+        string path = Application.dataPath + "/" + fileName + ".csv";
 
         TextWriter textWriter = new StreamWriter(path, true);
 
@@ -62,6 +62,7 @@ public class TransformWriter : MonoBehaviour
             foreach (WritableTransform target in targetTransforms)
             {
                 line += $";{target.transform.position.x};{target.transform.position.y};{target.transform.position.z};{time};";
+                chart.UpdateChart(target.transform.position.y, time);
             }
 
             textWriter.WriteLine(line);
