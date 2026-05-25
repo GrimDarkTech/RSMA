@@ -4,9 +4,7 @@ using UnityEngine.SceneManagement;
 
 public static class CommandHandler
 {
-    public static Terminal terminal;
-
-    public static RSMAServer server;
+    //public static RSMAServer server;
 
     public static ObjectManager objectManager;
 
@@ -30,18 +28,18 @@ public static class CommandHandler
                     return "RSMA trying to help and recommends reading the documentation on https://github.com/GrimDarkTech/RSMADocs";
 
                 case "server_start":
-                    server = new RSMAServer();
+                    //server = new RSMAServer();
 
-                    server.serverPort = 7777;
+                    //server.serverPort = 7777;
 
-                    server.Run();
+                    //server.Run();
                     return "Starting server on 127.0.0.1:7777";
 
                 case "server_stop":
-                    if (server != null)
-                    {
-                        server.Stop();
-                    }
+                    //if (server != null)
+                    //{
+                    //    server.Stop();
+                    //}
                     return "Stopping server";
 
                 case "server_send":
@@ -50,7 +48,7 @@ public static class CommandHandler
                         string client = splited[1];
                         string message = splited[2];
 
-                        server.SendMessageToClientAsync(client, message);
+                        //server.SendMessageToClientAsync(client, message);
                         return "Sending";
                     }
                     return "Invalid argument for server_send";
