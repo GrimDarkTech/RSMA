@@ -1,3 +1,4 @@
+using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 
 /// <summary>
@@ -46,6 +47,7 @@ public class RSMASpring : RSMAHybridJoint
     /// Body connected to joint
     /// </summary>
     public Rigidbody connectedBody;
+    public ArticulationBody connectedArticulationBody;
 
     /// <summary>
     /// If True, resets the Anchor according to the anchor and connectedAnchor fields
@@ -112,9 +114,21 @@ public class RSMASpring : RSMAHybridJoint
     private void InitializeRigidbody()
     {
         _joint = gameObject.AddComponent<ConfigurableJoint>();
-        _joint.connectedBody = connectedBody;
 
-        SetupJointMotion();
+        if (connectedBody != null)
+        {
+            _joint.connectedBody = connectedBody;
+        }
+        else if (connectedArticulationBody != null)
+        {
+            _joint.connectedArticulationBody = connectedArticulationBody;
+        }
+        else
+        {
+            Debug.LogWarning($"[RSMA Spring] ConnectedBody в {gameObject.name} не задан. Объект зафиксирован в пространстве.");
+        }
+
+            SetupJointMotion();
 
         SoftJointLimit linearLimits = new SoftJointLimit();
         linearLimits.limit = stockFreeStroke;

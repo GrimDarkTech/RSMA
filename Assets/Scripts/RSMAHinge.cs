@@ -30,6 +30,7 @@ public class RSMAHinge : RSMAHybridJoint
     /// Body connected to hinge joint
     /// </summary>
     public Rigidbody connectedBody;
+    public ArticulationBody connectedArticulationBody;
 
     /// <summary>
     /// If True, resets the Anchor according to the anchor and connectedAnchor fields
@@ -86,7 +87,20 @@ public class RSMAHinge : RSMAHybridJoint
         _hingeJoint = gameObject.AddComponent<HingeJoint>();
 
         _hingeJoint.axis = axis;
-        _hingeJoint.connectedBody = connectedBody;
+
+        if (connectedBody != null)
+        {
+            _hingeJoint.connectedBody = connectedBody;
+        }
+        else if (connectedArticulationBody != null)
+        {
+            _hingeJoint.connectedArticulationBody = connectedArticulationBody;
+        }
+        else 
+        {
+            Debug.LogWarning($"[RSMA Hinge] ConnectedBody в {gameObject.name} не задан. Объект зафиксирован в пространстве.");
+        }
+
 
         if (isResetAnchor)
         {

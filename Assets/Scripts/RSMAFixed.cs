@@ -10,6 +10,7 @@ public class RSMAFixed : RSMAHybridJoint
     [Header("Rigidbody Settings")]
     [Tooltip("Используется только если на объекте висит Rigidbody. Если пусто, свяжет с точкой в пространстве.")]
     public Rigidbody connectedBody;
+    public ArticulationBody connectedArticulationBody;
 
     private FixedJoint _fixedJoint;
 
@@ -61,6 +62,10 @@ public class RSMAFixed : RSMAHybridJoint
         if (connectedBody != null)
         {
             _fixedJoint.connectedBody = connectedBody;
+        }
+        else if (connectedArticulationBody != null)
+        {
+            _fixedJoint.connectedArticulationBody = connectedArticulationBody;
         }
         else
         {

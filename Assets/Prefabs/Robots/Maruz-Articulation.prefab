@@ -166,7 +166,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 960b531a264aaa140bd65724ae0bf13c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  mass: 0.5
+  mass: 0.75
   centerOfMassPosition: {x: 0, y: 0, z: 0}
   isDrawCenterOfMass: 1
 --- !u!114 &386045144915176710
@@ -185,6 +185,7 @@ MonoBehaviour:
   anchor: {x: 0, y: 0, z: 0}
   isDrawAnchors: 0
   connectedBody: {fileID: 0}
+  connectedArticulationBody: {fileID: 0}
   isResetAnchor: 0
   connectedAnchor: {x: 0, y: 0, z: 0}
 --- !u!1 &203104991279365755
@@ -353,7 +354,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 960b531a264aaa140bd65724ae0bf13c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  mass: 0.5
+  mass: 0.75
   centerOfMassPosition: {x: 0, y: 0, z: 0}
   isDrawCenterOfMass: 1
 --- !u!114 &3701600370596176600
@@ -372,6 +373,7 @@ MonoBehaviour:
   anchor: {x: 0, y: 0, z: 0}
   isDrawAnchors: 0
   connectedBody: {fileID: 0}
+  connectedArticulationBody: {fileID: 0}
   isResetAnchor: 0
   connectedAnchor: {x: 0, y: 0, z: 0}
 --- !u!1 &828541363846514795
@@ -516,8 +518,8 @@ GameObject:
   - component: {fileID: 6697050127345600124}
   - component: {fileID: 6697050127345600127}
   - component: {fileID: 6697050127345600115}
-  - component: {fileID: 6883024589136529870}
-  - component: {fileID: 781998942788934786}
+  - component: {fileID: 2720546235779742731}
+  - component: {fileID: 9185374744470920890}
   m_Layer: 9
   m_Name: CylinderBottom
   m_TagString: Untagged
@@ -532,13 +534,12 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1289145833035716436}
-  m_LocalRotation: {x: 0.38268343, y: 0, z: 0, w: 0.92387956}
-  m_LocalPosition: {x: 0, y: -0.0501, z: 0.0448}
+  m_LocalRotation: {x: 0.38268352, y: -0, z: 0.000000119209275, w: 0.9238795}
+  m_LocalPosition: {x: 0, y: -0.050099995, z: 0.044799987}
   m_LocalScale: {x: 100.000015, y: 100, z: 100}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 6390404212738174702}
-  - {fileID: 212529128602789998}
   m_Father: {fileID: 3427012521170098825}
   m_RootOrder: -1
   m_LocalEulerAnglesHint: {x: 45, y: 0, z: 0}
@@ -622,6 +623,7 @@ MonoBehaviour:
   anchor: {x: 0, y: 0, z: 0}
   isDrawAnchors: 0
   connectedBody: {fileID: 0}
+  connectedArticulationBody: {fileID: 390289588128252348}
   isResetAnchor: 1
   connectedAnchor: {x: -0.000112, y: 0.001584, z: 0}
 --- !u!114 &6697050127345600115
@@ -639,65 +641,30 @@ MonoBehaviour:
   stockAxis: 2
   stockFreeStroke: 0.145
   elasticity: 90000
-  damping: 20
+  damping: 50
   anchor: {x: 0, y: 0, z: 0}
-  isDrawAnchors: 1
-  connectedBody: {fileID: 0}
+  isDrawAnchors: 0
+  connectedBody: {fileID: 3463234619020411026}
+  connectedArticulationBody: {fileID: 0}
   isResetAnchor: 1
   connectedAnchor: {x: 0, y: 0, z: -0.0001607429}
---- !u!171741748 &6883024589136529870
-ArticulationBody:
+--- !u!54 &2720546235779742731
+Rigidbody:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1289145833035716436}
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Mass: 1
-  m_ParentAnchorPosition: {x: -0.000110575114, y: 0.0015849234, z: 0}
-  m_ParentAnchorRotation: {x: 0.27059805, y: 0.6532815, z: 0.6532815, w: 0.2705981}
-  m_AnchorPosition: {x: 0, y: 0, z: 0}
-  m_AnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
-  m_MatchAnchors: 1
-  m_ArticulationJointType: 0
-  m_LinearX: 2
-  m_LinearY: 2
-  m_LinearZ: 2
-  m_SwingY: 2
-  m_SwingZ: 2
-  m_Twist: 2
-  m_XDrive:
-    lowerLimit: 0
-    upperLimit: 0
-    stiffness: 0
-    damping: 0
-    forceLimit: 3.4028235e+38
-    target: 0
-    targetVelocity: 0
-  m_YDrive:
-    lowerLimit: 0
-    upperLimit: 0
-    stiffness: 0
-    damping: 0
-    forceLimit: 3.4028235e+38
-    target: 0
-    targetVelocity: 0
-  m_ZDrive:
-    lowerLimit: 0
-    upperLimit: 0
-    stiffness: 0
-    damping: 0
-    forceLimit: 3.4028235e+38
-    target: 0
-    targetVelocity: 0
-  m_LinearDamping: 0.05
-  m_AngularDamping: 0.05
-  m_JointFriction: 0.05
-  m_Immovable: 0
+  serializedVersion: 2
+  m_Mass: 0.25
+  m_Drag: 0
+  m_AngularDrag: 0.05
   m_UseGravity: 1
-  m_CollisionDetectionMode: 0
---- !u!114 &781998942788934786
+  m_IsKinematic: 0
+  m_Interpolate: 0
+  m_Constraints: 0
+  m_CollisionDetection: 1
+--- !u!114 &9185374744470920890
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -706,7 +673,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1289145833035716436}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 960b531a264aaa140bd65724ae0bf13c, type: 3}
+  m_Script: {fileID: 11500000, guid: e5a7a7fabaf09a741ab735526fc7f7a0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   mass: 0.25
@@ -726,8 +693,8 @@ GameObject:
   - component: {fileID: 6697050128189835079}
   - component: {fileID: 6697050128189835076}
   - component: {fileID: 6697050128189835080}
-  - component: {fileID: 6798004029849049632}
-  - component: {fileID: 9141159875043416552}
+  - component: {fileID: 5101456815972804553}
+  - component: {fileID: 8506597802479406190}
   m_Layer: 9
   m_Name: CylinderBottom
   m_TagString: Untagged
@@ -742,13 +709,12 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1289145833930020463}
-  m_LocalRotation: {x: 0.38268343, y: 0, z: 0, w: 0.92387956}
-  m_LocalPosition: {x: 0, y: -0.0501, z: 0.0448}
+  m_LocalRotation: {x: 0.38268352, y: -0, z: 0.000000119209275, w: 0.9238795}
+  m_LocalPosition: {x: 0, y: -0.050099995, z: 0.044799987}
   m_LocalScale: {x: 100.000015, y: 100, z: 100}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 6390404213985062869}
-  - {fileID: 212529127685417301}
   m_Father: {fileID: 3427012521955875762}
   m_RootOrder: -1
   m_LocalEulerAnglesHint: {x: 45, y: 0, z: 0}
@@ -832,6 +798,7 @@ MonoBehaviour:
   anchor: {x: 0, y: 0, z: 0}
   isDrawAnchors: 0
   connectedBody: {fileID: 0}
+  connectedArticulationBody: {fileID: 7541379558054922433}
   isResetAnchor: 1
   connectedAnchor: {x: -0.000112, y: 0.001584, z: 0}
 --- !u!114 &6697050128189835080
@@ -849,65 +816,30 @@ MonoBehaviour:
   stockAxis: 2
   stockFreeStroke: 0.145
   elasticity: 90000
-  damping: 20
+  damping: 50
   anchor: {x: 0, y: 0, z: 0}
-  isDrawAnchors: 1
-  connectedBody: {fileID: 0}
+  isDrawAnchors: 0
+  connectedBody: {fileID: 5101708761511746865}
+  connectedArticulationBody: {fileID: 0}
   isResetAnchor: 1
   connectedAnchor: {x: 0, y: 0, z: -0.0001607429}
---- !u!171741748 &6798004029849049632
-ArticulationBody:
+--- !u!54 &5101456815972804553
+Rigidbody:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1289145833930020463}
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Mass: 1
-  m_ParentAnchorPosition: {x: -0.000110575114, y: 0.0015849234, z: 0}
-  m_ParentAnchorRotation: {x: 0.27059805, y: 0.6532815, z: 0.6532815, w: 0.2705981}
-  m_AnchorPosition: {x: 0, y: 0, z: 0}
-  m_AnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
-  m_MatchAnchors: 1
-  m_ArticulationJointType: 0
-  m_LinearX: 2
-  m_LinearY: 2
-  m_LinearZ: 2
-  m_SwingY: 2
-  m_SwingZ: 2
-  m_Twist: 2
-  m_XDrive:
-    lowerLimit: 0
-    upperLimit: 0
-    stiffness: 0
-    damping: 0
-    forceLimit: 3.4028235e+38
-    target: 0
-    targetVelocity: 0
-  m_YDrive:
-    lowerLimit: 0
-    upperLimit: 0
-    stiffness: 0
-    damping: 0
-    forceLimit: 3.4028235e+38
-    target: 0
-    targetVelocity: 0
-  m_ZDrive:
-    lowerLimit: 0
-    upperLimit: 0
-    stiffness: 0
-    damping: 0
-    forceLimit: 3.4028235e+38
-    target: 0
-    targetVelocity: 0
-  m_LinearDamping: 0.05
-  m_AngularDamping: 0.05
-  m_JointFriction: 0.05
-  m_Immovable: 0
+  serializedVersion: 2
+  m_Mass: 0.25
+  m_Drag: 0
+  m_AngularDrag: 0.05
   m_UseGravity: 1
-  m_CollisionDetectionMode: 0
---- !u!114 &9141159875043416552
+  m_IsKinematic: 0
+  m_Interpolate: 0
+  m_Constraints: 0
+  m_CollisionDetection: 1
+--- !u!114 &8506597802479406190
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -916,12 +848,12 @@ MonoBehaviour:
   m_GameObject: {fileID: 1289145833930020463}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 960b531a264aaa140bd65724ae0bf13c, type: 3}
+  m_Script: {fileID: 11500000, guid: e5a7a7fabaf09a741ab735526fc7f7a0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   mass: 0.25
   centerOfMassPosition: {x: 0, y: 0, z: -0.0006253731}
-  isDrawCenterOfMass: 1
+  isDrawCenterOfMass: 0
 --- !u!1 &1381604220999130009
 GameObject:
   m_ObjectHideFlags: 0
@@ -1401,7 +1333,7 @@ ArticulationBody:
   m_JointFriction: 0.05
   m_Immovable: 0
   m_UseGravity: 1
-  m_CollisionDetectionMode: 0
+  m_CollisionDetectionMode: 1
 --- !u!1 &2557131515295940721
 GameObject:
   m_ObjectHideFlags: 0
@@ -1822,8 +1754,8 @@ ArticulationBody:
   m_XDrive:
     lowerLimit: 0
     upperLimit: 0
-    stiffness: 0.5
-    damping: 0.2
+    stiffness: 0
+    damping: 10
     forceLimit: 3.4028235e+38
     target: 0
     targetVelocity: 10
@@ -1900,7 +1832,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 960b531a264aaa140bd65724ae0bf13c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  mass: 1
+  mass: 1.2
   centerOfMassPosition: {x: 0, y: 0, z: 0}
   isDrawCenterOfMass: 0
 --- !u!114 &5455163965128413502
@@ -1919,6 +1851,7 @@ MonoBehaviour:
   anchor: {x: 0, y: 0, z: 0}
   isDrawAnchors: 0
   connectedBody: {fileID: 0}
+  connectedArticulationBody: {fileID: 0}
   isResetAnchor: 0
   connectedAnchor: {x: 0, y: 0, z: 0}
 --- !u!1 &2962208055749054160
@@ -2087,8 +2020,8 @@ ArticulationBody:
   m_XDrive:
     lowerLimit: 0
     upperLimit: 0
-    stiffness: 0.5
-    damping: 0.2
+    stiffness: 0
+    damping: 10
     forceLimit: 3.4028235e+38
     target: 0
     targetVelocity: 10
@@ -2165,7 +2098,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 960b531a264aaa140bd65724ae0bf13c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  mass: 1
+  mass: 1.2
   centerOfMassPosition: {x: 0, y: 0, z: 0}
   isDrawCenterOfMass: 0
 --- !u!114 &3830095849717377181
@@ -2184,6 +2117,7 @@ MonoBehaviour:
   anchor: {x: 0, y: 0, z: 0}
   isDrawAnchors: 0
   connectedBody: {fileID: 0}
+  connectedArticulationBody: {fileID: 0}
   isResetAnchor: 0
   connectedAnchor: {x: 0, y: 0, z: 0}
 --- !u!1 &3448552681584476446
@@ -2271,13 +2205,14 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5195484018995806765}
-  m_LocalRotation: {x: -0.5, y: 0.5, z: 0.5, w: 0.5}
+  m_LocalRotation: {x: -0.5, y: 0.50000006, z: 0.4999999, w: 0.50000006}
   m_LocalPosition: {x: -0.0006115751, y: 0.0011369233, z: 0}
-  m_LocalScale: {x: 0.01, y: 0.010000001, z: 0.010000001}
+  m_LocalScale: {x: 0.01, y: 0.010000002, z: 0.010000003}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 2860087966590104688}
   - {fileID: 506173696169090806}
+  - {fileID: 2860087966590104688}
+  - {fileID: 212529127685417301}
   m_Father: {fileID: 333387408914567012}
   m_RootOrder: -1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -2304,13 +2239,14 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5195484019770311446}
-  m_LocalRotation: {x: -0.5, y: 0.5, z: 0.5, w: 0.5}
+  m_LocalRotation: {x: -0.5, y: 0.50000006, z: 0.4999999, w: 0.50000006}
   m_LocalPosition: {x: -0.0006115751, y: 0.0011369233, z: 0}
-  m_LocalScale: {x: 0.01, y: 0.010000001, z: 0.010000001}
+  m_LocalScale: {x: 0.01, y: 0.010000002, z: 0.010000003}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 2860087967952598347}
   - {fileID: 506173694848540621}
+  - {fileID: 2860087967952598347}
+  - {fileID: 212529128602789998}
   m_Father: {fileID: 333387410344169055}
   m_RootOrder: -1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -2425,7 +2361,7 @@ ArticulationBody:
   m_GameObject: {fileID: 6617280951655251990}
   m_Enabled: 1
   serializedVersion: 3
-  m_Mass: 1
+  m_Mass: 0.8
   m_ParentAnchorPosition: {x: 0.21914028, y: 0.017838068, z: 0.17254429}
   m_ParentAnchorRotation: {x: 0, y: 0.70710474, z: 0, w: 0.7071089}
   m_AnchorPosition: {x: 0, y: 0, z: 0}
@@ -2480,7 +2416,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 960b531a264aaa140bd65724ae0bf13c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  mass: 0.5
+  mass: 0.8
   centerOfMassPosition: {x: 0, y: 0, z: 0}
   isDrawCenterOfMass: 1
 --- !u!1 &6617280952362647853
@@ -2517,8 +2453,8 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 2860087967086140648}
-  - {fileID: 6399118792833828366}
   - {fileID: 3427012521955875762}
+  - {fileID: 6399118792833828366}
   m_Father: {fileID: 1957853579795662289}
   m_RootOrder: -1
   m_LocalEulerAnglesHint: {x: 0, y: -90, z: -90}
@@ -2594,7 +2530,7 @@ ArticulationBody:
   m_GameObject: {fileID: 6617280952362647853}
   m_Enabled: 1
   serializedVersion: 3
-  m_Mass: 1
+  m_Mass: 0.8
   m_ParentAnchorPosition: {x: -0.21685971, y: 0.017838068, z: 0.17254429}
   m_ParentAnchorRotation: {x: 0, y: 0.70710474, z: 0, w: 0.7071089}
   m_AnchorPosition: {x: 0, y: 0, z: 0}
@@ -2649,7 +2585,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 960b531a264aaa140bd65724ae0bf13c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  mass: 0.5
+  mass: 0.8
   centerOfMassPosition: {x: 0, y: 0, z: 0}
   isDrawCenterOfMass: 1
 --- !u!1 &6895549466973162892
@@ -2791,8 +2727,8 @@ GameObject:
   - component: {fileID: 5658675696575575822}
   - component: {fileID: 3845231618139999997}
   - component: {fileID: 8435323328937607440}
-  - component: {fileID: 7131866978280954987}
-  - component: {fileID: 9081863743241951886}
+  - component: {fileID: 5101708761511746865}
+  - component: {fileID: 8839609267953951280}
   m_Layer: 9
   m_Name: CylinderTop
   m_TagString: Untagged
@@ -2807,14 +2743,14 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7269123802133074742}
-  m_LocalRotation: {x: -0.022964835, y: -0.0000000645156, z: 0.00000015575445, w: -0.9997363}
-  m_LocalPosition: {x: 0, y: 0.00004376985, z: -0.0012848836}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalRotation: {x: -0.40379924, y: -0.00000011920929, z: 0.00000011920929, w: -0.9148477}
+  m_LocalPosition: {x: 0, y: 0.04384997, z: -0.042960003}
+  m_LocalScale: {x: 100.000015, y: 100, z: 100}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 2838443853422834844}
   - {fileID: 3602694243724476129}
-  m_Father: {fileID: 506173696169090806}
+  m_Father: {fileID: 3427012521955875762}
   m_RootOrder: -1
   m_LocalEulerAnglesHint: {x: 47.632, y: 0, z: 0}
 --- !u!33 &2641386162322194676
@@ -2897,61 +2833,26 @@ MonoBehaviour:
   anchor: {x: 0, y: 0, z: 0}
   isDrawAnchors: 0
   connectedBody: {fileID: 0}
+  connectedArticulationBody: {fileID: 2507741799594388641}
   isResetAnchor: 1
   connectedAnchor: {x: -0.001165, y: 0.000531, z: 0}
---- !u!171741748 &7131866978280954987
-ArticulationBody:
+--- !u!54 &5101708761511746865
+Rigidbody:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7269123802133074742}
-  m_Enabled: 1
-  serializedVersion: 3
+  serializedVersion: 2
   m_Mass: 1
-  m_ParentAnchorPosition: {x: -7.450579e-11, y: 0.0000437697, z: -0.0012848836}
-  m_ParentAnchorRotation: {x: -0.016238594, y: 0.016238505, z: -0.70692027, w: -0.7069205}
-  m_AnchorPosition: {x: 0, y: 0, z: 0}
-  m_AnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
-  m_MatchAnchors: 1
-  m_ArticulationJointType: 0
-  m_LinearX: 2
-  m_LinearY: 2
-  m_LinearZ: 2
-  m_SwingY: 2
-  m_SwingZ: 2
-  m_Twist: 2
-  m_XDrive:
-    lowerLimit: 0
-    upperLimit: 0
-    stiffness: 0
-    damping: 0
-    forceLimit: 3.4028235e+38
-    target: 0
-    targetVelocity: 0
-  m_YDrive:
-    lowerLimit: 0
-    upperLimit: 0
-    stiffness: 0
-    damping: 0
-    forceLimit: 3.4028235e+38
-    target: 0
-    targetVelocity: 0
-  m_ZDrive:
-    lowerLimit: 0
-    upperLimit: 0
-    stiffness: 0
-    damping: 0
-    forceLimit: 3.4028235e+38
-    target: 0
-    targetVelocity: 0
-  m_LinearDamping: 0.05
-  m_AngularDamping: 0.05
-  m_JointFriction: 0.05
-  m_Immovable: 0
+  m_Drag: 0
+  m_AngularDrag: 0.05
   m_UseGravity: 1
-  m_CollisionDetectionMode: 0
---- !u!114 &9081863743241951886
+  m_IsKinematic: 0
+  m_Interpolate: 0
+  m_Constraints: 0
+  m_CollisionDetection: 0
+--- !u!114 &8839609267953951280
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -2960,7 +2861,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 7269123802133074742}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 960b531a264aaa140bd65724ae0bf13c, type: 3}
+  m_Script: {fileID: 11500000, guid: e5a7a7fabaf09a741ab735526fc7f7a0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   mass: 0.25
@@ -2979,8 +2880,8 @@ GameObject:
   - component: {fileID: 5658675698015139381}
   - component: {fileID: 3845231619384528838}
   - component: {fileID: 8435323329764802603}
-  - component: {fileID: 743281573899519518}
-  - component: {fileID: 2083918525922958810}
+  - component: {fileID: 3463234619020411026}
+  - component: {fileID: 1997109159732923040}
   m_Layer: 9
   m_Name: CylinderTop
   m_TagString: Untagged
@@ -2995,14 +2896,14 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7269123803377865229}
-  m_LocalRotation: {x: -0.022964835, y: -0.0000000645156, z: 0.00000015575445, w: -0.9997363}
-  m_LocalPosition: {x: 0, y: 0.00004376985, z: -0.0012848836}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalRotation: {x: -0.40379924, y: -0.00000011920929, z: 0.00000011920929, w: -0.9148477}
+  m_LocalPosition: {x: 0, y: 0.04384997, z: -0.042960003}
+  m_LocalScale: {x: 100.000015, y: 100, z: 100}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 2838443851994019239}
   - {fileID: 3602694244962975706}
-  m_Father: {fileID: 506173694848540621}
+  m_Father: {fileID: 3427012521170098825}
   m_RootOrder: -1
   m_LocalEulerAnglesHint: {x: 47.632, y: 0, z: 0}
 --- !u!33 &2641386161402986959
@@ -3085,61 +2986,26 @@ MonoBehaviour:
   anchor: {x: 0, y: 0, z: 0}
   isDrawAnchors: 0
   connectedBody: {fileID: 0}
+  connectedArticulationBody: {fileID: 4845274031287159486}
   isResetAnchor: 1
   connectedAnchor: {x: -0.001165, y: 0.000531, z: 0}
---- !u!171741748 &743281573899519518
-ArticulationBody:
+--- !u!54 &3463234619020411026
+Rigidbody:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7269123803377865229}
-  m_Enabled: 1
-  serializedVersion: 3
+  serializedVersion: 2
   m_Mass: 1
-  m_ParentAnchorPosition: {x: -7.450579e-11, y: 0.0000437697, z: -0.0012848836}
-  m_ParentAnchorRotation: {x: -0.016238594, y: 0.016238505, z: -0.70692027, w: -0.7069205}
-  m_AnchorPosition: {x: 0, y: 0, z: 0}
-  m_AnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
-  m_MatchAnchors: 1
-  m_ArticulationJointType: 0
-  m_LinearX: 2
-  m_LinearY: 2
-  m_LinearZ: 2
-  m_SwingY: 2
-  m_SwingZ: 2
-  m_Twist: 2
-  m_XDrive:
-    lowerLimit: 0
-    upperLimit: 0
-    stiffness: 0
-    damping: 0
-    forceLimit: 3.4028235e+38
-    target: 0
-    targetVelocity: 0
-  m_YDrive:
-    lowerLimit: 0
-    upperLimit: 0
-    stiffness: 0
-    damping: 0
-    forceLimit: 3.4028235e+38
-    target: 0
-    targetVelocity: 0
-  m_ZDrive:
-    lowerLimit: 0
-    upperLimit: 0
-    stiffness: 0
-    damping: 0
-    forceLimit: 3.4028235e+38
-    target: 0
-    targetVelocity: 0
-  m_LinearDamping: 0.05
-  m_AngularDamping: 0.05
-  m_JointFriction: 0.05
-  m_Immovable: 0
+  m_Drag: 0
+  m_AngularDrag: 0.05
   m_UseGravity: 1
-  m_CollisionDetectionMode: 0
---- !u!114 &2083918525922958810
+  m_IsKinematic: 0
+  m_Interpolate: 0
+  m_Constraints: 0
+  m_CollisionDetection: 0
+--- !u!114 &1997109159732923040
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -3148,7 +3014,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 7269123803377865229}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 960b531a264aaa140bd65724ae0bf13c, type: 3}
+  m_Script: {fileID: 11500000, guid: e5a7a7fabaf09a741ab735526fc7f7a0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   mass: 0.25
