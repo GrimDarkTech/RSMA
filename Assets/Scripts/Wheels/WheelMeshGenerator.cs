@@ -18,6 +18,8 @@ public class WheelMeshGenerator : MonoBehaviour
     [Header("Resolution")]
     [Range(3, 128)] public int segments = 32;
 
+    private bool isGenerated = false;
+
     [ContextMenu("Generate Wheel Mesh")]
     public void GenerateMesh()
     {
@@ -105,6 +107,8 @@ public class WheelMeshGenerator : MonoBehaviour
             collider.sharedMesh = null;
             collider.sharedMesh = mesh;
         }
+
+        isGenerated = true;
     }
 
     private int AddQuad(int[] tris, int ti, int v00, int v10, int v11, int v01)
@@ -116,6 +120,14 @@ public class WheelMeshGenerator : MonoBehaviour
         tris[ti + 4] = v11;
         tris[ti + 5] = v01;
         return ti + 6;
+    }
+
+    private void Start()
+    {
+        if (!isGenerated) 
+        {
+            GenerateMesh();
+        }
     }
 }
 
