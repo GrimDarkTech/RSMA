@@ -1,86 +1,138 @@
 using UnityEngine;
 
 /// <summary>
-/// Simulates the behavior of the spring connection
+/// Simulates the behavior of the spring connection.
+/// Adaptive component that works with both Rigidbody (ConfigurableJoint) and ArticulationBody (PrismaticJoint).
 /// </summary>
-[RequireComponent(typeof(Rigidbody))]
 [HelpURL("https://github.com/GrimDarkTech/RSMADocs/blob/main/Manual/ru/Mechanics/Setting_up_spring_joints.md")]
-public class RSMASpring : MonoBehaviour
+public class RSMASpring : RSMAHybridJoint
 {
     private ConfigurableJoint _joint;
 
-    /// <summary>
-    /// Body connected to joint
-    /// </summary>
-    public Rigidbody connectedBody;
+    [Header("Common Settings")]
     /// <summary>
     /// The axis of movement of the stock in local coordinates
     /// </summary>
-    public CoordinateAxis stockAxis;
+    public CoordinateAxis stockAxis = CoordinateAxis.z;
+
     /// <summary>
-    /// Determines the free stroke of the stock
+    /// Determines the free stroke of the stock (meters)
     /// </summary>
     [Min(0)]
     public float stockFreeStroke = 0.1f;
+
     /// <summary>
-    /// Spring elasticity coefficient
+    /// Spring elasticity coefficient (stiffness)
     /// </summary>
     public float elasticity = 1.0f;
+
     /// <summary>
     /// Spring damping coefficient
     /// </summary>
     public float damping = 1.0f;
-    /// <summary>
-    /// If True, resets the Anchor according to the anchor and connectedAnchor fields
-    /// </summary>
-    public bool isResetAnchor;
+
     /// <summary>
     /// Represents the Motor Anchor
     /// </summary>
     public Vector3 anchor;
-    /// <summary>
-    /// Represents the anchor for connected body
-    /// </summary>
-    public Vector3 connectedAnchor;
+
     /// <summary>
     /// If True, draws anchors position with spheres and axis with lines
     /// </summary>
     public bool isDrawAnchors = false;
 
-    private Vector3 axis = new Vector3(0, 0, 1);
+    [Header("Rigidbody Specific")]
+    /// <summary>
+    /// Body connected to joint
+    /// </summary>
+    public Rigidbody connectedBody;
+
+    /// <summary>
+    /// If True, resets the Anchor according to the anchor and connectedAnchor fields
+    /// </summary>
+    public bool isResetAnchor;
+
+    /// <summary>
+    /// Represents the anchor for connected body
+    /// </summary>
+    public Vector3 connectedAnchor;
 
     private void Start()
     {
-        _joint = gameObject.AddComponent<ConfigurableJoint>();
+        if (IsArticulation)
+        {
+            InitializeArticulation();
+        }
+        else
+        {
+            InitializeRigidbody();
+        }
+    }
 
+    private void InitializeArticulation()
+    {
+        if (transform.parent == null || transform.parent.GetComponentInParent<ArticulationBody>() == null)
+        {
+            Debug.LogWarning($"[RSMASpring] {gameObject.name} является корнем. PrismaticJoint не может быть применен к Root.");
+            return;
+        }
+
+        // 1. Устанавливаем тип — PrismaticJoint (линейное скольжение вдоль X)
+        ArticulationBody.jointType = ArticulationJointType.PrismaticJoint;
+
+        // 2. Позиция анкера
+        ArticulationBody.anchorPosition = anchor;
+
+        // 3. Ориентация оси. Разворачиваем локальную ось X сустава вдоль выбранной CoordinateAxis
+        Vector3 localDirection = AxisToLocalVector(stockAxis);
+        ArticulationBody.anchorRotation = Quaternion.FromToRotation(Vector3.right, localDirection);
+
+        // 4. Настройка пружины и лимитов (В ArticulationBody это делается через ArticulationDrive)
+        // Для линейного скольжения лимиты и приводы настраиваются на первой оси xDrive
+        ArticulationDrive linearDrive = new ArticulationDrive();
+
+        // Задаем физику пружины
+        linearDrive.stiffness = elasticity;
+        linearDrive.damping = damping;
+        linearDrive.forceLimit = float.MaxValue; // Аналог максимальной силы в ConfigurableJoint
+
+        // Задаем лимиты перемещения. В отличие от ConfigurableJoint, где лимит симметричен в обе стороны от центра,
+        // у ArticulationBody мы жестко задаем нижнюю и верхнюю границы в метрах.
+        // Настроим центрированную работу (как было в ConfigurableJoint):
+        linearDrive.lowerLimit = -stockFreeStroke;
+        linearDrive.upperLimit = stockFreeStroke;
+
+        // Целевая позиция пружины (по умолчанию 0 — центр)
+        linearDrive.target = 0f;
+
+        // Применяем настройки к линейной оси X
+        ArticulationBody.xDrive = linearDrive;
+    }
+
+    private void InitializeRigidbody()
+    {
+        _joint = gameObject.AddComponent<ConfigurableJoint>();
         _joint.connectedBody = connectedBody;
 
         SetupJointMotion();
 
-        
         SoftJointLimit linearLimits = new SoftJointLimit();
-
         linearLimits.limit = stockFreeStroke;
         _joint.linearLimit = linearLimits;
 
+        // Смещение таргета пружины
         _joint.targetPosition = -1 * AxisToLocalVector(stockAxis) * stockFreeStroke;
 
         JointDrive drive = new JointDrive();
         drive.positionSpring = elasticity;
         drive.positionDamper = damping;
-        drive.maximumForce = 3.402822e+38f;
+        drive.maximumForce = float.MaxValue;
 
-        if (stockAxis == CoordinateAxis.x)
+        switch (stockAxis)
         {
-            _joint.xDrive = drive;
-        }
-        else if (stockAxis == CoordinateAxis.y)
-        {
-            _joint.yDrive = drive;
-        }
-        else if (stockAxis == CoordinateAxis.z)
-        {
-            _joint.zDrive = drive;
+            case CoordinateAxis.x: _joint.xDrive = drive; break;
+            case CoordinateAxis.y: _joint.yDrive = drive; break;
+            case CoordinateAxis.z: _joint.zDrive = drive; break;
         }
 
         if (isResetAnchor)
@@ -90,24 +142,16 @@ public class RSMASpring : MonoBehaviour
             _joint.connectedAnchor = connectedAnchor;
         }
     }
+
     private Vector3 AxisToLocalVector(CoordinateAxis axis)
     {
-        Vector3 direction = new Vector3();
-
-        if (axis == CoordinateAxis.x)
+        return axis switch
         {
-            direction = new Vector3(1, 0, 0);
-        }
-        else if (axis == CoordinateAxis.y)
-        {
-            direction = new Vector3(0, 1, 0);
-        }
-        else if (axis == CoordinateAxis.z)
-        {
-            direction = new Vector3(0, 0, 1);
-        }
-
-        return direction;
+            CoordinateAxis.x => Vector3.right,
+            CoordinateAxis.y => Vector3.up,
+            CoordinateAxis.z => Vector3.forward,
+            _ => Vector3.forward
+        };
     }
 
     private void SetupJointMotion()
@@ -116,41 +160,29 @@ public class RSMASpring : MonoBehaviour
         _joint.angularYMotion = ConfigurableJointMotion.Locked;
         _joint.angularZMotion = ConfigurableJointMotion.Locked;
 
-        if (stockAxis == CoordinateAxis.x)
-        {
-            _joint.xMotion = ConfigurableJointMotion.Limited;
-            _joint.yMotion = ConfigurableJointMotion.Locked;
-            _joint.zMotion = ConfigurableJointMotion.Locked;
-        }
-        else if (stockAxis == CoordinateAxis.y)
-        {
-            _joint.xMotion = ConfigurableJointMotion.Locked;
-            _joint.yMotion = ConfigurableJointMotion.Limited;
-            _joint.zMotion = ConfigurableJointMotion.Locked;
-        }
-        else if (stockAxis == CoordinateAxis.z)
-        {
-            _joint.xMotion = ConfigurableJointMotion.Locked;
-            _joint.yMotion = ConfigurableJointMotion.Locked;
-            _joint.zMotion = ConfigurableJointMotion.Limited;
-        }
+        _joint.xMotion = (stockAxis == CoordinateAxis.x) ? ConfigurableJointMotion.Limited : ConfigurableJointMotion.Locked;
+        _joint.yMotion = (stockAxis == CoordinateAxis.y) ? ConfigurableJointMotion.Limited : ConfigurableJointMotion.Locked;
+        _joint.zMotion = (stockAxis == CoordinateAxis.z) ? ConfigurableJointMotion.Limited : ConfigurableJointMotion.Locked;
     }
 
     private void OnDrawGizmos()
     {
-        if (isDrawAnchors)
+        if (!isDrawAnchors) return;
+
+        Vector3 localDir = AxisToLocalVector(stockAxis);
+        Vector3 globalAxis = transform.TransformDirection(localDir);
+
+        Gizmos.color = Color.red;
+        Vector3 globalAnchor = transform.TransformPoint(anchor);
+        Gizmos.DrawRay(globalAnchor, globalAxis * 0.05f);
+        Gizmos.DrawSphere(globalAnchor, 0.002f);
+
+        if (!IsArticulation && connectedBody != null)
         {
-            Gizmos.color = Color.red;
-            Gizmos.DrawRay(transform.TransformPoint(anchor), (transform.right * axis.x + transform.up * axis.y + transform.forward * axis.z) * 0.01f);
-            Gizmos.DrawSphere(transform.TransformPoint(anchor), 0.002f);
-
             Gizmos.color = Color.green;
-            Gizmos.DrawRay(connectedBody.gameObject.transform.TransformPoint(connectedAnchor), (transform.right * axis.x + transform.up * axis.y + transform.forward * axis.z) * 0.01f);
-            Gizmos.DrawSphere(connectedBody.gameObject.transform.TransformPoint(connectedAnchor), 0.002f);
-
-            Gizmos.color = Color.cyan;
-            //Gizmos.DrawSphere(transform.TransformPoint(_joint.targetPosition), 0.0025f);
+            Vector3 globalConnectedAnchor = connectedBody.transform.TransformPoint(connectedAnchor);
+            Gizmos.DrawRay(globalConnectedAnchor, globalAxis * 0.05f);
+            Gizmos.DrawSphere(globalConnectedAnchor, 0.002f);
         }
     }
 }
-
