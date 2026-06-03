@@ -1,26 +1,25 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
+using RSMA.NetMQ;
 
-public class ServerApp : MonoBehaviour
+namespace RSMA.GUI 
 {
-    //private RSMANetMQServer server = null;
-    void Start()
+    public class ServerApp : MonoBehaviour
     {
-        //server = new RSMANetMQServer();
-        Debug.Log("Server: Start");
-    }
-    [ContextMenu("Run Server")]
-    public void Run() 
-    {
-        //server.Start();
-        Debug.Log("Server: Run");
-    }
+        void Awake()
+        {
+            DontDestroyOnLoad(gameObject);
+            NetMQServer.Run();
+        }
 
-    [ContextMenu("Stop Server")]
-    public void Stop()
-    {
-        //server.Stop();
-        Debug.Log("Server: Stop");
+        void Update()
+        {
+            NetMQServer.Update();
+        }
+
+        void OnApplicationQuit()
+        {
+            NetMQServer.Stop();
+        }
     }
 }
+
