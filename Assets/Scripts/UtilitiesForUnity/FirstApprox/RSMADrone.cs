@@ -47,7 +47,7 @@ public class RSMADrone : MonoBehaviour
         transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, 0.05f);
 
         gyro.acceleration = acceleration;
-        gyro.velocity = _rigidbody.velocity;
+        gyro.velocity = _rigidbody.linearVelocity;
         gyro.position = transform.position;
 
         gyro.angularVelocity= _rigidbody.angularVelocity;
@@ -81,7 +81,7 @@ public class RSMADrone : MonoBehaviour
         Vector3 error_derivative = Vector3.zero;
         Vector3 error_prev = Vector3.zero;
 
-        while (!(Vector3.Distance(targetPosition, transform.position) < 0.03f && _rigidbody.velocity.magnitude < 0.03f))
+        while (!(Vector3.Distance(targetPosition, transform.position) < 0.03f && _rigidbody.linearVelocity.magnitude < 0.03f))
         {
             error = targetPosition - transform.position;
             error_integral += error * 0.01f;
