@@ -8,6 +8,7 @@ using UnityEngine;
 
 namespace RSMA.NetMQ
 {
+    [UnityEditor.InitializeOnLoad]
     public static class NetMQServer
     {
         private static bool _isRunning;
@@ -16,38 +17,55 @@ namespace RSMA.NetMQ
 
         public static bool IsRunning => _isRunning;
 
-        public static void Run()
+        static NetMQServer()
+        {
+            
+            UnityEditor.EditorApplication.playModeStateChanged += (state) => 
+            {
+                if (state == UnityEditor.PlayModeStateChange.ExitingPlayMode) 
+                {
+                    Stop();
+                }
+
+            };
+        }
+
+        public static void Run(int serverPort = 5555)
         {
             if (_isRunning) return;
             _isRunning = true;
 
             // Запуск сервера в отдельном потоке
-            Task.Run(() => ServerLoop());
+            Task.Run(() => ServerLoop(serverPort));
         }
 
         public static void Stop()
         {
             _isRunning = false;
+            NetMQConfig.Cleanup();
         }
 
-        private static void ServerLoop()
+        private static void ServerLoop(int serverPort)
         {
-            AsyncIO.ForceDotNet.Force(); // Обязательно для NetMQ в Unity
-            using (var server = new ResponseSocket())
+            AsyncIO.ForceDotNet.Force();
+            using (var server = new RouterSocket()) // Меняем на Router
             {
-                server.Bind("tcp://*:5555");
+                server.Bind($"tcp://*:{serverPort}");
 
                 while (_isRunning)
                 {
-                    string message;
-                    if (server.TryReceiveFrameString(TimeSpan.FromMilliseconds(100), out message))
+                    // Router получает сообщение в формате: [Identity, EmptyFrame, Data]
+                    var message = server.ReceiveMultipartMessage();
+
+                    if (message.FrameCount >= 3)
                     {
-                        Debug.Log($"Получено: {message}");
+                        var clientIdentity = message[0]; // ID клиента
+                        var payload = message[2].ConvertToString(); // Сами данные
 
-                        // Парсинг команды и добавление в очередь Unity
-                        string response = ProcessCommand(message);
+                        string response = ProcessCommand(payload);
 
-                        server.SendFrame(response);
+                        // Отправляем ответ обратно тому же клиенту
+                        server.SendMultipartMessage(new NetMQMessage(new[] { clientIdentity, NetMQFrame.Empty, new NetMQFrame(response) }));
                     }
                 }
             }

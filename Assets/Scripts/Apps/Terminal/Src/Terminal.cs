@@ -79,6 +79,8 @@ namespace RSMA.GUI
             _inputfield.targetGraphic = inputfieldBackground;
 
             _inputfield.onEndEdit.AddListener(OnEndEdit);
+
+            Close();
         }
 
         private void OnEndEdit(string message) 

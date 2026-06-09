@@ -84,7 +84,6 @@ namespace RSMA.GUI
                     Button button = _closeButton.GetComponent<Button>();
                     button.onClick.AddListener(Close);
                 }
-
             }
         }
 
