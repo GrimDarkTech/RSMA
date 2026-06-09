@@ -109,8 +109,7 @@ public class RSMAMotor2 : MonoBehaviour
             angularVelocity = (_rigidbody.angularVelocity - _rotor.angularVelocity).magnitude;
             torque = mechanicalCharacteristics.Evaluate(angularVelocity);
 
-            _rotor.AddTorque(transform.TransformPoint(motorAxis) * torque * input);
-
+            _rotor.AddRelativeTorque(motorAxis * torque * input);
  //          _rigidbody.AddTorque(-transform.TransformPoint(motorAxis) * torque * input);
         }
         else
