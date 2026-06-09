@@ -2,17 +2,28 @@ using RSMA.uDTP.Topics;
 using System.Collections.Generic;
 using UnityEngine;
 
+public enum BoardOrientation
+{
+    None = 0,
+    Yaw45 = 45,
+    Yaw90 = 90,
+    Yaw135 = 135,
+    Yaw180 = 180,
+    Yaw225 = 225,
+    Yaw270 = 270,
+    Yaw315 = 315
+}
+
 public class MaruzFollower : MonoBehaviour
 {
-    [HideInInspector]
+    public BoardOrientation sensorOrientation = BoardOrientation.None;
+
     public List<TrajectoryPoint> currentPath = new List<TrajectoryPoint>();
 
-    [Header("Настройки движения")]
     public float lookAheadDistance = 0.4f; // Дистанция "взгляда вперед"
     public float arrivalThreshold = 0.15f; // Радиус финиша последней точки
     public float maxLinearSpeed = 1.5f;
 
-    [Header("PID Регулятор (угловой)")]
     public float Kp = 3.0f;
     public float Ki = 0.01f;
     public float Kd = 0.2f;
@@ -27,6 +38,7 @@ public class MaruzFollower : MonoBehaviour
         targetPointIdx = 0;
         integral = 0;
         lastError = 0;
+
     }
 
     private void Update()
@@ -60,29 +72,31 @@ public class MaruzFollower : MonoBehaviour
         // 2. Расчет локальных координат цели
         Vector3 localTarget = transform.InverseTransformPoint(currentTarget.position);
 
-        // Ошибка по углу в радианах [-PI, PI]
-        float error = Mathf.Atan2(localTarget.x, localTarget.z);
+        // Оставляем чистый Atan2 в радианах для тригонометрии
+        float rawErrorDeg = -Mathf.Atan2(localTarget.x, localTarget.z) * Mathf.Rad2Deg;
+        // 2. Сдвигаем его на угол поворота полетника с автоматическим удержанием в рамках окружности
+        float errorDeg = Mathf.DeltaAngle((float)sensorOrientation, rawErrorDeg);
+        float errorRad = Mathf.Deg2Rad * errorDeg;
 
-        // 3. Вычисление PID для угловой скорости
+        // 3. Вычисление PID для угловой скорости (работаем с градусами)
         float deltaTime = Time.deltaTime;
         if (deltaTime > 0)
         {
-            integral += error * deltaTime;
-            // Ограничение интегральной суммы во избежание "разгона"
-            integral = Mathf.Clamp(integral, -1.0f, 1.0f);
+            integral += errorDeg * deltaTime;
+            integral = Mathf.Clamp(integral, -10.0f, 10.0f); // Чуть увеличим лимит для градусов
 
-            float derivative = (error - lastError) / deltaTime;
-            lastError = error;
+            float derivative = (errorDeg - lastError) / deltaTime;
+            lastError = errorDeg;
 
-            float currentAngularVel = (Kp * error) + (Ki * integral) + (Kd * derivative);
+            float currentAngularVel = (Kp * errorDeg) + (Ki * integral) + (Kd * derivative);
 
             // 4. Расчет линейной скорости
-            // Замедinternal скорость, если угол ошибки слишком большой (плавное торможение на поворотах)
-            float speedFactor = Mathf.Clamp01(Mathf.Cos(error));
+            // Передаем в Cos РАДИАНЫ (errorRad), как он и требует
+            float speedFactor = Mathf.Clamp01(Mathf.Cos(errorRad));
             float currentLinearVel = currentTarget.targetVelocity * speedFactor;
 
-            // Если это самый первый старт и цель сильно сзади — крутимся на месте
-            if (targetPointIdx == 0 && Mathf.Abs(error) > 60 * Mathf.Deg2Rad)
+            // Сравниваем градусы с градусами (errorDeg с 60 градусами)
+            if (targetPointIdx == 0 && Mathf.Abs(errorDeg) > 60.0f)
             {
                 currentLinearVel = 0;
             }
@@ -99,5 +113,14 @@ public class MaruzFollower : MonoBehaviour
     private void StopRobot()
     {
         RSMA.uDTP.DataBroker.Publish("MaruzTargetVelocity", new RobotVelocity { linearVelocity = 0, angularVelocity = 0 });
+    }
+    private void OnDrawGizmos()
+    {
+        Gizmos.color = Color.red;
+        for (int i = 0; i < currentPath.Count; i++)
+        {
+            Gizmos.DrawSphere(currentPath[i].position, 0.1f);
+        }
+
     }
 }

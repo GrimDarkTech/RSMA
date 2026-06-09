@@ -1,53 +1,60 @@
+using NUnit;
+using NUnit.Framework;
 using RSMA.uDTP.Topics;
 using System.Collections.Generic;
-using UnityEditor.Android;
+using System.Linq;
+using System.Runtime.Remoting.Metadata.W3cXsd2001;
 using UnityEngine;
 
 public class MaruzTrajectoryPlanner : MonoBehaviour
 {
-    public GameObject start = null;
-    public GameObject end = null;
-    public float time = 1;
+    public List<Vector3> targets = new List<Vector3>();
+    public float time = 3.0f;
     public float deltaTime = 0.1f;
     public float vStart = 0;
     public float vEnd = 0;
+    public float maxPathVelocity = 1.0f; // Максимальная скорость на середине пути
 
     public MaruzFollower controller = null;
 
     [ContextMenu("Generate")]
-    public void GenerateAndMove() 
-    {
-        if (start != null && end != null) 
-        {
-            var path = GeneratePath(start.transform.position, end.transform.position, time, deltaTime, vStart, vEnd);
-
-            if (controller != null) 
-            {
-                controller.pathQueue.Clear();
-                foreach (var point in path)
-                {
-                    controller.pathQueue.Enqueue(point);
-                }
-            }
-        }
-    }
-
-
-
-    public List<TrajectoryPoint> GeneratePath(Vector3 start, Vector3 end, float time, float deltaTime, float vStart, float vEnd)
+    public void GenerateAndMove()
     {
         List<TrajectoryPoint> path = new List<TrajectoryPoint>();
-        int steps = Mathf.CeilToInt(time / deltaTime);
+
+        if (targets != null && controller != null)
+        {
+            for (int i = 0; i < targets.Count - 1; i++)
+            {
+                var segment = GeneratePath(targets[i], targets[i+1], time, deltaTime, vStart, vEnd);
+                path.AddRange(segment);
+            }
+        }
+
+        controller.SetNewPath(path);
+    }
+
+    public List<TrajectoryPoint> GeneratePath(Vector3 startPos, Vector3 endPos, float duration, float stepTime, float startVel, float endVel)
+    {
+        List<TrajectoryPoint> path = new List<TrajectoryPoint>();
+
+        int steps = Mathf.CeilToInt(duration / stepTime);
 
         for (int i = 0; i <= steps; i++)
         {
             float t = (float)i / steps;
 
-            // 1. Интерполяция позиции (можно заменить на сплайн для кривизны)
-            Vector3 pos = Vector3.Lerp(start, end, t);
+            // Линейная интерполяция пути (для двух точек этого достаточно)
+            Vector3 pos = Vector3.Lerp(startPos, endPos, t);
 
-            // 2. Профиль скорости (линейная интерполяция скорости)
-            float vel = Mathf.Lerp(vStart, vEnd, t);
+            // Трапециевидный/колоколообразный профиль скорости (разгон -> удержание -> торможение)
+            float vel;
+            if (t < 0.2f) // Разгон (первые 20% пути)
+                vel = Mathf.Lerp(startVel, maxPathVelocity, t / 0.2f);
+            else if (t > 0.8f) // Торможение (последние 20% пути)
+                vel = Mathf.Lerp(maxPathVelocity, endVel, (t - 0.8f) / 0.2f);
+            else
+                vel = maxPathVelocity;
 
             path.Add(new TrajectoryPoint { position = pos, targetVelocity = vel });
         }

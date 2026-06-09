@@ -3743,6 +3743,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::MotionController
   wheelBase: 0.8
   wheelRadius: 0.1
+  maxVelDeg: 3600
 --- !u!114 &2083056070
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3755,9 +3756,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f59270fd1e8fae54589e652499aa908b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MaruzFollower
+  sensorOrientation: 180
+  currentPath: []
+  lookAheadDistance: 0.4
   arrivalThreshold: 0.5
-  angleThreshold: 5
-  Kp: 2
+  maxLinearSpeed: 1.5
+  Kp: 5
   Ki: 0.05
   Kd: 0.1
 --- !u!114 &2083056073
@@ -3772,11 +3776,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 998dfbed41b362546bb2a80e6339a578, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MaruzTrajectoryPlanner
-  start: {fileID: 904676333}
-  end: {fileID: 1546700212}
-  time: 5
-  vStart: 0.8
-  vEnd: 0.2
+  targets:
+  - {x: 29.7, y: 0.187, z: 40.71}
+  - {x: 47.79, y: 0.187, z: 54.84}
+  - {x: 35.41, y: 0.187, z: 39.01}
+  time: 8
+  deltaTime: 0.1
+  vStart: 0.5
+  vEnd: 0.1
+  maxPathVelocity: 3
   controller: {fileID: 2083056070}
 --- !u!1 &203104990522512054
 GameObject:
