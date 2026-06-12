@@ -1,3 +1,4 @@
+using RSMA.uDTP;
 using RSMA.uDTP.Topics;
 using System.Collections.Generic;
 using UnityEngine;
@@ -21,16 +22,17 @@ public class MaruzFollower : MonoBehaviour
     public List<TrajectoryPoint> currentPath = new List<TrajectoryPoint>();
 
     public float lookAheadDistance = 0.4f; // Дистанция "взгляда вперед"
-    public float arrivalThreshold = 0.15f; // Радиус финиша последней точки
-    public float maxLinearSpeed = 1.5f;
+    public float arrivalThreshold = 0.3f; // Радиус финиша последней точки
 
-    public float Kp = 3.0f;
-    public float Ki = 0.01f;
-    public float Kd = 0.2f;
+    public float Kp = 1.0f;
+    public float Ki = 0.005f;
+    public float Kd = 0.1f;
 
     private float integral = 0;
     private float lastError = 0;
     private int targetPointIdx = 0;
+
+    RSMA.uDTP.Topics.Pose robotPose;
 
     public void SetNewPath(List<TrajectoryPoint> path)
     {
@@ -49,17 +51,17 @@ public class MaruzFollower : MonoBehaviour
             return;
         }
 
-        Vector3 robotPos = transform.position;
+        robotPose = DataBroker.GetState<RSMA.uDTP.Topics.Pose>("MaruzPose");
 
         // 1. Ищем точку на траектории, которая находится на расстоянии lookAheadDistance
         while (targetPointIdx < currentPath.Count - 1 &&
-               Vector3.Distance(robotPos, currentPath[targetPointIdx].position) < lookAheadDistance)
+               Vector3.Distance(robotPose.position, currentPath[targetPointIdx].position) < lookAheadDistance)
         {
             targetPointIdx++;
         }
 
         TrajectoryPoint currentTarget = currentPath[targetPointIdx];
-        float distanceToFinal = Vector3.Distance(robotPos, currentPath[currentPath.Count - 1].position);
+        float distanceToFinal = Vector3.Distance(robotPose.position, currentPath[currentPath.Count - 1].position);
 
         // Условие остановки на финише
         if (distanceToFinal < arrivalThreshold)

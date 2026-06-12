@@ -513,11 +513,11 @@ Transform:
   m_GameObject: {fileID: 275063223}
   serializedVersion: 2
   m_LocalRotation: {x: 0.2083552, y: -0, z: -0, w: 0.9780533}
-  m_LocalPosition: {x: 0, y: 0.58, z: -0.954}
+  m_LocalPosition: {x: 34.92, y: 0.682, z: 38.116}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 2083056064}
+  m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 24.052, y: 0, z: 0}
 --- !u!81 &275063225
 AudioListener:
@@ -2057,10 +2057,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
-    m_AddedGameObjects:
-    - targetCorrespondingSourceObject: {fileID: 2520225129236775884, guid: 32ded27fe9d1277468717d4c1161743a, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 275063224}
+    m_AddedGameObjects: []
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 2520225129236775887, guid: 32ded27fe9d1277468717d4c1161743a, type: 3}
       insertIndex: -1
@@ -3708,11 +3705,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2035690221}
   m_CullTransparentMesh: 1
---- !u!4 &2083056064 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 2520225129236775884, guid: 32ded27fe9d1277468717d4c1161743a, type: 3}
-  m_PrefabInstance: {fileID: 1126553183}
-  m_PrefabAsset: {fileID: 0}
 --- !u!114 &2083056068
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3729,6 +3721,7 @@ MonoBehaviour:
   motorR: {fileID: 620711138}
   maxVelocity: 7200
   maxTorque: 25
+  zeroLevelVelocity: 40
 --- !u!114 &2083056069
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3751,7 +3744,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 857451943}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f59270fd1e8fae54589e652499aa908b, type: 3}
   m_Name: 
@@ -3759,10 +3752,9 @@ MonoBehaviour:
   sensorOrientation: 180
   currentPath: []
   lookAheadDistance: 0.4
-  arrivalThreshold: 0.5
-  maxLinearSpeed: 1.5
-  Kp: 5
-  Ki: 0.05
+  arrivalThreshold: 0.3
+  Kp: 1
+  Ki: 0.005
   Kd: 0.1
 --- !u!114 &2083056073
 MonoBehaviour:
@@ -7699,6 +7691,7 @@ SceneRoots:
   - {fileID: 1695771364}
   - {fileID: 1546700216}
   - {fileID: 904676336}
+  - {fileID: 275063224}
   - {fileID: 1126553183}
   - {fileID: 1420552534}
   - {fileID: 6240218406680681355}

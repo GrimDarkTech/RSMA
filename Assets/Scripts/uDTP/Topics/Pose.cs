@@ -2,10 +2,11 @@ using UnityEngine;
 
 namespace RSMA.uDTP.Topics 
 {
-    public struct MotorInput
+    public struct Pose
     {
         public long timestamp;
-        public float input;
+        public Vector3 position;
+        public Quaternion rotation;
     }
 }
 
