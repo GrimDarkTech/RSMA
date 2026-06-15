@@ -66,8 +66,8 @@ public class Lidar : MonoBehaviour
     {
         gameObject.layer = 2;
 
-        scan.angleMax = angleMin;
-        scan.angleMin = angleMax;
+        scan.angleMax = angleMax;
+        scan.angleMin = angleMin;
         scan.angleIncrement = angleIncrement;
         scan.rangeMin = minRange;
         scan.rangeMax = maxRange;
