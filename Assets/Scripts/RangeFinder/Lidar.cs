@@ -10,61 +10,47 @@ public class Lidar : MonoBehaviour
     [Min(0.5f)]
     public float angleMin = 0.5f;
 
-    [Min(360.0f)]
+    [Range(0.5f, 360.0f)]
     public float angleMax = 360.0f;
-
-    public float angleIncrement = 5;
 
     public bool isDrawRays = false;
 
     private float[] ranges = new float[128];
 
     private LaserScan128 scan = new LaserScan128();
+    private float angleIncrement = 5;
+    private int rayCount = 128;
 
 
     [ContextMenu("MeasureRange")]
+    // Измените метод Start и MeasureRange в Unity:
     private void MeasureRange()
     {
-        int rayIndex = 0;
+        angleIncrement = (angleMax - angleMin) / (rayCount - 1);
 
-        for (float i = angleMin; i <= angleMax; i = i + angleIncrement)
+        for (int rayIndex = 0; rayIndex < rayCount; rayIndex++)
         {
-            Vector3 rayDirection = Quaternion.AngleAxis(i, transform.up) * transform.forward;
-
-            RaycastHit hit;
-            Ray ray;
+            float currentAngle = angleMin + (rayIndex * angleIncrement);
+            Vector3 rayDirection = Quaternion.AngleAxis(currentAngle, transform.up) * transform.forward;
 
             float range = maxRange;
+            Ray ray = new Ray(transform.position, rayDirection);
 
-            ray = new Ray(transform.position, rayDirection);
-            if (Physics.Raycast(ray, out hit, maxRange))
+            if (Physics.Raycast(ray, out RaycastHit hit, maxRange))
             {
-                //Debug.DrawLine(gameObject.transform.position, hit.point);
-
-                if (hit.distance < range)
-                {
-                    range = hit.distance;
-                }
-
-                if(hit.distance < minRange)
-                {
-                    range = minRange;
-                }
-
+                if (hit.distance < range) range = hit.distance;
+                if (hit.distance < minRange) range = minRange;
             }
 
-            if (rayIndex < 128) 
-            {
-                ranges[rayIndex] = range;
-            }
-
-            rayIndex++;
+            ranges[rayIndex] = range;
         }
     }
 
     private void Start()
     {
         gameObject.layer = 2;
+
+        angleIncrement = (angleMax - angleMin) / (rayCount - 1);
 
         scan.angleMax = angleMax;
         scan.angleMin = angleMin;
