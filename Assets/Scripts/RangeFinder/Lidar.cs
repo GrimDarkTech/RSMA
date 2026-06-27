@@ -4,6 +4,8 @@ using System;
 using UnityEngine;
 public class Lidar : MonoBehaviour
 {
+    public string topicName = "Lidar";
+
     public float maxRange;
     public float minRange;
 
@@ -60,7 +62,7 @@ public class Lidar : MonoBehaviour
         scan.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         scan.ranges = ranges;
 
-        DataBroker.Publish("Lidar", scan);
+        DataBroker.Publish(topicName, scan);
     }
 
     private void Update()
@@ -69,7 +71,7 @@ public class Lidar : MonoBehaviour
         scan.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         scan.ranges = ranges;
 
-        DataBroker.Publish("Lidar", scan);
+        DataBroker.Publish(topicName, scan);
     }
 
     private void OnDrawGizmos()
