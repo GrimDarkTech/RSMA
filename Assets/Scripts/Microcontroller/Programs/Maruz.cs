@@ -4,11 +4,15 @@ using System;
 using UnityEngine;
 public class Maruz : MonoBehaviour
 {
+    public BoardOrientation sensorOrientation = BoardOrientation.Yaw180;
+
     public ArticulationBody motorL = null;
     public ArticulationBody motorR = null;
     public float maxVelocity = 3600.0f;
     public float maxTorque = 20.0f;
     public float zeroLevelVelocity = 40.0f;
+
+    private Quaternion sensorRotation;
 
     ArticulationDrive drive;
     RSMA.uDTP.Topics.Pose pose;
@@ -25,9 +29,11 @@ public class Maruz : MonoBehaviour
         drive.forceLimit = maxTorque;
         drive.damping = 10;
 
+        sensorRotation = Quaternion.Euler(0, (float)sensorOrientation, 0);
+
         pose = new RSMA.uDTP.Topics.Pose();
         pose.position = transform.position;
-        pose.rotation = transform.rotation;
+        pose.rotation = transform.rotation * sensorRotation;
 
         DataBroker.Publish("MaruzPose", pose);
     }
@@ -43,7 +49,7 @@ public class Maruz : MonoBehaviour
         motorR.xDrive = drive;
 
         pose.position = transform.position;
-        pose.rotation = transform.rotation;
+        pose.rotation = transform.rotation * sensorRotation;
         pose.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         DataBroker.Publish("MaruzPose", pose);
     }
