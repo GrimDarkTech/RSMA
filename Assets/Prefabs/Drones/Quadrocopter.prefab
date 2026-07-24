@@ -96,9 +96,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Quadrocopter
   droneId: 0
-  maxSpeed: 5
-  positionKp: 4
-  positionKd: 2
+  maxSpeed: 3
+  positionKp: 5
+  positionKi: 1
+  positionKd: 1.5
+  propeller1: {fileID: 7122777362076036309}
+  propeller2: {fileID: 912407941758404216}
+  propeller3: {fileID: 8587019224140691354}
+  propeller4: {fileID: 2741115450128451392}
 --- !u!1001 &4015462580407273284
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -176,8 +181,28 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 831137687005b5343bbc03efd4221750, type: 3}
+--- !u!1 &912407941758404216 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 4255989340104933692, guid: 831137687005b5343bbc03efd4221750, type: 3}
+  m_PrefabInstance: {fileID: 4015462580407273284}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &2741115450128451392 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: -7947819750926499836, guid: 831137687005b5343bbc03efd4221750, type: 3}
+  m_PrefabInstance: {fileID: 4015462580407273284}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &3473243485651460271 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 831137687005b5343bbc03efd4221750, type: 3}
+  m_PrefabInstance: {fileID: 4015462580407273284}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &7122777362076036309 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: -3071180390171350127, guid: 831137687005b5343bbc03efd4221750, type: 3}
+  m_PrefabInstance: {fileID: 4015462580407273284}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &8587019224140691354 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: -4570325087485972258, guid: 831137687005b5343bbc03efd4221750, type: 3}
   m_PrefabInstance: {fileID: 4015462580407273284}
   m_PrefabAsset: {fileID: 0}

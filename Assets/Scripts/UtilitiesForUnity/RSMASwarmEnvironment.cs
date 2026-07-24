@@ -40,9 +40,15 @@ public class RSMASwarmEnvironment : MonoBehaviour
         Rigidbody payloadRb = payloadInstance.GetComponent<Rigidbody>();
         if (payloadRb == null) payloadRb = payloadInstance.AddComponent<Rigidbody>();
         payloadRb.mass = payloadMass;
-        payloadRb.linearDamping = 0.2f;
 
-        // 2. Генерация дронов по кругу (N-угольник)
+        // В Unity 2023+ используем linearDamping, для старых версий - drag
+#if UNITY_2023_1_OR_NEWER
+        payloadRb.linearDamping = 0.2f;
+#else
+        payloadRb.drag = 0.2f;
+#endif
+
+        // 2. Генерация дронов по кругу
         float angleStep = 360.0f / numDrones;
         float angleOffset = (numDrones == 4) ? 45.0f : 0.0f;
 
@@ -54,7 +60,7 @@ public class RSMASwarmEnvironment : MonoBehaviour
             float dx = radius * Mathf.Cos(angleRad);
             float dz = radius * Mathf.Sin(angleRad);
 
-            // Начальное положение дрона над грузом на высоте длины троса
+            // Начальное положение дрона над грузом
             Vector3 initPos = new Vector3(dx, cableLength + 0.5f, dz);
 
             GameObject dObj;
@@ -70,25 +76,41 @@ public class RSMASwarmEnvironment : MonoBehaviour
             }
 
             dObj.name = $"Quadrocopter_{droneId}";
+
+            // Убеждаемся, что у дрона есть Rigidbody
+            Rigidbody droneRb = dObj.GetComponent<Rigidbody>();
+            if (droneRb == null)
+            {
+                droneRb = dObj.AddComponent<Rigidbody>();
+                droneRb.mass = 2.5f; // Масса дрона из config.py
+            }
+
             Quadrocopter droneScript = dObj.GetComponent<Quadrocopter>();
             if (droneScript == null) droneScript = dObj.AddComponent<Quadrocopter>();
 
             droneScript.droneId = droneId;
             droneInstances.Add(droneScript);
 
-            // 3. Создание троса и привязка к грузу
+            // 3. Создание троса и безопасная инициализация
             GameObject cableObj = new GameObject($"Cable_{droneId}");
             cableObj.transform.SetParent(dObj.transform);
 
             RSMACable cableScript = cableObj.AddComponent<RSMACable>();
+
             cableScript.cableId = droneId;
-            cableScript.mainBody = dObj.GetComponent<Rigidbody>();
+            cableScript.mainBody = droneRb;
             cableScript.connectedBody = payloadRb;
             cableScript.restLength = cableLength;
 
+            // Реалистичные параметры самописной пружины троса
+            cableScript.stiffness = 1000.0f; // Н/м
+            cableScript.damping = 35.0f;     // Н·с/м
+            cableScript.maxForce = 250.0f;   // Н
+
+            cableScript.InitializeCable();
             cableInstances.Add(cableScript);
         }
 
-        Debug.Log($"[RSMA Engine] Сцена создана: {numDrones} дронов, груз {payloadMass} кг.");
+        Debug.Log($"[RSMA Engine] Сцена успешно собрана: {numDrones} дронов, груз {payloadMass} кг.");
     }
 }
