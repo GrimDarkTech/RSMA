@@ -11,6 +11,7 @@ public class Quadrocopter : MonoBehaviour
 
     [Header("Физика и PID-регулятор")]
     public float maxSpeed = 8.0f;
+    public float maxForce = 250.0f;
     public float positionKp = 8.0f;
     public float positionKi = 2.0f;
     public float positionKd = 2.0f;
@@ -20,7 +21,7 @@ public class Quadrocopter : MonoBehaviour
     public GameObject propeller3 = null;
     public GameObject propeller4 = null;
 
-    private float propVelocity = 1800.0f;
+    private float propMaxVelocity = 9800.0f;
 
     private Rigidbody rb;
     private Vector3 targetPosition;
@@ -77,11 +78,6 @@ public class Quadrocopter : MonoBehaviour
                 SetTargetPosition(targetPoseMsg.position);
             }
         }
-
-        propeller1.transform.Rotate(new Vector3(0, 0, -propVelocity) * Time.deltaTime);
-        propeller2.transform.Rotate(new Vector3(0, 0, propVelocity) * Time.deltaTime);
-        propeller3.transform.Rotate(new Vector3(0, 0, propVelocity) * Time.deltaTime);
-        propeller4.transform.Rotate(new Vector3(0, 0, -propVelocity) * Time.deltaTime);
     }
 
     public void SetTargetPosition(Vector3 targetPos)
@@ -98,12 +94,8 @@ public class Quadrocopter : MonoBehaviour
         Vector3 positionError = targetPosition - transform.position;
         integralError += positionError * Time.fixedDeltaTime;
 
-        // PD-регулятор по скорости
-#if UNITY_2023_1_OR_NEWER
         Vector3 currentVel = rb.linearVelocity;
-#else
-        Vector3 currentVel = rb.velocity;
-#endif
+
 
         Vector3 force = (positionError * positionKp) + (integralError * positionKi) - (currentVel * positionKd);
 
@@ -111,7 +103,7 @@ public class Quadrocopter : MonoBehaviour
         force += -Physics.gravity * rb.mass;
 
         // Запас по вертикальной силе (до 250 Н на дрон), чтобы тянуть кабель и груз
-        force = Vector3.ClampMagnitude(force, 250.0f);
+        force = Vector3.ClampMagnitude(force, maxForce);
 
         rb.AddForce(force, ForceMode.Force);
 
@@ -122,5 +114,12 @@ public class Quadrocopter : MonoBehaviour
             Quaternion targetRotation = Quaternion.LookRotation(horizontalError.normalized);
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.fixedDeltaTime * 5.0f);
         }
+
+        float propVelocity = propMaxVelocity * (force.magnitude / maxForce);
+
+        propeller1.transform.Rotate(new Vector3(0, 0, -propVelocity) * Time.fixedDeltaTime);
+        propeller2.transform.Rotate(new Vector3(0, 0, propVelocity) * Time.fixedDeltaTime);
+        propeller3.transform.Rotate(new Vector3(0, 0, propVelocity) * Time.fixedDeltaTime);
+        propeller4.transform.Rotate(new Vector3(0, 0, -propVelocity) * Time.fixedDeltaTime);
     }
 }

@@ -7,6 +7,8 @@ public class RSMASwarmEnvironment : MonoBehaviour
     public GameObject dronePrefab;
     public GameObject payloadPrefab;
 
+    public Vector3 startPosition = new Vector3(0, 0.18f, 0);
+
     [Header("Параметры роя")]
     public int numDrones = 6;
     public float payloadMass = 12.0f;
@@ -27,12 +29,12 @@ public class RSMASwarmEnvironment : MonoBehaviour
         // 1. Создание груза
         if (payloadPrefab != null)
         {
-            payloadInstance = Instantiate(payloadPrefab, Vector3.zero, Quaternion.identity);
+            payloadInstance = Instantiate(payloadPrefab, startPosition, Quaternion.identity);
         }
         else
         {
             payloadInstance = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            payloadInstance.transform.position = new Vector3(0, 0.5f, 0); // Исходная позиция на земле
+            payloadInstance.transform.position = startPosition;
             payloadInstance.transform.localScale = Vector3.one * 0.4f;
             payloadInstance.GetComponent<Renderer>().material.color = Color.red;
         }
@@ -41,12 +43,7 @@ public class RSMASwarmEnvironment : MonoBehaviour
         if (payloadRb == null) payloadRb = payloadInstance.AddComponent<Rigidbody>();
         payloadRb.mass = payloadMass;
 
-        // В Unity 2023+ используем linearDamping, для старых версий - drag
-#if UNITY_2023_1_OR_NEWER
         payloadRb.linearDamping = 0.2f;
-#else
-        payloadRb.drag = 0.2f;
-#endif
 
         // 2. Генерация дронов по кругу
         float angleStep = 360.0f / numDrones;
@@ -61,7 +58,7 @@ public class RSMASwarmEnvironment : MonoBehaviour
             float dz = radius * Mathf.Sin(angleRad);
 
             // Начальное положение дрона над грузом
-            Vector3 initPos = new Vector3(dx, cableLength + 0.5f, dz);
+            Vector3 initPos = startPosition + new Vector3(dx, 0.2f, dz);
 
             GameObject dObj;
             if (dronePrefab != null)
