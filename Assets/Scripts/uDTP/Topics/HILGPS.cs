@@ -7,6 +7,7 @@ namespace RSMA.uDTP.Topics
     public struct HILGPS
     {
         public long timestamp;
+        public byte fix_type;
 
         public int lat;                // Широта * 1e7 (градусы)
         public int lon;                // Долгота * 1e7 (градусы)
