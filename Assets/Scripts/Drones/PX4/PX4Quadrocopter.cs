@@ -29,6 +29,8 @@ public class PX4Quadrocopter : MonoBehaviour
     public double homeLongitude = 37.6173;
     public float homeAltitudeMSL = 150.0f;
 
+    public Vector3 centerOfmass = Vector3.zero;
+
     private Rigidbody rb;
     [SerializeField]
     private float[] motorCommands = new float[4] { 0f, 0f, 0f, 0f };
@@ -55,25 +57,27 @@ public class PX4Quadrocopter : MonoBehaviour
     void Start()
     {
         sensorMsg = new HILSensor();
-        gpsMsg = new HILGPS();
+        gpsMsg = new HILGPS(); // Инициализация базовых полей GPS
 
         lastLinearVelocity = rb.linearVelocity;
         initialPositionWorld = transform.position;
+        rb.centerOfMass = centerOfmass;
     }
 
     void Update()
     {
-        // 1. Прием команд от PX4 (Quad X: 0:FR, 1:BL, 2:FL, 3:BR)
+        // 1. Прием команд от PX4 с безопасной проверкой
         var actuatorsMsg = DataBroker.GetState<ActuatorInputs>($"ActuatorInputs_{droneId}");
-        if (actuatorsMsg.inputs != null && actuatorsMsg.size >= 4)
+
+        if ( actuatorsMsg.inputs != null && actuatorsMsg.size >= 4)
         {
-            motorCommands[0] = Mathf.Clamp01(actuatorsMsg.inputs[0]);
-            motorCommands[1] = Mathf.Clamp01(actuatorsMsg.inputs[1]);
-            motorCommands[2] = Mathf.Clamp01(actuatorsMsg.inputs[2]);
-            motorCommands[3] = Mathf.Clamp01(actuatorsMsg.inputs[3]);
+            motorCommands[0] = Mathf.Clamp01(actuatorsMsg.inputs[0]); // FR
+            motorCommands[1] = Mathf.Clamp01(actuatorsMsg.inputs[1]); // BL
+            motorCommands[2] = Mathf.Clamp01(actuatorsMsg.inputs[2]); // FL
+            motorCommands[3] = Mathf.Clamp01(actuatorsMsg.inputs[3]); // BR
         }
 
-        // 2. Анимация пропеллеров (CCW: -1, CW: +1)
+        // 2. Анимация пропеллеров
         RotatePropeller(propellerFR, -motorCommands[0]);
         RotatePropeller(propellerBL, -motorCommands[1]);
         RotatePropeller(propellerFL, motorCommands[2]);
@@ -90,19 +94,23 @@ public class PX4Quadrocopter : MonoBehaviour
 
     void FixedUpdate()
     {
+        // Убран искусственный пропуск первых 35 кадров, из-за которого PX4 терял IMU на старте!
+
         // Расчет физического ускорения
         Vector3 currentVel = rb.linearVelocity;
-        currentAccelWorld = (currentVel - lastLinearVelocity) / Time.fixedDeltaTime;
+        if (Time.fixedDeltaTime > 0f)
+        {
+            currentAccelWorld = (currentVel - lastLinearVelocity) / Time.fixedDeltaTime;
+        }
         lastLinearVelocity = currentVel;
 
         // Применение сил моторов
-        // CCW пропеллер создает реактивный момент по часовой стрелке (+1)
         ApplyMotorForce(motorFRPoint != null ? motorFRPoint.position : transform.position, motorCommands[0], 1f);
         ApplyMotorForce(motorBLPoint != null ? motorBLPoint.position : transform.position, motorCommands[1], 1f);
         ApplyMotorForce(motorFLPoint != null ? motorFLPoint.position : transform.position, motorCommands[2], -1f);
         ApplyMotorForce(motorBRPoint != null ? motorBRPoint.position : transform.position, motorCommands[3], -1f);
 
-        // Отправка IMU
+        // Отправка IMU (каждый физический шаг)
         PublishIMUData();
     }
 
@@ -120,46 +128,36 @@ public class PX4Quadrocopter : MonoBehaviour
 
     private void PublishIMUData()
     {
-        long timestampUs = (long)(Time.fixedTimeAsDouble * 1_000_000.0);
+        long timestampUs = (long)(Time.timeAsDouble * 1_000_000.0);
 
-        // 1. Кажущееся ускорение в локальных координатах Unity
+        // 1. Кажущееся ускорение в локальных координатах Unity (с учетом гравитации)
         Vector3 totalAccelWorld = currentAccelWorld - Physics.gravity;
         Vector3 localAccel = transform.InverseTransformDirection(totalAccelWorld);
 
         // 2. Угловая скорость в локальных координатах Unity
         Vector3 localAngularVel = transform.InverseTransformDirection(rb.angularVelocity);
 
-        // 3. Магнитное поле Земли (Север по +Z, Земля по -Y)
-        Vector3 magWorld = new Vector3(0.0f, -0.4f, 0.2f);
+        // 3. Магнитное поле Земли
+        Vector3 magWorld = new Vector3(0.0f, -0.15f, 0.43f);
         Vector3 localMag = transform.InverseTransformDirection(magWorld);
-
-        // Шум для магнетометра
-        float magNoiseX = UnityEngine.Random.Range(-0.001f, 0.001f);
-        float magNoiseY = UnityEngine.Random.Range(-0.001f, 0.001f);
-        float magNoiseZ = UnityEngine.Random.Range(-0.001f, 0.001f);
 
         sensorMsg.timestamp = timestampUs;
 
         // --- ПЕРЕВОД В СК PX4 FRD ---
-        // Акселерометр: Unity (X:Right, Y:Up, Z:Forward) -> PX4 (X:Forward, Y:Right, Z:Down)
         sensorMsg.accel_x = localAccel.z;
         sensorMsg.accel_y = localAccel.x;
         sensorMsg.accel_z = -localAccel.y;
 
-        // Гироскоп: учет правила правой руки для осей FRD
-        sensorMsg.gyro_x = localAngularVel.z; // Roll Rate
-        sensorMsg.gyro_y = -localAngularVel.x; // Pitch Rate
-        sensorMsg.gyro_z = localAngularVel.y;  // Yaw Rate
+        sensorMsg.gyro_x = localAngularVel.z;
+        sensorMsg.gyro_y = localAngularVel.x;
+        sensorMsg.gyro_z = -localAngularVel.y;
 
-        // Магнетометр: Unity -> PX4 FRD
-        sensorMsg.mag_x = localMag.z + magNoiseZ;
-        sensorMsg.mag_y = -localMag.x + magNoiseX;
-        sensorMsg.mag_z = localMag.y + magNoiseY;
+        sensorMsg.mag_x = localMag.z;
+        sensorMsg.mag_y = localMag.x;
+        sensorMsg.mag_z = -localMag.y;
 
         // --- БАРОМЕТР И ВЫСОТА ---
         float currentAltMSL = homeAltitudeMSL + transform.position.y;
-
-        // Международная барометрическая формула (hPa)
         sensorMsg.abs_pressure = 1013.25f * Mathf.Pow(1.0f - (currentAltMSL / 44330.0f), 5.255f);
         sensorMsg.pressure_alt = currentAltMSL;
         sensorMsg.temperature = 15.0f;
@@ -178,6 +176,7 @@ public class PX4Quadrocopter : MonoBehaviour
         Vector3 velWorld = rb.linearVelocity;
 
         gpsMsg.timestamp = timestampMs;
+        gpsMsg.fix_type = 3; // Жизненно важно: 3 = 3D Fix (иначе EKF2 считает GPS невалидным)
 
         gpsMsg.lat = (int)(lat * 1e7);
         gpsMsg.lon = (int)(lon * 1e7);
@@ -187,10 +186,9 @@ public class PX4Quadrocopter : MonoBehaviour
         gpsMsg.epv = 100;
         gpsMsg.vel = (ushort)(new Vector2(velWorld.x, velWorld.z).magnitude * 100f);
 
-        // Скорости в NED (см/с): +Z = North, +X = East, -Y = Down
-        gpsMsg.vn = (short)(velWorld.z * 100f);  // North
-        gpsMsg.ve = (short)(velWorld.x * 100f);  // East
-        gpsMsg.vd = (short)(-velWorld.y * 100f); // Down
+        gpsMsg.vn = (short)(velWorld.z * 100f);
+        gpsMsg.ve = (short)(velWorld.x * 100f);
+        gpsMsg.vd = (short)(-velWorld.y * 100f);
 
         float cogDeg = Mathf.Atan2(velWorld.x, velWorld.z) * Mathf.Rad2Deg;
         if (cogDeg < 0) cogDeg += 360f;
