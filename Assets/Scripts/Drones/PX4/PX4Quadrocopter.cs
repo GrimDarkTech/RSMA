@@ -2,7 +2,6 @@ using System;
 using UnityEngine;
 using RSMA.uDTP;
 using RSMA.uDTP.Topics;
-
 using RSMA.PX4;
 
 [RequireComponent(typeof(Rigidbody))]
@@ -42,13 +41,14 @@ public class PX4Quadrocopter : MonoBehaviour
     public float accelNoiseFactor = 0.05f;   // Шум акселерометра (м/с^2)
     public float magNoiseFactor = 0.002f;    // Шум магнитометра (Гаусс)
 
+    [Header("Магнитное поле")]
+    public Vector3 magWorldNED = new Vector3(0.3f, 0.0f, 0.43f);
+
     public Vector3 centerOfMass = Vector3.zero;
 
     private Rigidbody rb;
     [SerializeField]
     private float[] motorCommands = new float[4] { 0f, 0f, 0f, 0f };
-
-    private Vector3 magNED = new Vector3(0.3f, 0.0f, 0.43f);
 
     private Vector3 lastLinearVelocity;
     private Vector3 currentAccelWorld;
@@ -118,7 +118,6 @@ public class PX4Quadrocopter : MonoBehaviour
         }
         lastLinearVelocity = currentVel;
 
-        // ИСПРАВЛЕНО: motorFLPoint проверяется корректно
         ApplyMotorForce(motorFRPoint != null ? motorFRPoint.position : transform.position, motorCommands[0], 1f);
         ApplyMotorForce(motorBLPoint != null ? motorBLPoint.position : transform.position, motorCommands[1], 1f);
         ApplyMotorForce(motorFLPoint != null ? motorFLPoint.position : transform.position, motorCommands[2], -1f);
@@ -136,43 +135,40 @@ public class PX4Quadrocopter : MonoBehaviour
     {
         float thrust = command * maxThrustPerMotor;
         rb.AddForceAtPosition(transform.up * thrust, point, ForceMode.Force);
+        rb.AddTorque(transform.up * (thrust * dragTorqueCoefficient * spinDirection), ForceMode.Force);
 
-        rb.AddTorque(-transform.up * (thrust * dragTorqueCoefficient * spinDirection), ForceMode.Force);
-        Debug.DrawRay(point, transform.up * (thrust * 0.2f), Color.green);
+        Debug.DrawRay(point, transform.up * (thrust * 0.05f), Color.green);
     }
 
     private void RotatePropeller(GameObject prop, float direction)
     {
-        if (prop != null) prop.transform.Rotate(0, 0, propMaxVelocity * direction * Time.deltaTime);
+        if (prop != null)
+            prop.transform.Rotate(0, 0, propMaxVelocity * direction * Time.deltaTime);
     }
 
     private void PublishHILStateData(long timestampUs)
     {
         stateMsg.timestamp = timestampUs;
 
-        Quaternion rot = transform.rotation;
-        // Кватернион для перехода Unity -> NED
-        Quaternion nedRot = UnityToNEDConverter.RotationToNED(rot);
+        // Поворот в NED
+        Quaternion nedRot = UnityToNEDConverter.RotationToNED(transform.rotation);
         stateMsg.orientation = new float[4] { nedRot.w, nedRot.x, nedRot.y, nedRot.z };
 
-        Vector3 localAngularVel = transform.InverseTransformDirection(rb.angularVelocity);
+        // Угловые скорости в NED
+        Vector3 nedAngularVel = UnityToNEDConverter.AngularVelocityToNED(rb.angularVelocity);
+        stateMsg.rollspeed = nedAngularVel.x;  // Roll (North axis in NED frame)
+        stateMsg.pitchspeed = nedAngularVel.y; // Pitch (East axis)
+        stateMsg.yawspeed = nedAngularVel.z;   // Yaw (Down axis)
 
-        Vector3 worldAngularVel = rb.angularVelocity; // В мировых координатах Unity
-        Vector3 nedAngularVel = UnityToNEDConverter.AngularVelocityToNED(worldAngularVel);
+        // Линейные скорости в NED
+        Vector3 nedVel = UnityToNEDConverter.VelocityToNED(rb.linearVelocity);
+        stateMsg.vn = (short)(nedVel.x * 100f);  // см/с
+        stateMsg.ve = (short)(nedVel.y * 100f);  // см/с
+        stateMsg.vd = (short)(nedVel.z * 100f);  // см/с
 
-        stateMsg.rollspeed = nedAngularVel.x;  // North
-        stateMsg.pitchspeed = nedAngularVel.y; // East
-        stateMsg.yawspeed = nedAngularVel.z;   // Down
-
-        Vector3 velWorld = rb.linearVelocity;
-        Vector3 nedVel = UnityToNEDConverter.VelocityToNED(velWorld);
-        stateMsg.vn = (short)(nedVel.x * 100f);  // см/с (North)
-        stateMsg.ve = (short)(nedVel.y * 100f);  // см/с (East)
-        stateMsg.vd = (short)(nedVel.z * 100f);  // см/с (Down)
-
+        // Координаты GPS
         Vector3 localPos = transform.position - initialPositionWorld;
-        double lat = homeLatitude + (localPos.z / 111000.0);
-        double lon = homeLongitude + (localPos.x / (111000.0 * Math.Cos(homeLatitude * Math.PI / 180.0)));
+        var (lat, lon) = UnityToNEDConverter.UnityPosToLatLon(localPos, homeLatitude, homeLongitude);
 
         stateMsg.lat = (int)(lat * 1e7);
         stateMsg.lon = (int)(lon * 1e7);
@@ -185,19 +181,16 @@ public class PX4Quadrocopter : MonoBehaviour
     {
         sensorMsg.timestamp = timestampUs;
 
-        // 1. Ускорение: переводим в локальную систему дрона (Body Unity)
-        // Учитываем гравитацию: F_accel = a_world - g_world (где g_world = (0, -9.81, 0))
+        // 1. Ускорение: учитываем гравитацию и переводим в Body FRD
         Vector3 accelWorldUnity = currentAccelWorld - Physics.gravity;
         Vector3 accelBodyUnity = transform.InverseTransformDirection(accelWorldUnity);
-
-        // Конвертируем из Body Unity (X-Right, Y-Up, Z-Forward) в Body FRD (X-Forward, Y-Right, Z-Down)
-        Vector3 accelFRD = new Vector3(accelBodyUnity.z, accelBodyUnity.x, -accelBodyUnity.y);
+        Vector3 accelFRD = UnityToNEDConverter.BodyUnityToBodyFRD(accelBodyUnity);
 
         sensorMsg.accel_x = accelFRD.x + UnityEngine.Random.Range(-accelNoiseFactor, accelNoiseFactor);
         sensorMsg.accel_y = accelFRD.y + UnityEngine.Random.Range(-accelNoiseFactor, accelNoiseFactor);
         sensorMsg.accel_z = accelFRD.z + UnityEngine.Random.Range(-accelNoiseFactor, accelNoiseFactor);
 
-        // 2. Гироскоп: берем локальную угловую скорость (Body Unity)
+        // 2. Гироскоп: переводим локальную угловую скорость Unity Body в FRD
         Vector3 localAngularVelUnity = transform.InverseTransformDirection(rb.angularVelocity);
         Vector3 gyroFRD = UnityToNEDConverter.AngularVelocityToBodyFRD(localAngularVelUnity);
 
@@ -205,9 +198,7 @@ public class PX4Quadrocopter : MonoBehaviour
         sensorMsg.gyro_y = gyroFRD.y + UnityEngine.Random.Range(-gyroNoiseFactor, gyroNoiseFactor);
         sensorMsg.gyro_z = gyroFRD.z + UnityEngine.Random.Range(-gyroNoiseFactor, gyroNoiseFactor);
 
-        // 3. Магнитометр: поворачиваем вектор вектора Земли в Body Frame дрона
-        Vector3 magWorldNED = new Vector3(0.3f, 0.0f, 0.43f);
-        // Переводим magWorldNED в локальную систему coordinates FRD через текущий кватернион
+        // 3. Магнитометр: поворот мирового вектора NED в локальную систему FRD
         Quaternion nedRot = UnityToNEDConverter.RotationToNED(transform.rotation);
         Vector3 magBodyFRD = Quaternion.Inverse(nedRot) * magWorldNED;
 
@@ -232,9 +223,7 @@ public class PX4Quadrocopter : MonoBehaviour
         gpsMsg.fix_type = 3;
 
         Vector3 nedPos = UnityToNEDConverter.PositionToNED(transform.position - initialPositionWorld);
-
-        double lat = homeLatitude + (nedPos.x / 111320.0);
-        double lon = homeLongitude + (nedPos.y / (111320.0 * Math.Cos(homeLatitude * Math.PI / 180.0)));
+        var (lat, lon) = UnityToNEDConverter.NEDToLatLon(new Vector2(nedPos.x, nedPos.y), homeLatitude, homeLongitude);
         double alt = homeAltitudeMSL - nedPos.z;
 
         gpsMsg.lat = (int)(lat * 1e7);
@@ -244,7 +233,6 @@ public class PX4Quadrocopter : MonoBehaviour
         gpsMsg.eph = 100;
         gpsMsg.epv = 100;
 
-        // Используем конвертер скоростей
         Vector3 nedVel = UnityToNEDConverter.VelocityToNED(rb.linearVelocity);
         gpsMsg.vn = (short)(nedVel.x * 100f); // см/с
         gpsMsg.ve = (short)(nedVel.y * 100f); // см/с
@@ -253,7 +241,7 @@ public class PX4Quadrocopter : MonoBehaviour
         float groundSpeed = new Vector2(nedVel.x, nedVel.y).magnitude;
         gpsMsg.vel = (ushort)(groundSpeed * 100f); // см/с
 
-        // Путевой угол (COUG) в сантиградусах (0..35999)
+        // Путевой угол (COG) в сантиградусах (0..35999)
         float headingDeg = Mathf.Atan2(nedVel.y, nedVel.x) * Mathf.Rad2Deg;
         if (headingDeg < 0) headingDeg += 360f;
         gpsMsg.cog = (ushort)(headingDeg * 100f);
@@ -268,7 +256,6 @@ public class PX4Quadrocopter : MonoBehaviour
         flowMsg.timestamp = timestampUs;
         flowMsg.time_usec = (ulong)timestampUs;
         flowMsg.quality = 255;
-        // Здесь можно добавить raycast вниз для расчета optical flow
         flowMsg.distance = 0f;
 
         DataBroker.Publish($"HILOpticalFlow_{droneId}", flowMsg);

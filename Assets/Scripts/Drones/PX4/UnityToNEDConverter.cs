@@ -1,6 +1,7 @@
+using System;
 using UnityEngine;
 
-namespace RSMA.PX4 
+namespace RSMA.PX4
 {
     public static class UnityToNEDConverter
     {
@@ -9,47 +10,51 @@ namespace RSMA.PX4
             return new Vector3(unityPos.z, unityPos.x, -unityPos.y);
         }
 
-        public static Quaternion RotationToNED(Quaternion unityRot)
-        {
-            // Стандартное строгое преобразование из Unity (LHS) в NED (RHS):
-            // Swapping Z/X and reversing Y axis logic for Quaternions
-            return new Quaternion(
-                unityRot.z,
-                unityRot.x,
-                -unityRot.y,
-                -unityRot.w
-            );
-        }
-
-
-        /// <summary>
-        /// Преобразование скорости из Unity (X-East, Y-Up, Z-North) в NED (North, East, Down)
-        /// </summary>
         public static Vector3 VelocityToNED(Vector3 unityVel)
         {
-            // Аналогично позиции
             return new Vector3(unityVel.z, unityVel.x, -unityVel.y);
         }
-
-        /// <summary>
-        /// Преобразование угловой скорости из Unity (X-East, Y-Up, Z-North) в NED (North, East, Down)
-        /// </summary>
         public static Vector3 AngularVelocityToNED(Vector3 unityAngularVel)
         {
-            // Unity: (X, Y, Z) → NED: (Z, X, -Y)
-            return new Vector3(unityAngularVel.z, unityAngularVel.x, -unityAngularVel.y);
+            return new Vector3(
+                -unityAngularVel.z, 
+                -unityAngularVel.x, 
+                unityAngularVel.y);
+        }
+
+        public static Vector3 BodyUnityToBodyFRD(Vector3 localUnityVec)
+        {
+            return new Vector3(-localUnityVec.z, localUnityVec.x, -localUnityVec.y);
         }
 
         public static Vector3 AngularVelocityToBodyFRD(Vector3 localAngularVelUnity)
         {
-            // В Unity local: X-Right, Y-Up, Z-Forward
-            // В PX4 FRD: X-Forward, Y-Right, Z-Down
-            // Учитываем инверсию направления вращения (LHS vs RHS):
             return new Vector3(
-                -localAngularVelUnity.z, // Roll speed  (вокруг Forward)
-                localAngularVelUnity.x,  // Pitch speed (вокруг Right)
-                -localAngularVelUnity.y  // Yaw speed   (вокруг Down)
+                -localAngularVelUnity.z, 
+                -localAngularVelUnity.x, 
+                localAngularVelUnity.y);
+        }
+
+        public static Quaternion RotationToNED(Quaternion unityRot)
+        {
+            return new Quaternion(
+                -unityRot.z,
+                -unityRot.x,
+                -unityRot.y,
+                unityRot.w
             );
+        }
+        public static (double lat, double lon) NEDToLatLon(Vector2 nedPosNorthEast, double homeLat, double homeLon)
+        {
+            double latRad = homeLat * Math.PI / 180.0;
+            double lat = homeLat + (nedPosNorthEast.x / 111320.0);
+            double lon = homeLon + (nedPosNorthEast.y / (111320.0 * Math.Cos(latRad)));
+            return (lat, lon);
+        }
+        public static (double lat, double lon) UnityPosToLatLon(Vector3 unityLocalPos, double homeLat, double homeLon)
+        {
+            Vector3 nedPos = PositionToNED(unityLocalPos);
+            return NEDToLatLon(new Vector2(nedPos.x, nedPos.y), homeLat, homeLon);
         }
     }
 }

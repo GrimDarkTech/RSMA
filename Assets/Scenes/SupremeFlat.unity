@@ -700,12 +700,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 275063223}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.2083552, y: -0, z: -0, w: 0.9780533}
-  m_LocalPosition: {x: 69.61, y: 2.73, z: 33.52}
+  m_LocalRotation: {x: 0.258915, y: -0.00047887326, z: 0.00018707762, w: 0.9659}
+  m_LocalPosition: {x: -0.019443512, y: 0.62042874, z: -1.0058594}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 1338553306}
   m_LocalEulerAnglesHint: {x: 24.052, y: 0, z: 0}
 --- !u!81 &275063225
 AudioListener:
@@ -4072,7 +4072,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5675439381409293104, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.196
+      value: 0.511
       objectReference: {fileID: 0}
     - target: {fileID: 5675439381409293104, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
       propertyPath: m_LocalPosition.z
@@ -4128,7 +4128,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
-    m_AddedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 5675439381409293104, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 275063224}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 2048108682814108021, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
       insertIndex: -1
@@ -4377,6 +4380,11 @@ MonoBehaviour:
   droneId: 0
   targetFlightMode: 1
   armVehicle: 0
+--- !u!4 &1338553306 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 5675439381409293104, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
+  m_PrefabInstance: {fileID: 1143155671}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1393874093
 GameObject:
   m_ObjectHideFlags: 0
@@ -11014,7 +11022,6 @@ SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 1695771364}
-  - {fileID: 275063224}
   - {fileID: 1126553183}
   - {fileID: 1420552534}
   - {fileID: 6240218406680681355}
