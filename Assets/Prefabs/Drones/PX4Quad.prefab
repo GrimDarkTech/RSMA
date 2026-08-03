@@ -150,6 +150,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PX4Quadrocopter
   droneId: 0
+  publishHILState: 1
+  publishHILSensor: 1
+  publishHIL_GPS: 0
+  publishHIL_OpticalFlow: 0
   propellerFR: {fileID: 7122777362076036309}
   propellerBL: {fileID: 912407941758404216}
   propellerFL: {fileID: 2741115450128451392}
@@ -164,7 +168,10 @@ MonoBehaviour:
   homeLatitude: 55.7558
   homeLongitude: 37.6173
   homeAltitudeMSL: 150
-  centerOfmass: {x: 0, y: 0, z: 0}
+  gyroNoiseFactor: 0.005
+  accelNoiseFactor: 0.05
+  magNoiseFactor: 0.002
+  centerOfMass: {x: 0, y: 0, z: 0}
   motorCommands:
   - 0
   - 0
@@ -180,7 +187,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: -8686234636439484044, guid: 831137687005b5343bbc03efd4221750, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0.25
+      value: 0.09
       objectReference: {fileID: 0}
     - target: {fileID: -8686234636439484044, guid: 831137687005b5343bbc03efd4221750, type: 3}
       propertyPath: m_LocalPosition.y
@@ -188,7 +195,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8686234636439484044, guid: 831137687005b5343bbc03efd4221750, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0.25
+      value: 0.09
       objectReference: {fileID: 0}
     - target: {fileID: -8686234636439484044, guid: 831137687005b5343bbc03efd4221750, type: 3}
       propertyPath: m_LocalRotation.w
@@ -268,7 +275,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: f7aec047c4f051e4f9f1f8005c1a951c, type: 2}
     - target: {fileID: -22534413725703081, guid: 831137687005b5343bbc03efd4221750, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0.25
+      value: 0.09
       objectReference: {fileID: 0}
     - target: {fileID: -22534413725703081, guid: 831137687005b5343bbc03efd4221750, type: 3}
       propertyPath: m_LocalPosition.y
@@ -276,7 +283,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -22534413725703081, guid: 831137687005b5343bbc03efd4221750, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -0.25
+      value: -0.09
       objectReference: {fileID: 0}
     - target: {fileID: -22534413725703081, guid: 831137687005b5343bbc03efd4221750, type: 3}
       propertyPath: m_LocalRotation.w
@@ -300,7 +307,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3827376802639760181, guid: 831137687005b5343bbc03efd4221750, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -0.25
+      value: -0.09
       objectReference: {fileID: 0}
     - target: {fileID: 3827376802639760181, guid: 831137687005b5343bbc03efd4221750, type: 3}
       propertyPath: m_LocalPosition.y
@@ -308,7 +315,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3827376802639760181, guid: 831137687005b5343bbc03efd4221750, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0.25
+      value: 0.09
       objectReference: {fileID: 0}
     - target: {fileID: 3827376802639760181, guid: 831137687005b5343bbc03efd4221750, type: 3}
       propertyPath: m_LocalRotation.w
@@ -364,7 +371,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: f7aec047c4f051e4f9f1f8005c1a951c, type: 2}
     - target: {fileID: 6095745740834918973, guid: 831137687005b5343bbc03efd4221750, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -0.25
+      value: -0.09
       objectReference: {fileID: 0}
     - target: {fileID: 6095745740834918973, guid: 831137687005b5343bbc03efd4221750, type: 3}
       propertyPath: m_LocalPosition.y
@@ -372,7 +379,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6095745740834918973, guid: 831137687005b5343bbc03efd4221750, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -0.25
+      value: -0.09
       objectReference: {fileID: 0}
     - target: {fileID: 6095745740834918973, guid: 831137687005b5343bbc03efd4221750, type: 3}
       propertyPath: m_LocalRotation.w

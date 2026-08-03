@@ -1305,6 +1305,11 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1093464072}
   m_LocalEulerAnglesHint: {x: 0, y: 41.405, z: 0}
+--- !u!1 &353948252 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 912407941758404216, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
+  m_PrefabInstance: {fileID: 1143155671}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &363420924 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 6a9da1214e73c494ca066ebb22384f0f, type: 3}
@@ -3997,9 +4002,69 @@ PrefabInstance:
       propertyPath: motorFR
       value: 
       objectReference: {fileID: 570079062}
+    - target: {fileID: 299796882558262358, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
+      propertyPath: propellerBL
+      value: 
+      objectReference: {fileID: 353948252}
+    - target: {fileID: 299796882558262358, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
+      propertyPath: propellerBR
+      value: 
+      objectReference: {fileID: 1584767699}
+    - target: {fileID: 299796882558262358, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
+      propertyPath: propellerFL
+      value: 
+      objectReference: {fileID: 1434859977}
+    - target: {fileID: 299796882558262358, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
+      propertyPath: propellerFR
+      value: 
+      objectReference: {fileID: 1465726131}
+    - target: {fileID: 299796882558262358, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
+      propertyPath: homeLatitude
+      value: 51.533338
+      objectReference: {fileID: 0}
+    - target: {fileID: 299796882558262358, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
+      propertyPath: motorBLPoint
+      value: 
+      objectReference: {fileID: 307422587}
+    - target: {fileID: 299796882558262358, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
+      propertyPath: motorBRPoint
+      value: 
+      objectReference: {fileID: 2070041011}
+    - target: {fileID: 299796882558262358, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
+      propertyPath: motorFLPoint
+      value: 
+      objectReference: {fileID: 1908329410}
+    - target: {fileID: 299796882558262358, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
+      propertyPath: motorFRPoint
+      value: 
+      objectReference: {fileID: 570079062}
+    - target: {fileID: 299796882558262358, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
+      propertyPath: homeLongitude
+      value: 46.034176
+      objectReference: {fileID: 0}
+    - target: {fileID: 299796882558262358, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
+      propertyPath: publishHIL_GPS
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 299796882558262358, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
+      propertyPath: publishHILState
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 299796882558262358, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
+      propertyPath: publishHIL_OpticalFlow
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 912407941758404216, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
+      propertyPath: m_Name
+      value: PropellerBL
+      objectReference: {fileID: 0}
     - target: {fileID: 2048108682814108021, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
       propertyPath: m_Name
       value: PX4Quad
+      objectReference: {fileID: 0}
+    - target: {fileID: 2741115450128451392, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
+      propertyPath: m_Name
+      value: PropellerFL
       objectReference: {fileID: 0}
     - target: {fileID: 5675439381409293104, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
       propertyPath: m_LocalPosition.x
@@ -4049,6 +4114,18 @@ PrefabInstance:
       propertyPath: m_UseGravity
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 5790108942530982321, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
+      propertyPath: m_Constraints
+      value: 94
+      objectReference: {fileID: 0}
+    - target: {fileID: 7122777362076036309, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
+      propertyPath: m_Name
+      value: PropellerFR
+      objectReference: {fileID: 0}
+    - target: {fileID: 8587019224140691354, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
+      propertyPath: m_Name
+      value: PropellerBR
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -4056,9 +4133,6 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 2048108682814108021, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1338553302}
-    - targetCorrespondingSourceObject: {fileID: 2048108682814108021, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1338553297}
   m_SourcePrefab: {fileID: 100100000, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
 --- !u!1 &1192735048
 GameObject:
@@ -4288,24 +4362,6 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 2048108682814108021, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
   m_PrefabInstance: {fileID: 1143155671}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &1338553297
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1338553292}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6fb2c04d1064c0d42991d0f9652a40ba, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::RSMAMotorTopicTester
-  droneId: 0
-  motor1_FR: 0
-  motor2_BL: 0
-  motor3_FL: 0
-  motor4_BR: 0
-  isPublishing: 1
 --- !u!114 &1338553302
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4313,7 +4369,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1338553292}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8ec143699ed32df468190b5a1f04b624, type: 3}
   m_Name: 
@@ -4674,6 +4730,16 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1434859977 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 2741115450128451392, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
+  m_PrefabInstance: {fileID: 1143155671}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &1465726131 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 7122777362076036309, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
+  m_PrefabInstance: {fileID: 1143155671}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1493341184
 GameObject:
   m_ObjectHideFlags: 0
@@ -5186,6 +5252,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TransformPublisher
   topicName: LidarPose
+--- !u!1 &1584767699 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 8587019224140691354, guid: 917eb620a46d4794eac3a57f899cf252, type: 3}
+  m_PrefabInstance: {fileID: 1143155671}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1619072884
 GameObject:
   m_ObjectHideFlags: 0
