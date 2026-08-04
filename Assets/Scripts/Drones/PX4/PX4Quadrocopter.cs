@@ -21,6 +21,8 @@ public class PX4Quadrocopter : MonoBehaviour
     public GameObject propellerFL; // Motor 2 (CW)
     public GameObject propellerBR; // Motor 3 (CW)
 
+    public Vector3 propAxis = Vector3.up;
+
     public Transform motorFRPoint;
     public Transform motorBLPoint;
     public Transform motorFLPoint;
@@ -30,6 +32,7 @@ public class PX4Quadrocopter : MonoBehaviour
     public float maxThrustPerMotor = 12.0f;
     public float dragTorqueCoefficient = 0.02f;
     public float propMaxVelocity = 9800.0f;
+    public float mass = 0.5f;
 
     [Header("GPS (Домашняя точка)")]
     public double homeLatitude = 55.7558;
@@ -62,7 +65,7 @@ public class PX4Quadrocopter : MonoBehaviour
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
-        rb.mass = 2.5f;
+        rb.mass = mass;
         rb.linearDamping = 0.1f;
         rb.angularDamping = 0.2f;
         rb.useGravity = true;
@@ -100,11 +103,6 @@ public class PX4Quadrocopter : MonoBehaviour
         RotatePropeller(propellerBL, -motorCommands[1]);
         RotatePropeller(propellerFL, motorCommands[2]);
         RotatePropeller(propellerBR, motorCommands[3]);
-
-        if (Input.GetKeyDown(KeyCode.T))
-        {
-            Debug.Log($"[PX4 Motors] M0(FR): {motorCommands[0]:F2} | M1(BL): {motorCommands[1]:F2} | M2(FL): {motorCommands[2]:F2} | M3(BR): {motorCommands[3]:F2}");
-        }
     }
 
     void FixedUpdate()
@@ -136,14 +134,15 @@ public class PX4Quadrocopter : MonoBehaviour
         float thrust = command * maxThrustPerMotor;
         rb.AddForceAtPosition(transform.up * thrust, point, ForceMode.Force);
         rb.AddTorque(transform.up * (thrust * dragTorqueCoefficient * spinDirection), ForceMode.Force);
-
-        Debug.DrawRay(point, transform.up * (thrust * 0.05f), Color.green);
     }
 
     private void RotatePropeller(GameObject prop, float direction)
     {
-        if (prop != null)
-            prop.transform.Rotate(0, 0, propMaxVelocity * direction * Time.deltaTime);
+        if (prop != null) 
+        {
+            Vector3 rotation = propAxis * propMaxVelocity * direction * Time.deltaTime;
+            prop.transform.Rotate(rotation);
+        }
     }
 
     private void PublishHILStateData(long timestampUs)
