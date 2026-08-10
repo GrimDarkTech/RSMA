@@ -45,6 +45,7 @@ namespace RSMA.GUI
                 _transform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
 
                 _labelObject = new GameObject();
+                _labelObject.layer = 5;
                 _labelObject.name = "Label " + label;
                 RectTransform labelTransform = _labelObject.AddComponent<RectTransform>();
 
@@ -62,6 +63,7 @@ namespace RSMA.GUI
 
 
                 _labelTextObject = new GameObject();
+                _labelTextObject.layer = 5;
                 _labelTextObject.name = "Text";
                 RectTransform labelTextTransform = _labelTextObject.AddComponent<RectTransform>();
                 labelTextTransform.SetParent(labelTransform);
@@ -77,6 +79,7 @@ namespace RSMA.GUI
                 if (closeButton != null) 
                 {
                     _closeButton = Instantiate<GameObject>(closeButton);
+                    _closeButton.layer = 5;
                     RectTransform buttonTransform = _closeButton.GetComponent<RectTransform>();
                     buttonTransform.SetParent(labelTransform);
                     buttonTransform.anchoredPosition = new Vector3(width / 2 - 60, 0, 0);
@@ -106,6 +109,11 @@ namespace RSMA.GUI
         public void OnDrag(PointerEventData data) 
         { 
             _transform.anchoredPosition += data.delta;
+        }
+
+        public bool isOpened() 
+        {
+            return isEnabled;
         }
     }
 }

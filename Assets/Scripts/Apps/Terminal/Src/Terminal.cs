@@ -23,6 +23,7 @@ namespace RSMA.GUI
             LoadCommandHistory();
 
             _textObject = new GameObject();
+            _textObject.layer = 5;
             _textObject.name = "Terminal Text";
             RectTransform textTransform = _textObject.AddComponent<RectTransform>();
             textTransform.SetParent(_transform);
@@ -38,6 +39,7 @@ namespace RSMA.GUI
             _text.verticalOverflow = VerticalWrapMode.Overflow;
 
             _inputfieldObject = new GameObject();
+            _inputfieldObject.layer = 5;
             _inputfieldObject.name = "Terminal InputField";
             RectTransform inputfieldTransform = _inputfieldObject.AddComponent<RectTransform>();
             inputfieldTransform.SetParent(_transform);
@@ -46,6 +48,7 @@ namespace RSMA.GUI
             inputfieldTransform.anchoredPosition = new Vector3(0, -(height / 2) + 30, 0);
 
             GameObject inputfieldPlaceholderObject = new GameObject();
+            inputfieldPlaceholderObject.layer = 5;
             inputfieldPlaceholderObject.name = "Placeholder";
             RectTransform placeholderTransform = inputfieldPlaceholderObject.AddComponent<RectTransform>();
             placeholderTransform.parent = inputfieldTransform;
@@ -59,6 +62,7 @@ namespace RSMA.GUI
             placeholderText.alignment = TextAnchor.MiddleLeft;
 
             GameObject inputfieldTextObject = new GameObject();
+            inputfieldTextObject.layer = 5;
             inputfieldTextObject.name = "Text";
             RectTransform inputfieldTextTransform = inputfieldTextObject.AddComponent<RectTransform>();
             inputfieldTextTransform.parent = inputfieldTransform;

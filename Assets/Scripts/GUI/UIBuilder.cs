@@ -11,6 +11,7 @@ namespace RSMA.GUI
         {
             GameObject go = new GameObject(name, typeof(RectTransform));
             go.transform.SetParent(parent, false);
+            go.layer = 5;
             return go;
         }
 
@@ -46,6 +47,7 @@ namespace RSMA.GUI
             t.fontSize = fontSize;
             t.alignment = TextAnchor.MiddleCenter;
             t.color = Color.white;
+            go.layer = 5;
             return t;
         }
 
@@ -53,6 +55,7 @@ namespace RSMA.GUI
         {
             GameObject go = new GameObject(name, typeof(RectTransform));
             go.transform.SetParent(parent, false);
+            go.layer = 5;
 
             Image img = go.AddComponent<Image>();
             img.color = new Color(0.2f, 0.2f, 0.2f);
@@ -61,6 +64,7 @@ namespace RSMA.GUI
             btn.targetGraphic = img;
 
             GameObject textObj = new GameObject("Text", typeof(RectTransform));
+            textObj.layer = 5;
             textObj.transform.SetParent(go.transform, false);
             Text textComp = textObj.AddComponent<Text>();
             textComp.text = labelText;
@@ -83,7 +87,7 @@ namespace RSMA.GUI
         {
             GameObject go = new GameObject(name, typeof(RectTransform));
             go.transform.SetParent(parent, false);
-
+            go.layer = 5;
             // Фон поля ввода
             Image img = go.AddComponent<Image>();
             img.color = new Color(0.9f, 0.9f, 0.9f); // Светлый фон
@@ -94,6 +98,7 @@ namespace RSMA.GUI
             // Создаем дочерний объект для отображения текста ввода
             GameObject textObj = new GameObject("Text", typeof(RectTransform));
             textObj.transform.SetParent(go.transform, false);
+            textObj.layer = 5;
             Text textComp = textObj.AddComponent<Text>();
             textComp.font = font;
             textComp.color = Color.black;
@@ -112,6 +117,7 @@ namespace RSMA.GUI
             // (Опционально) Создаем placeholder
             GameObject placeholderObj = new GameObject("Placeholder", typeof(RectTransform));
             placeholderObj.transform.SetParent(go.transform, false);
+            placeholderObj.layer = 5;
             Text placeholderComp = placeholderObj.AddComponent<Text>();
             placeholderComp.text = placeholderText;
             placeholderComp.font = font;
