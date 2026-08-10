@@ -57,7 +57,6 @@ namespace RSMA.MissionPlanner.Interaction
             {
                 if (!_ignoreUI && IsPointerOverUI())
                 {
-                    Debug.Log("Over UI!");
                     return;
                 }
 

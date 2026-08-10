@@ -1,8 +1,11 @@
-using System;
-using System.Collections.Generic;
-using UnityEngine;
+using RSMA.MissionPlanner.Core;
 using RSMA.uDTP;
 using RSMA.uDTP.Topics;
+using System;
+using System.Collections.Generic;
+using System.Drawing.Printing;
+using UnityEngine;
+using UnityEngine.UIElements;
 
 public class MaruzTrajectoryPlanner : MonoBehaviour
 {
@@ -15,6 +18,9 @@ public class MaruzTrajectoryPlanner : MonoBehaviour
 
     [Header("Navigation Settings")]
     public float lookAheadDistance = 0.4f; // Перенесли логику "взгляда вперед" сюда
+
+    [Header("ROI Settings")]
+    public GenerationParams polygonParams = new GenerationParams();
 
     private List<TrajectoryPoint> currentPath = new List<TrajectoryPoint>();
     private int targetPointIdx = 0;
@@ -39,6 +45,56 @@ public class MaruzTrajectoryPlanner : MonoBehaviour
             currentPath = path;
             targetPointIdx = 0;
             isExecutingPath = true;
+        }
+    }
+
+    [ContextMenu("Load Mission")]
+    public void LoadMission()
+    {
+        var mission = MissionSerializer.LoadFromJson();
+
+        if (mission == null || mission.Count == 0)
+        {
+            Debug.LogWarning("No mission data loaded");
+            return;
+        }
+
+        // Очищаем текущие цели
+        targets.Clear();
+
+        // Добавляем координаты из загруженных точек
+        foreach (var point in mission)
+        {
+            targets.Add(point.position);
+        }
+
+        Debug.Log($"Loaded {targets.Count} target points from mission");
+    }
+
+    [ContextMenu("Generate Polygon Path")]
+    public void GeneratePolygonPath()
+    {
+        if (targets == null || targets.Count < 3)
+        {
+            Debug.LogWarning("Need at least 3 targets to form a polygon");
+            return;
+        }
+
+        // Генерируем зигзагообразный маршрут
+        List<Vector3> pathPoints = PolygonPathGenerator.GenerateZigzagPath(targets, polygonParams);
+
+        if (pathPoints != null && pathPoints.Count > 0)
+        {
+            // Очищаем старые целевые точки
+            targets.Clear();
+
+            // Добавляем сгенерированный маршрут
+            targets.AddRange(pathPoints);
+
+            Debug.Log($"Generated {targets.Count} waypoints inside polygon");
+
+            // Автоматически запускаем движение
+            GenerateAndMove();
         }
     }
 

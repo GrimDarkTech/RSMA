@@ -7004,7 +7004,7 @@ MonoBehaviour:
     targetVelocity: 0
   lookAheadDistance: 0.4
   arrivalThreshold: 0.35
-  Kp: 0.05
+  Kp: 0.015
   Ki: 0.005
   Kd: 0.002
 --- !u!114 &2083056073
@@ -7020,20 +7020,22 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MaruzTrajectoryPlanner
   targets:
-  - {x: 69.172, y: 0.392, z: 55.605}
-  - {x: 72.826, y: 0.392, z: 56.907}
-  - {x: 78.63, y: 0.392, z: 60.27}
-  - {x: 54.36, y: 0.392, z: 61.16}
-  - {x: 54.35, y: 0.392, z: 52.28}
-  - {x: 68.24, y: 0.392, z: 52.93}
-  - {x: 79.3, y: 0.392, z: 56}
-  - {x: 69.28, y: 0.392, z: 56.03}
-  time: 8
+  - {x: 52.015984, y: 0.1763642, z: 50.50821}
+  - {x: 51.180676, y: 0.17636421, z: 62.345066}
+  - {x: 81.39012, y: 0.17511539, z: 62.700962}
+  - {x: 81.04707, y: 0.17557144, z: 50.2025}
+  time: 10
   deltaTime: 0.8
-  vStart: 0.45
-  vEnd: 0.4
-  maxPathVelocity: 0.9
+  vStart: 0.35
+  vEnd: 0.35
+  maxPathVelocity: 0.6
   lookAheadDistance: 0.4
+  polygonParams:
+    spacing: 0.35
+    angle: 45
+    margin: 0.2
+    passes: 0
+    cornerRadius: 0.45
 --- !u!4 &2083056074 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 2520225129236775884, guid: 32ded27fe9d1277468717d4c1161743a, type: 3}

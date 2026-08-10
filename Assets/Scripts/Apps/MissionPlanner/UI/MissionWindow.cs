@@ -1,7 +1,6 @@
 using RSMA.GUI;
 using RSMA.MissionPlanner.Core;
 using UnityEngine;
-using UnityEngine.Experimental.GlobalIllumination;
 using UnityEngine.UI;
 
 namespace RSMA.MissionPlanner.UI
@@ -15,7 +14,6 @@ namespace RSMA.MissionPlanner.UI
         private Transform _mainPanel;
         private PointPropertiesPanel _propertiesPanel;
         private MissionControls _controls;
-        private PointList _pointList;
 
         protected override void Start()
         {
@@ -24,13 +22,12 @@ namespace RSMA.MissionPlanner.UI
             _mainPanel = UIBuilder.CreatePanel("MissionPanel", _transform).transform;
             RectTransform rt = _mainPanel.GetComponent<RectTransform>();
             rt.anchorMin = new Vector2(0.1f, 0.1f);
-            rt.anchorMax = new Vector2(0.4f, 0.9f);
+            rt.anchorMax = new Vector2(0.9f, 0.95f);
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
 
-            // Создаем три секции
+            // Создаем секции
             CreateHeader();
-            CreatePointList();
             CreatePropertiesPanel();
             CreateControls();
 
@@ -41,17 +38,11 @@ namespace RSMA.MissionPlanner.UI
         private void CreateHeader()
         {
             var header = UIBuilder.CreateLabel("Header", _mainPanel, "Mission Planner", _font, 30);
-            UIBuilder.PlaceInGrid(header.gameObject, 0, 0, 1, 1, 1, 1);
             var rt = header.GetComponent<RectTransform>();
             rt.anchorMin = new Vector2(0, 0.9f);
             rt.anchorMax = new Vector2(1, 1);
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
-        }
-
-        private void CreatePointList()
-        {
-            _pointList = new PointList(_mainPanel, _font);
         }
 
         private void CreatePropertiesPanel()
@@ -67,22 +58,34 @@ namespace RSMA.MissionPlanner.UI
         private void SubscribeToEvents()
         {
             var manager = MissionManager.Instance;
-            manager.OnPointSelected += _propertiesPanel.OnPointSelected;
-            manager.OnPointSelected += _pointList.OnPointSelected;
-            manager.OnPointsChanged += _pointList.OnPointsChanged;
-            manager.OnPointsChanged += _controls.OnPointsChanged;
+            if (manager != null)
+            {
+                manager.OnPointSelected += _propertiesPanel.OnPointSelected;
+                // Убираем подписку на PointList
+            }
         }
 
         public override void Close()
         {
             base.Close();
-            _mainPanel.gameObject.SetActive(false);
+            if (_mainPanel != null)
+                _mainPanel.gameObject.SetActive(false);
         }
 
         public override void Open()
         {
             base.Open();
-            _mainPanel.gameObject.SetActive(true);
+            if (_mainPanel != null)
+                _mainPanel.gameObject.SetActive(true);
+        }
+
+        private void OnDestroy()
+        {
+            var manager = MissionManager.Instance;
+            if (manager != null)
+            {
+                manager.OnPointSelected -= _propertiesPanel.OnPointSelected;
+            }
         }
     }
 }

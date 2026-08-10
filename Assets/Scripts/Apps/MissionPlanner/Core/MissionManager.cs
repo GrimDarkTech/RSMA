@@ -37,13 +37,12 @@ namespace RSMA.MissionPlanner.Core
         {
             if (!IsVisualActive())
             {
-                Debug.LogWarning("Visual component not active!");
                 return;
             }
 
             var point = new TrajectoryPoint
             {
-                timestamp = 0, // Не используем
+                timestamp = 0,
                 position = position,
                 targetVelocity = velocity
             };
