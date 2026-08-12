@@ -4,6 +4,10 @@ using UnityEngine;
 
 namespace RSMA.MissionPlanner.Core
 {
+    /// <summary>
+    /// Класс для создания зигзагообразного маршрута внутри полигона
+    /// Аналог ROI (Region of Interest) в QGroundControl
+    /// </summary>
     public class PolygonPathGenerator
     {
         public static List<Vector3> GenerateZigzagPath(List<Vector3> polygonPoints, GenerationParams parameters)
@@ -25,11 +29,22 @@ namespace RSMA.MissionPlanner.Core
             Quaternion rotation = Quaternion.Euler(0, -parameters.angle, 0);
             List<Vector3> rotatedPolygon = RotatePolygon(closedPolygon, rotation);
 
-            // 3. Находим Bounds в плоскости XZ
-            Bounds bounds = GetPolygonBounds(rotatedPolygon);
+            // 3. Создаем внутренний отступ (Margin) со всех сторон полигона
+            List<Vector3> targetPolygon = rotatedPolygon;
+            if (parameters.margin > 0)
+            {
+                targetPolygon = InsetPolygon(rotatedPolygon, parameters.margin);
+                if (targetPolygon.Count < 3)
+                {
+                    Debug.LogWarning("Margin is too large. Inset polygon has no area left.");
+                    return new List<Vector3>();
+                }
+            }
 
-            float startX = bounds.min.x + parameters.margin;
-            float endX = bounds.max.x - parameters.margin;
+            // 4. Находим Bounds уменьшенного полигона в плоскости XZ
+            Bounds bounds = GetPolygonBounds(targetPolygon);
+            float startX = bounds.min.x;
+            float endX = bounds.max.x;
 
             if (startX >= endX)
             {
@@ -37,7 +52,7 @@ namespace RSMA.MissionPlanner.Core
                 return new List<Vector3>();
             }
 
-            // Рассчитываем шаги
+            // 5. Рассчитываем количество проходов
             int numPasses = parameters.passes > 0 ? parameters.passes :
                 Mathf.Max(1, Mathf.FloorToInt((endX - startX) / parameters.spacing) + 1);
 
@@ -50,18 +65,18 @@ namespace RSMA.MissionPlanner.Core
             {
                 float x = (numPasses == 1) ? (startX + endX) / 2f : startX + i * stepX;
 
-                // Находим пересечения по оси Z (для плоскости XZ)
-                List<Vector3> intersections = FindIntersectionsWithPolygonXZ(rotatedPolygon, x);
+                // Находим пересечения по оси Z с уменьшенным полигоном
+                List<Vector3> intersections = FindIntersectionsWithPolygonXZ(targetPolygon, x);
 
                 if (intersections.Count >= 2)
                 {
-                    // Сортируем по оси Z
+                    // Сортируем пересечения по оси Z
                     intersections.Sort((a, b) => a.z.CompareTo(b.z));
 
                     Vector3 bottom = intersections[0];
                     Vector3 top = intersections[intersections.Count - 1];
 
-                    // Задаем направление захода (зигзаг)
+                    // Добавляем точки с чередованием направления (зигзаг)
                     if (moveForward)
                     {
                         pathPoints.Add(bottom);
@@ -77,14 +92,14 @@ namespace RSMA.MissionPlanner.Core
                 }
             }
 
-            // 4. Поворачиваем точки обратно
+            // 6. Поворачиваем точки обратно
             Quaternion inverseRotation = Quaternion.Euler(0, parameters.angle, 0);
             for (int i = 0; i < pathPoints.Count; i++)
             {
                 pathPoints[i] = inverseRotation * pathPoints[i];
             }
 
-            // 5. Сглаживание
+            // 7. Сглаживание углов
             if (parameters.cornerRadius > 0 && pathPoints.Count > 2)
             {
                 pathPoints = SmoothCorners(pathPoints, parameters.cornerRadius);
@@ -94,6 +109,94 @@ namespace RSMA.MissionPlanner.Core
         }
 
         #region Helper Methods
+
+        private static List<Vector3> InsetPolygon(List<Vector3> polygon, float margin)
+        {
+            if (margin <= 0) return new List<Vector3>(polygon);
+
+            bool isClosed = IsPolygonClosed(polygon);
+            int realCount = isClosed ? polygon.Count - 1 : polygon.Count;
+            if (realCount < 3) return new List<Vector3>(polygon);
+
+            // 1. Точно определяем Signed Area (ориентацию обхода) в плоскости XZ
+            float signedArea = 0f;
+            for (int i = 0; i < realCount; i++)
+            {
+                Vector3 p1 = polygon[i];
+                Vector3 p2 = polygon[(i + 1) % realCount];
+                signedArea += (p1.x * p2.z - p2.x * p1.z);
+            }
+
+            // Если signedArea > 0 — против часовой стрелки, иначе — по часовой
+            bool isCCW = signedArea > 0;
+
+            // 2. Строим сдвинутые линии для каждого ребра
+            // Линия задается как: Point + Direction * t
+            Vector3[] shiftedP1 = new Vector3[realCount];
+            Vector3[] shiftedP2 = new Vector3[realCount];
+
+            for (int i = 0; i < realCount; i++)
+            {
+                Vector3 p1 = polygon[i];
+                Vector3 p2 = polygon[(i + 1) % realCount];
+                Vector3 dir = (p2 - p1).normalized;
+
+                // Вычисляем внутренюю нормаль к ребру
+                // Для CCW внутренняя нормаль смотрит «влево» относительно направления движения (-dir.z, 0, dir.x)
+                Vector3 inNormal = isCCW ? new Vector3(-dir.z, 0, dir.x) : new Vector3(dir.z, 0, -dir.x);
+
+                // Сдвигаем оба конца ребра строго по нормали внутрь
+                shiftedP1[i] = p1 + inNormal * margin;
+                shiftedP2[i] = p2 + inNormal * margin;
+            }
+
+            // 3. Находим точки пересечения смежных сдвинутых прямых
+            List<Vector3> insetPolygon = new List<Vector3>();
+
+            for (int i = 0; i < realCount; i++)
+            {
+                int prevIdx = (i - 1 + realCount) % realCount;
+
+                Vector3 A = shiftedP1[prevIdx];
+                Vector3 B = shiftedP2[prevIdx];
+                Vector3 C = shiftedP1[i];
+                Vector3 D = shiftedP2[i];
+
+                // Находим точку пересечения прямых AB и CD в плоскости XZ
+                Vector3 intersection = GetLineIntersectionXZ(A, B, C, D);
+                insetPolygon.Add(intersection);
+            }
+
+            if (isClosed && insetPolygon.Count > 0)
+            {
+                insetPolygon.Add(insetPolygon[0]);
+            }
+
+            return insetPolygon;
+        }
+
+        /// <summary>
+        /// Находит точку пересечения двух бесконечных прямых AB и CD в плоскости XZ
+        /// </summary>
+        private static Vector3 GetLineIntersectionXZ(Vector3 A, Vector3 B, Vector3 C, Vector3 D)
+        {
+            float dy1 = B.z - A.z;
+            float dx1 = B.x - A.x;
+            float dy2 = D.z - C.z;
+            float dx2 = D.x - C.x;
+
+            float det = dx1 * dy2 - dy1 * dx2;
+
+            // Если линии параллельны, берем исходную сдвинутую точку
+            if (Mathf.Abs(det) < 0.0001f)
+            {
+                return C;
+            }
+
+            float t = ((C.x - A.x) * dy2 - (C.z - A.z) * dx2) / det;
+
+            return new Vector3(A.x + t * dx1, (A.y + C.y) * 0.5f, A.z + t * dy1);
+        }
 
         private static bool IsPolygonClosed(List<Vector3> polygon)
         {
@@ -141,7 +244,7 @@ namespace RSMA.MissionPlanner.Core
                 {
                     float t = (x - p1.x) / (p2.x - p1.x);
                     float z = p1.z + t * (p2.z - p1.z);
-                    float y = p1.y + t * (p2.y - p1.y); // Сохраняем корректную высоту
+                    float y = p1.y + t * (p2.y - p1.y); // Сохраняем перепад высот
 
                     intersections.Add(new Vector3(x, y, z));
                 }
@@ -169,7 +272,7 @@ namespace RSMA.MissionPlanner.Core
                 float dist1 = Vector3.Distance(curr, prev);
                 float dist2 = Vector3.Distance(curr, next);
 
-                // Ограничиваем радиус половиной расстояния до соседних точек
+                // Ограничиваем радиус скругления безопасной длиной соседних отрезков
                 float actualRadius = Mathf.Min(radius, dist1 * 0.4f, dist2 * 0.4f);
 
                 Vector3 p1 = curr + dir1 * actualRadius;
@@ -189,16 +292,19 @@ namespace RSMA.MissionPlanner.Core
     [Serializable]
     public class GenerationParams
     {
-
         [Tooltip("Расстояние между параллельными линиями (ширина полосы)")]
         public float spacing = 1.0f;
-        [Tooltip("Угол поворота зигзага в градусах (0 - горизонтально, 90 - вертикально)")]
+
+        [Tooltip("Угол поворота зигзага в градусах (0 - вдоль X, 90 - вдоль Z)")]
         public float angle = 0f;
-        [Tooltip("Отступ от краев полигона")]
+
+        [Tooltip("Равномерный отступ от всех краев полигона")]
         public float margin = 0.5f;
-        [Tooltip("Количество проходов (если 0 - автоматически)")]
+
+        [Tooltip("Количество проходов (если 0 - рассчитывается автоматически)")]
         public int passes = 0;
-        [Tooltip("Сглаживание углов (радиус скругления)")]
+
+        [Tooltip("Сглаживание углов на разворотах (радиус скругления)")]
         public float cornerRadius = 0.3f;
     }
 }
