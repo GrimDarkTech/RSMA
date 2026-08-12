@@ -1612,7 +1612,7 @@ Rigidbody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8052764968653400865}
   serializedVersion: 5
-  m_Mass: 1
+  m_Mass: 1.3
   m_LinearDamping: 0.2
   m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
@@ -1630,7 +1630,7 @@ Rigidbody:
   m_IsKinematic: 0
   m_Interpolate: 0
   m_Constraints: 0
-  m_CollisionDetection: 0
+  m_CollisionDetection: 1
 --- !u!114 &2969374302901070396
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1652,13 +1652,15 @@ MonoBehaviour:
   propellerBL: {fileID: 2482925872774773481}
   propellerFL: {fileID: 6079184848943612859}
   propellerBR: {fileID: 5523913037357732859}
+  propAxis: {x: 0, y: 1, z: 0}
   motorFRPoint: {fileID: 1133286068178643876}
   motorBLPoint: {fileID: 7889328305238822864}
   motorFLPoint: {fileID: 1806097867859612645}
   motorBRPoint: {fileID: 2008915761943118639}
-  maxThrustPerMotor: 6
-  dragTorqueCoefficient: 0.02
-  propMaxVelocity: 9800
+  maxThrustPerMotor: 4
+  dragTorqueCoefficient: 0.005
+  propMaxVelocity: 15800
+  mass: 1.2
   homeLatitude: 51.533338
   homeLongitude: 46.034176
   homeAltitudeMSL: 150
@@ -1666,7 +1668,9 @@ MonoBehaviour:
   accelNoiseFactor: 0.05
   magNoiseFactor: 0.002
   magWorldNED: {x: 0.3, y: 0, z: 0.43}
-  centerOfMass: {x: 0, y: 0, z: 0}
+  centerOfMass: {x: 0, y: -0.033, z: 0}
+  showGizmos: 1
+  gizmoForceScale: 0.1
   motorCommands:
   - 0
   - 0
