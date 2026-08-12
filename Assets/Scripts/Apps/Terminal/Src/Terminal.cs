@@ -22,67 +22,72 @@ namespace RSMA.GUI
             base.Start();
             LoadCommandHistory();
 
-            _textObject = new GameObject();
-            _textObject.layer = 5;
-            _textObject.name = "Terminal Text";
-            RectTransform textTransform = _textObject.AddComponent<RectTransform>();
-            textTransform.SetParent(_transform);
-            textTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height - 100);
-            textTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width - 40);
-            textTransform.anchoredPosition = new Vector3(0, 10, 0);
+            float headerHeight = 40f;
+            float inputHeight = 40f;
+            float padding = 10f;
 
-            _text = _textObject.AddComponent<Text>();
-            _text.font = terminalFont;
-            _text.fontSize = 18;
-            _text.alignment = TextAnchor.UpperLeft;
-            _text.text = "RSMA Terminal..\n";
-            _text.verticalOverflow = VerticalWrapMode.Overflow;
-
-            _inputfieldObject = new GameObject();
+            // --- 1. ПОЛЕ ВВОДА (Bottom-Stretch) ---
+            _inputfieldObject = new GameObject("Terminal InputField");
             _inputfieldObject.layer = 5;
-            _inputfieldObject.name = "Terminal InputField";
+
             RectTransform inputfieldTransform = _inputfieldObject.AddComponent<RectTransform>();
-            inputfieldTransform.SetParent(_transform);
-            inputfieldTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 60);
-            inputfieldTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width - 40);
-            inputfieldTransform.anchoredPosition = new Vector3(0, -(height / 2) + 30, 0);
+            inputfieldTransform.SetParent(_transform, false);
 
-            GameObject inputfieldPlaceholderObject = new GameObject();
-            inputfieldPlaceholderObject.layer = 5;
-            inputfieldPlaceholderObject.name = "Placeholder";
-            RectTransform placeholderTransform = inputfieldPlaceholderObject.AddComponent<RectTransform>();
-            placeholderTransform.parent = inputfieldTransform;
-            placeholderTransform.anchoredPosition = new Vector3(0, 0, 0);
-            placeholderTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 60);
-            placeholderTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width - 40);
-            Text placeholderText = inputfieldPlaceholderObject.AddComponent<Text>();
-            placeholderText.text = "Enter the commnad";
-            placeholderText.font = terminalFont;
-            placeholderText.fontSize = 18;
-            placeholderText.alignment = TextAnchor.MiddleLeft;
+            // Привязка к нижнему краю, растягивание по ширине
+            inputfieldTransform.anchorMin = new Vector2(0f, 0f);
+            inputfieldTransform.anchorMax = new Vector2(1f, 0f);
+            inputfieldTransform.pivot = new Vector2(0.5f, 0f);
 
-            GameObject inputfieldTextObject = new GameObject();
-            inputfieldTextObject.layer = 5;
-            inputfieldTextObject.name = "Text";
-            RectTransform inputfieldTextTransform = inputfieldTextObject.AddComponent<RectTransform>();
-            inputfieldTextTransform.parent = inputfieldTransform;
-            inputfieldTextTransform.anchoredPosition = new Vector3(0, 0, 0);
-            inputfieldTextTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 60);
-            inputfieldTextTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width - 40);
-            Text inputFieldText = inputfieldTextObject.AddComponent<Text>();
-            inputFieldText.font = terminalFont;
-            inputFieldText.fontSize = 18;
-            inputFieldText.alignment = TextAnchor.MiddleLeft;
+            // Отступы: padding слева/справа, padding снизу
+            inputfieldTransform.anchoredPosition = new Vector2(0f, padding);
+            inputfieldTransform.sizeDelta = new Vector2(-padding * 2, inputHeight);
 
             Image inputfieldBackground = _inputfieldObject.AddComponent<Image>();
             inputfieldBackground.color = new Color(0.12f, 0.12f, 0.12f);
 
+            // Текст внутри InputField (Растягиваем на всё поле ввода)
+            GameObject inputfieldTextObject = new GameObject("Text");
+            inputfieldTextObject.layer = 5;
+            RectTransform inputfieldTextTransform = inputfieldTextObject.AddComponent<RectTransform>();
+            inputfieldTextTransform.SetParent(inputfieldTransform, false);
+            inputfieldTextTransform.anchorMin = Vector2.zero;
+            inputfieldTextTransform.anchorMax = Vector2.one;
+            inputfieldTextTransform.offsetMin = new Vector2(10f, 0f);
+            inputfieldTextTransform.offsetMax = new Vector2(-10f, 0f);
+
+            Text inputFieldText = inputfieldTextObject.AddComponent<Text>();
+            inputFieldText.font = terminalFont;
+            inputFieldText.fontSize = 16;
+            inputFieldText.alignment = TextAnchor.MiddleLeft;
+
             _inputfield = _inputfieldObject.AddComponent<InputField>();
-            _inputfield.placeholder = placeholderText;
             _inputfield.textComponent = inputFieldText;
             _inputfield.targetGraphic = inputfieldBackground;
-
             _inputfield.onEndEdit.AddListener(OnEndEdit);
+
+
+            // --- 2. ОБЛАСТЬ ТЕКСТА ТЕРМИНАЛА (Full-Stretch между заголовком и полем ввода) ---
+            _textObject = new GameObject("Terminal Text");
+            _textObject.layer = 5;
+
+            RectTransform textTransform = _textObject.AddComponent<RectTransform>();
+            textTransform.SetParent(_transform, false);
+
+            // Растягиваем объект на всю свободную область окна
+            textTransform.anchorMin = Vector2.zero;
+            textTransform.anchorMax = Vector2.one;
+
+            // Задаем отступы (Left, Bottom, Right, Top)
+            // Bottom = высота поля ввода + отступы; Top = высота заголовка + отступ
+            textTransform.offsetMin = new Vector2(padding, inputHeight + padding * 2);
+            textTransform.offsetMax = new Vector2(-padding, -headerHeight - padding);
+
+            _text = _textObject.AddComponent<Text>();
+            _text.font = terminalFont;
+            _text.fontSize = 16;
+            _text.alignment = TextAnchor.UpperLeft;
+            _text.text = "RSMA Terminal..\n";
+            _text.verticalOverflow = VerticalWrapMode.Overflow;
 
             Close();
         }
