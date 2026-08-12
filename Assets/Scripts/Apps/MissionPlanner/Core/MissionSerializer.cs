@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using RSMA.uDTP.Topics;
-using UnityEditor;
+using SFB;
 
 namespace RSMA.MissionPlanner.Core
 {
@@ -37,23 +37,6 @@ namespace RSMA.MissionPlanner.Core
 
             string filePath = Path.Combine(_savePath, fileName);
 
-            // Проверяем, существует ли файл
-            if (File.Exists(filePath))
-            {
-                bool overwrite = EditorUtility.DisplayDialog(
-                    "File Exists",
-                    $"File '{fileName}' already exists. Do you want to overwrite it?",
-                    "Yes",
-                    "No"
-                );
-
-                if (!overwrite)
-                {
-                    Debug.Log("Save cancelled by user");
-                    return;
-                }
-            }
-
             string json = JsonUtility.ToJson(new MissionWrapper { points = mission }, true);
             File.WriteAllText(filePath, json);
             Debug.Log($"Mission saved to: {filePath}");
@@ -61,12 +44,23 @@ namespace RSMA.MissionPlanner.Core
 
         public static List<TrajectoryPoint> LoadFromJson()
         {
-            // Открываем диалог выбора файла
-            string filePath = EditorUtility.OpenFilePanel(
-                "Load Mission",
-                _savePath,
-                "json"
-            );
+            var extensions = new[]
+            {
+            new ExtensionFilter("JSON Files", "json"),
+            new ExtensionFilter("All Files", "*")
+            };
+
+            // Открываем диалог выбора файла (возвращает массив строк)
+            string[] paths = StandaloneFileBrowser.OpenFilePanel("Load Mission", _savePath, extensions, false);
+
+            // Проверяем, выбрал ли пользователь файл
+            if (paths.Length == 0 || string.IsNullOrEmpty(paths[0]))
+            {
+                Debug.Log("[MissionSerializer] Загрузка отменена пользователем.");
+                return null;
+            }
+
+            string filePath = paths[0];
 
             if (string.IsNullOrEmpty(filePath))
             {
@@ -107,22 +101,18 @@ namespace RSMA.MissionPlanner.Core
             var mission = manager.GetMission();
             if (mission == null || mission.Count == 0)
             {
-                EditorUtility.DisplayDialog(
-                    "Cannot Save",
-                    "Mission is empty. Add some points first.",
-                    "OK"
+                Debug.Log(
+                    "Cannot Save: Mission is empty. Add some points first"
                 );
                 return;
             }
 
             // Открываем диалог сохранения
             string defaultFileName = $"mission_{System.DateTime.Now:yyyyMMdd_HHmmss}.json";
-            string filePath = EditorUtility.SaveFilePanel(
-                "Save Mission",
-                _savePath,
-                defaultFileName,
-                "json"
-            );
+            string filePath = StandaloneFileBrowser.SaveFilePanel("Save Mission", 
+                    _savePath, 
+                    defaultFileName, 
+                    "json");
 
             if (string.IsNullOrEmpty(filePath))
             {

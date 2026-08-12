@@ -1,7 +1,5 @@
 using RSMA.uDTP;
-using RSMA.uDTP.Topics;
 using System;
-using UnityEditor.PackageManager;
 using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody))]

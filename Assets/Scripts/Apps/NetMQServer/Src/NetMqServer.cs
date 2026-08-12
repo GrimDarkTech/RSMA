@@ -14,7 +14,6 @@ using UnityEngine;
 
 namespace RSMA.NetMQ
 {
-    [UnityEditor.InitializeOnLoad]
     public static class NetMQServer
     {
         private static bool _isRunning;
@@ -31,14 +30,19 @@ namespace RSMA.NetMQ
 
         static NetMQServer()
         {
-            
-            UnityEditor.EditorApplication.playModeStateChanged += (state) => 
+        #if UNITY_EDITOR
+            UnityEditor.EditorApplication.playModeStateChanged += (state) =>
             {
-                if (state == UnityEditor.PlayModeStateChange.ExitingPlayMode) 
+                if (state == UnityEditor.PlayModeStateChange.ExitingPlayMode)
                 {
                     Stop();
                 }
+            };
+        #endif
 
+            Application.quitting += () =>
+            {
+                Stop();
             };
         }
 
