@@ -49,6 +49,11 @@ public class PX4Quadrocopter : MonoBehaviour
 
     public Vector3 centerOfMass = Vector3.zero;
 
+    [Header("Отладка и Gizmos")]
+    public bool showGizmos = true;
+    [Tooltip("Масштаб отображения векторов силы тяги в сцене")]
+    public float gizmoForceScale = 0.1f;
+
     private Rigidbody rb;
     [SerializeField]
     private float[] motorCommands = new float[4] { 0f, 0f, 0f, 0f };
@@ -258,5 +263,53 @@ public class PX4Quadrocopter : MonoBehaviour
         flowMsg.distance = 0f;
 
         DataBroker.Publish($"HILOpticalFlow_{droneId}", flowMsg);
+    }
+
+    private void OnDrawGizmos()
+    {
+        if (!showGizmos) return;
+
+        // --- 1. Отрисовка Центра Масс ---
+        Vector3 comWorldPos = transform.TransformPoint(centerOfMass);
+
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawSphere(comWorldPos, 0.03f);
+        Gizmos.DrawWireSphere(comWorldPos, 0.05f);
+
+        // Отрисовка локальных осей в центре масс
+        Gizmos.color = Color.red;   // X (Right)
+        Gizmos.DrawRay(comWorldPos, transform.right * 0.15f);
+        Gizmos.color = Color.green; // Y (Up)
+        Gizmos.DrawRay(comWorldPos, transform.up * 0.15f);
+        Gizmos.color = Color.blue;  // Z (Forward)
+        Gizmos.DrawRay(comWorldPos, transform.forward * 0.15f);
+
+        // --- 2. Отрисовка Векторов Тяги Моторов ---
+        DrawSingleMotorGizmo(motorFRPoint, motorCommands[0]);
+        DrawSingleMotorGizmo(motorBLPoint, motorCommands[1]);
+        DrawSingleMotorGizmo(motorFLPoint, motorCommands[2]);
+        DrawSingleMotorGizmo(motorBRPoint, motorCommands[3]);
+    }
+
+    private void DrawSingleMotorGizmo(Transform motorPoint, float command)
+    {
+        Vector3 pos = motorPoint != null ? motorPoint.position : transform.position;
+        float thrustForce = command * maxThrustPerMotor;
+        Vector3 forceVector = transform.up * (thrustForce * gizmoForceScale);
+
+        // Точка крепления мотора
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawSphere(pos, 0.015f);
+
+        // Вектор силы тяги (от зеленого при 0% до красного при 100% тяги)
+        Gizmos.color = Color.Lerp(Color.green, Color.red, command);
+        Gizmos.DrawRay(pos, forceVector);
+
+        // Отрисовка наконечника стрелки для вектора силы
+        if (forceVector.sqrMagnitude > 0.0001f)
+        {
+            Vector3 targetPos = pos + forceVector;
+            Gizmos.DrawSphere(targetPos, 0.01f);
+        }
     }
 }
