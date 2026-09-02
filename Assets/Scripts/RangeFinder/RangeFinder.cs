@@ -9,6 +9,8 @@ public class RangeFinder : MonoBehaviour
     public float maxRange;
     public float minRange;
 
+    public float noiseFactor = 0.009f;
+
     public bool isDrawRay = false;
 
     private Float32 rangeData = new Float32();
@@ -20,19 +22,19 @@ public class RangeFinder : MonoBehaviour
     {
         Vector3 rayDirection = Quaternion.AngleAxis(0, transform.up) * transform.forward;
 
-        range = maxRange;
+        range = maxRange + UnityEngine.Random.Range(-noiseFactor, 0);
         Ray ray = new Ray(transform.position, rayDirection);
 
         if (Physics.Raycast(ray, out RaycastHit hit, maxRange))
         {
             if (hit.distance < range) 
             {
-                range = hit.distance;
+                range = hit.distance + UnityEngine.Random.Range(-noiseFactor, noiseFactor);
             }
 
             if (hit.distance < minRange)
             {
-                range = minRange;
+                range = minRange + UnityEngine.Random.Range(0, noiseFactor);
             }
         }
     }
