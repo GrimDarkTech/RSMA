@@ -13,7 +13,7 @@ public class RSMACamera : MonoBehaviour
     public int height = 480;
 
     [Header("Stream Settings")]
-    [Range(24, 48)]
+    [Range(10, 48)]
     public float targetFPS = 30f;
     public int cameraID = 0;
 

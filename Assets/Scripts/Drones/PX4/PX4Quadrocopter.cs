@@ -212,7 +212,7 @@ public class PX4Quadrocopter : MonoBehaviour
 
         // 4. Барометр
         float alt = homeAltitudeMSL + transform.position.y;
-        float noisyAlt = alt + UnityEngine.Random.Range(-0.5f, 0.5f);
+        float noisyAlt = alt + UnityEngine.Random.Range(-0.3f, 0.3f);
 
         sensorMsg.pressure_alt = noisyAlt;
         sensorMsg.abs_pressure = 1013.25f * Mathf.Pow(1.0f - 0.0000225577f * noisyAlt, 5.25588f);
