@@ -1,7 +1,7 @@
-using RSMA.uDTP;
-using RSMA.uDTP.Topics;
+using RSMA.NetMQ;
 using System;
 using System.Collections;
+using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -19,7 +19,6 @@ public class RSMACamera : MonoBehaviour
 
     private RenderTexture _renderTexture;
     private bool _isStreaming = false;
-    private uint _frameCounter = 0;
 
     private void Start()
     {
@@ -32,7 +31,7 @@ public class RSMACamera : MonoBehaviour
         if (sourceCamera == null)
             sourceCamera = GetComponent<Camera>();
 
-        // Используем 24-битный глубинный буфер и ARGB32 для рендеринга
+        // Настраиваем RenderTexture с RGBA32
         _renderTexture = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32)
         {
             antiAliasing = 1,
@@ -60,22 +59,16 @@ public class RSMACamera : MonoBehaviour
         {
             float interval = 1f / targetFPS;
 
-            // Запрашиваем кадр асинхронно
             CaptureFrameRaw();
 
-            // Ждем точный интервал времени до следующего кадра
             yield return new WaitForSecondsRealtime(interval);
         }
     }
 
     private void CaptureFrameRaw()
     {
-        _frameCounter++;
-        uint currentFrameSeq = _frameCounter;
-        long timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-
-        // Непосредственно асинхронное чтение из VRAM на CPU
-        AsyncGPUReadback.Request(_renderTexture, 0, TextureFormat.RGB24, request =>
+        // Запрашиваем RGBA32 (нативный формат без сбоев конвертации VRAM)
+        AsyncGPUReadback.Request(_renderTexture, 0, TextureFormat.RGBA32, request =>
         {
             if (request.hasError)
             {
@@ -83,20 +76,11 @@ public class RSMACamera : MonoBehaviour
                 return;
             }
 
-            var nativeArray = request.GetData<byte>();
+            NativeArray<byte> nativeArray = request.GetData<byte>();
             byte[] rawBytes = nativeArray.ToArray();
 
-            CameraFramePacket packet = new CameraFramePacket
-            {
-                width = this.width,
-                height = this.height,
-                channels = 3,
-                timestamp = timestamp,
-                frameSequence = currentFrameSeq,
-                pixelData = rawBytes
-            };
-
-            DataBroker.Publish($"Camera_{cameraID}", packet);
+            // Отправляем сырой массив RGBA32 в PUB-сокет
+            NetMQServer.PublishRaw($"Camera_{cameraID}", rawBytes, typeId: 2);
         });
     }
 

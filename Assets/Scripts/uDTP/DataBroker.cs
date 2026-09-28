@@ -1,35 +1,75 @@
+using RSMA.NetMQ;
 using System;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
+using System.Text;
 
-namespace RSMA.uDTP 
+namespace RSMA.uDTP
 {
     public static class DataBroker
     {
-        // Ключ: (Тип данных, Имя топика)
-        private static readonly Dictionary<(Type, string), object> _latestStates = new Dictionary<(Type, string), object>();
-        private static readonly object _lock = new object();
-
-        // Публикация в конкретный топик
-        public static void Publish<T>(string topicName, T message)
+        private static readonly ConcurrentDictionary<string, string> _topicRegistry
+            = new ConcurrentDictionary<string, string>();
+        private interface ITopicStorage
         {
-            lock (_lock)
-            {
-                _latestStates[(typeof(T), topicName)] = message;
-            }
+            void Clear();
         }
 
-        // Получение состояния конкретного топика
-        public static T GetState<T>(string topicName)
+        private class TopicStorage<T> : ITopicStorage where T : struct
         {
-            lock (_lock)
+            public T LatestValue;
+            public void Clear() => LatestValue = default;
+        }
+
+        private static readonly ConcurrentDictionary<string, ITopicStorage> _topics
+            = new ConcurrentDictionary<string, ITopicStorage>();
+
+        public static void RegisterTopic<T>(string topicName)
+        {
+            _topicRegistry.TryAdd(topicName, typeof(T).Name);
+        }
+
+        public static string GetTopicsJson()
+        {
+            var sb = new StringBuilder();
+            sb.Append("{\"topics\":[");
+
+            bool first = true;
+            foreach (var kvp in _topicRegistry)
             {
-                var key = (typeof(T), topicName);
-                if (_latestStates.TryGetValue(key, out var state))
-                {
-                    return (T)state;
-                }
-                return default(T);
+                if (!first) sb.Append(",");
+                sb.Append($"{{\"name\":\"{kvp.Key}\",\"type\":\"{kvp.Value}\"}}");
+                first = false;
             }
+
+            sb.Append("]}");
+            return sb.ToString();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void Publish<T>(string topicName, in T message) where T : struct
+        {
+            RegisterTopic<T>(topicName);
+
+            if (!_topics.TryGetValue(topicName, out var storage))
+            {
+                storage = new TopicStorage<T>();
+                _topics.TryAdd(topicName, storage);
+            }
+            ((TopicStorage<T>)storage).LatestValue = message;
+
+            // Ссылочные типы (кадр камеры) отправляются как Raw, а структура — как CDR
+            NetMQServer.PublishCdrTopic(topicName, message);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static T GetState<T>(string topicName) where T : struct
+        {
+            if (_topics.TryGetValue(topicName, out var storage))
+            {
+                return ((TopicStorage<T>)storage).LatestValue;
+            }
+            return default;
         }
     }
 }
