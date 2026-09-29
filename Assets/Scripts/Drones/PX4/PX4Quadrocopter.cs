@@ -79,6 +79,7 @@ public class PX4Quadrocopter : MonoBehaviour
     void Start()
     {
         stateMsg = new HILStateQuaternion();
+        // Предварительное выделение массива один раз во избежание GC Allocations
         stateMsg.orientation = new float[4] { 1f, 0f, 0f, 0f };
 
         sensorMsg = new HILSensor();
@@ -92,15 +93,15 @@ public class PX4Quadrocopter : MonoBehaviour
 
     void Update()
     {
-        // 1. Прием команд от PX4
+        // 1. Прием команд от PX4 через DataBroker
         var actuatorsMsg = DataBroker.GetState<ActuatorInputs>($"ActuatorInputs_{droneId}");
 
-        if (actuatorsMsg.inputs != null && actuatorsMsg.size >= 4)
+        if (actuatorsMsg.size >= 4)
         {
-            motorCommands[0] = Mathf.Clamp01(actuatorsMsg.inputs[0]); // FR
-            motorCommands[1] = Mathf.Clamp01(actuatorsMsg.inputs[1]); // BL
-            motorCommands[2] = Mathf.Clamp01(actuatorsMsg.inputs[2]); // FL
-            motorCommands[3] = Mathf.Clamp01(actuatorsMsg.inputs[3]); // BR
+            motorCommands[0] = Mathf.Clamp01(actuatorsMsg.GetInput(0)); // FR
+            motorCommands[1] = Mathf.Clamp01(actuatorsMsg.GetInput(1)); // BL
+            motorCommands[2] = Mathf.Clamp01(actuatorsMsg.GetInput(2)); // FL
+            motorCommands[3] = Mathf.Clamp01(actuatorsMsg.GetInput(3)); // BR
         }
 
         // 2. Анимация пропеллеров
@@ -143,9 +144,9 @@ public class PX4Quadrocopter : MonoBehaviour
 
     private void RotatePropeller(GameObject prop, float direction)
     {
-        if (prop != null) 
+        if (prop != null)
         {
-            Vector3 rotation = propAxis * propMaxVelocity * direction * Time.deltaTime;
+            Vector3 rotation = propAxis * (propMaxVelocity * direction * Time.deltaTime);
             prop.transform.Rotate(rotation);
         }
     }
@@ -156,7 +157,12 @@ public class PX4Quadrocopter : MonoBehaviour
 
         // Поворот в NED
         Quaternion nedRot = UnityToNEDConverter.RotationToNED(transform.rotation);
-        stateMsg.orientation = new float[4] { nedRot.w, nedRot.x, nedRot.y, nedRot.z };
+
+        // Заполнение существующего массива без оператора new
+        stateMsg.orientation[0] = nedRot.w;
+        stateMsg.orientation[1] = nedRot.x;
+        stateMsg.orientation[2] = nedRot.y;
+        stateMsg.orientation[3] = nedRot.z;
 
         // Угловые скорости в NED
         Vector3 nedAngularVel = UnityToNEDConverter.AngularVelocityToNED(rb.angularVelocity);
@@ -278,10 +284,10 @@ public class PX4Quadrocopter : MonoBehaviour
 
         // Отрисовка локальных осей в центре масс
         Gizmos.color = Color.red;   // X (Right)
-        Gizmos.DrawRay(comWorldPos, transform.right * 0.15f);
         Gizmos.color = Color.green; // Y (Up)
-        Gizmos.DrawRay(comWorldPos, transform.up * 0.15f);
         Gizmos.color = Color.blue;  // Z (Forward)
+        Gizmos.DrawRay(comWorldPos, transform.right * 0.15f);
+        Gizmos.DrawRay(comWorldPos, transform.up * 0.15f);
         Gizmos.DrawRay(comWorldPos, transform.forward * 0.15f);
 
         // --- 2. Отрисовка Векторов Тяги Моторов ---

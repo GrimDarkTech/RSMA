@@ -21,6 +21,7 @@ namespace RSMA.NetMQ
 
         private static RouterSocket _routerSocket;
         private static PublisherSocket _pubSocket;
+        private static SubscriberSocket _subSocket;
         private static uint _globalSequence = 0;
 
         public static bool IsRunning => _isRunning;
@@ -39,7 +40,7 @@ namespace RSMA.NetMQ
             Application.quitting += () => Stop();
         }
 
-        public static void Run(int commandPort = 5555, int pubPort = 5556)
+        public static void Run(int commandPort = 5555, int pubPort = 5556, int subPort = 5560)
         {
             if (_isRunning) return;
             _isRunning = true;
@@ -49,6 +50,8 @@ namespace RSMA.NetMQ
 
             // Инициализация сокета публикаций (PUB)
             Task.Run(() => InitPublisher(pubPort));
+
+            Task.Run(() => ReceiverLoop(subPort));
         }
 
         public static void Stop()
@@ -70,6 +73,36 @@ namespace RSMA.NetMQ
             _pubSocket.Options.SendHighWatermark = 1000;
             _pubSocket.Options.Linger = TimeSpan.Zero;
             _pubSocket.Bind($"tcp://*:{pubPort}");
+        }
+
+
+        private static void ReceiverLoop(int subPort)
+        {
+            AsyncIO.ForceDotNet.Force();
+            using (_subSocket = new SubscriberSocket())
+            {
+                _subSocket.Options.Linger = TimeSpan.Zero;
+                _subSocket.Options.ReceiveHighWatermark = 1000;
+
+                // Подключаемся к PUB-сокету Python
+                _subSocket.Connect($"tcp://localhost:{subPort}");
+                _subSocket.Subscribe(""); // Подписка на все топики
+
+                while (_isRunning)
+                {
+                    var message = _subSocket.ReceiveMultipartMessage();
+
+                    if (message.FrameCount >= 3)
+                    {
+                        string topicName = message[0].ConvertToString();
+                        byte[] headerBytes = message[1].ToByteArray();
+                        byte[] payloadBytes = message[2].ToByteArray();
+
+                        // Теперь здесь работают обе перегрузки (с 2 или 3 аргументами)
+                        DataBroker.UpdateFromNetwork(topicName, headerBytes, payloadBytes);
+                    }
+                }
+            }
         }
 
         /// <summary>

@@ -1,4 +1,5 @@
 using RSMA.NetMQ;
+using RSMA.uDTP.CDR;
 using System;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
@@ -10,6 +11,7 @@ namespace RSMA.uDTP
     {
         private static readonly ConcurrentDictionary<string, string> _topicRegistry
             = new ConcurrentDictionary<string, string>();
+
         private interface ITopicStorage
         {
             void Clear();
@@ -24,9 +26,22 @@ namespace RSMA.uDTP
         private static readonly ConcurrentDictionary<string, ITopicStorage> _topics
             = new ConcurrentDictionary<string, ITopicStorage>();
 
+        // Хранилище для входящих из сети сырых байтовых буферов
+        private static readonly ConcurrentDictionary<string, byte[]> _rawTopics
+            = new ConcurrentDictionary<string, byte[]>();
+
+        // Хранилище сетевых заголовков (если понадобятся timestamp, sequence и т.д.)
+        private static readonly ConcurrentDictionary<string, byte[]> _rawHeaders
+            = new ConcurrentDictionary<string, byte[]>();
+
         public static void RegisterTopic<T>(string topicName)
         {
             _topicRegistry.TryAdd(topicName, typeof(T).Name);
+        }
+
+        public static void RegisterTopic(string topicName, string typeName)
+        {
+            _topicRegistry.TryAdd(topicName, typeName);
         }
 
         public static string GetTopicsJson()
@@ -58,17 +73,46 @@ namespace RSMA.uDTP
             }
             ((TopicStorage<T>)storage).LatestValue = message;
 
-            // Ссылочные типы (кадр камеры) отправляются как Raw, а структура — как CDR
             NetMQServer.PublishCdrTopic(topicName, message);
+        }
+
+        /// <summary>
+        /// Прием топика с байтами данных
+        /// </summary>
+        public static void UpdateFromNetwork(string topicName, byte[] payload)
+        {
+            RegisterTopic(topicName, "NetworkPayload");
+            _rawTopics[topicName] = payload;
+        }
+
+        /// <summary>
+        /// Перегрузка: Прием топика с заголовком и байтами данных
+        /// </summary>
+        public static void UpdateFromNetwork(string topicName, byte[] header, byte[] payload)
+        {
+            RegisterTopic(topicName, "NetworkPayload");
+            _rawHeaders[topicName] = header;
+            _rawTopics[topicName] = payload;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static T GetState<T>(string topicName) where T : struct
         {
+            // 1. Проверяем сетевой буфер
+            if (_rawTopics.TryGetValue(topicName, out var rawBytes))
+            {
+                if (rawBytes.Length >= Unsafe.SizeOf<T>())
+                {
+                    return CdrSerializer.Unpack<T>(rawBytes);
+                }
+            }
+
+            // 2. Локальное хранилище Unity
             if (_topics.TryGetValue(topicName, out var storage))
             {
                 return ((TopicStorage<T>)storage).LatestValue;
             }
+
             return default;
         }
     }
