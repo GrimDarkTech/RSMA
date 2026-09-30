@@ -59,6 +59,7 @@ namespace RSMA.NetMQ
             _isRunning = false;
             _routerSocket?.Dispose();
             _pubSocket?.Dispose();
+            _subSocket?.Dispose();
             NetMQConfig.Cleanup();
         }
 
@@ -84,8 +85,8 @@ namespace RSMA.NetMQ
                 _subSocket.Options.Linger = TimeSpan.Zero;
                 _subSocket.Options.ReceiveHighWatermark = 1000;
 
-                // Подключаемся к PUB-сокету Python
-                _subSocket.Connect($"tcp://localhost:{subPort}");
+                // ВМЕСТО Connect ДЕЛАЕМ Bind:
+                _subSocket.Bind($"tcp://*:{subPort}");
                 _subSocket.Subscribe(""); // Подписка на все топики
 
                 while (_isRunning)
@@ -98,7 +99,6 @@ namespace RSMA.NetMQ
                         byte[] headerBytes = message[1].ToByteArray();
                         byte[] payloadBytes = message[2].ToByteArray();
 
-                        // Теперь здесь работают обе перегрузки (с 2 или 3 аргументами)
                         DataBroker.UpdateFromNetwork(topicName, headerBytes, payloadBytes);
                     }
                 }
