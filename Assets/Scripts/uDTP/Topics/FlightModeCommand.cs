@@ -1,13 +1,12 @@
-﻿using System;
-using UnityEngine;
+﻿using System.Runtime.InteropServices;
 
 namespace RSMA.uDTP.Topics
 {
-    [Serializable]
+    [StructLayout(LayoutKind.Sequential, Pack = 8)]
     public struct FlightModeCommand
     {
-        public long timestamp;
-        public int mode;
-        public int sub_mode;
+        public long timestamp; // 8 байт
+        public int mode;       // 4 байта
+        public int sub_mode;   // 4 байта -> 16 байт
     }
 }

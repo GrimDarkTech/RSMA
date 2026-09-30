@@ -80,7 +80,10 @@ public class PX4Quadrocopter : MonoBehaviour
     {
         stateMsg = new HILStateQuaternion();
         // Предварительное выделение массива один раз во избежание GC Allocations
-        stateMsg.orientation = new float[4] { 1f, 0f, 0f, 0f };
+        stateMsg.SetOrientation(0, 1f); // w
+        stateMsg.SetOrientation(1, 0f); // x
+        stateMsg.SetOrientation(2, 0f); // y
+        stateMsg.SetOrientation(3, 0f); // z
 
         sensorMsg = new HILSensor();
         gpsMsg = new HILGPS();
@@ -151,7 +154,7 @@ public class PX4Quadrocopter : MonoBehaviour
         }
     }
 
-    private void PublishHILStateData(long timestampUs)
+    private unsafe void PublishHILStateData(long timestampUs)
     {
         stateMsg.timestamp = timestampUs;
 

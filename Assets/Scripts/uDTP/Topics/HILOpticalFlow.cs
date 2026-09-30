@@ -1,23 +1,22 @@
-﻿using System;
-using UnityEngine;
+﻿using System.Runtime.InteropServices;
 
 namespace RSMA.uDTP.Topics
 {
-    [Serializable]
+    [StructLayout(LayoutKind.Sequential, Pack = 8)]
     public struct HILOpticalFlow
     {
-        public long timestamp;
-        public ulong time_usec;
-        public ushort sensor_id;
-        public float integration_time_us;
-        public float integrated_x;
-        public float integrated_y;
-        public float integrated_xgyro;
-        public float integrated_ygyro;
-        public float integrated_zgyro;
-        public uint temperature;
-        public byte quality;
-        public float time_delta_distance_us;
-        public float distance;
+        public long timestamp;              // 8 байт
+        public ulong time_usec;             // 8 байт
+        public ushort sensor_id;            // 2 байта (+2 байта padding)
+        public float integration_time_us;   // 4 байта
+        public float integrated_x;          // 4 байта
+        public float integrated_y;          // 4 байта
+        public float integrated_xgyro;      // 4 байта
+        public float integrated_ygyro;      // 4 байта
+        public float integrated_zgyro;      // 4 байта
+        public uint temperature;            // 4 байта
+        public byte quality;                // 1 байт (+3 байта padding)
+        public float time_delta_distance_us;// 4 байта
+        public float distance;              // 4 байта -> Итого: 64 байта
     }
 }

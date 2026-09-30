@@ -1,27 +1,22 @@
-using System;
-using UnityEngine;
+using System.Runtime.InteropServices;
 
 namespace RSMA.uDTP.Topics
 {
-    [Serializable]
+    [StructLayout(LayoutKind.Sequential, Pack = 8)]
     public struct HILSensor
     {
-        public long timestamp;
-
-        public float accel_x;
-        public float accel_y;
-        public float accel_z;
-
-        public float gyro_x;
-        public float gyro_y;
-        public float gyro_z;
-
-        public float mag_x;
-        public float mag_y;
-        public float mag_z;
-
-        public float abs_pressure;
-        public float pressure_alt;
-        public float temperature;
+        public long timestamp;    // 8 байт
+        public float accel_x;     // 4 байта
+        public float accel_y;     // 4 байта
+        public float accel_z;     // 4 байта
+        public float gyro_x;      // 4 байта
+        public float gyro_y;      // 4 байта
+        public float gyro_z;      // 4 байта
+        public float mag_x;       // 4 байта
+        public float mag_y;       // 4 байта
+        public float mag_z;       // 4 байта
+        public float abs_pressure;// 4 байта
+        public float pressure_alt;// 4 байта
+        public float temperature; // 4 байта -> Итого: 56 байт
     }
 }

@@ -34,12 +34,16 @@ public class DroneInputController : MonoBehaviour
         HandleFlightModeAndArming();
     }
 
-    private void SendRCChannels()
+    private unsafe void SendRCChannels()
     {
         RCChannelsInput rcMsg = new RCChannelsInput();
         rcMsg.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         rcMsg.chancount = 8; // Увеличиваем количество каналов до 8
-        rcMsg.channels = new ushort[8];
+        for (int i = 0; i < 8; i++)
+        {
+            rcMsg.SetChannel(i, 1500); // 1500 — дефолтное значение PWM
+        }
+        rcMsg.chancount = 8;
 
         // 1. Крен (Правый стик - горизонталь)
         float roll = Input.GetAxis("Horizontal");

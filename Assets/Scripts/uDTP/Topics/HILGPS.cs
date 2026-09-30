@@ -1,27 +1,22 @@
-using System;
-using UnityEngine;
+using System.Runtime.InteropServices;
 
 namespace RSMA.uDTP.Topics
 {
-    [Serializable]
+    [StructLayout(LayoutKind.Sequential, Pack = 8)]
     public struct HILGPS
     {
-        public long timestamp;
-        public byte fix_type;
-
-        public int lat;                // Широта * 1e7 (градусы)
-        public int lon;                // Долгота * 1e7 (градусы)
-        public int alt;                // Высота над уровнем моря (мм)
-
-        public ushort eph;             // HDOP * 100
-        public ushort epv;             // VDOP * 100
-        public ushort vel;             // Ground speed (см/с)
-
-        public short vn;               // Скорость Север (см/с)
-        public short ve;               // Скорость Восток (см/с)
-        public short vd;               // Скорость Вниз (см/с)
-
-        public ushort cog;             // Курс (cdeg, 0..36000)
-        public byte satellites_visible;// Число спутников (например, 12)
+        public long timestamp;          // 8 байт
+        public byte fix_type;           // 1 байт (+3 байта padding)
+        public int lat;                 // 4 байта
+        public int lon;                 // 4 байта
+        public int alt;                 // 4 байта
+        public ushort eph;              // 2 байта
+        public ushort epv;              // 2 байта
+        public ushort vel;              // 2 байта
+        public short vn;                // 2 байта
+        public short ve;                // 2 байта
+        public short vd;                // 2 байта
+        public ushort cog;              // 2 байта
+        public byte satellites_visible; // 1 байт (+3 байта padding = 40 байт)
     }
 }

@@ -51,7 +51,7 @@ public class Lidar : MonoBehaviour
         }
     }
 
-    private void Start()
+    private unsafe void Start()
     {
         gameObject.layer = 2;
 
@@ -67,7 +67,11 @@ public class Lidar : MonoBehaviour
             scan128.rangeMin = minRange;
             scan128.rangeMax = maxRange;
             scan128.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            scan128.ranges = ranges;
+
+            for (int i = 0; i < 128 && i < ranges.Length; i++)
+            {
+                scan128.SetRange(i, ranges[i]);
+            }
 
             DataBroker.Publish(topicName, scan128);
         }
@@ -81,26 +85,40 @@ public class Lidar : MonoBehaviour
             scan256.rangeMin = minRange;
             scan256.rangeMax = maxRange;
             scan256.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            scan256.ranges = ranges;
+
+            for (int i = 0; i < 256 && i < ranges.Length; i++)
+            {
+                scan256.SetRange(i, ranges[i]);
+            }
 
             DataBroker.Publish(topicName, scan256);
         }
 
     }
 
-    private void Update()
+    private unsafe void Update()
     {
         MeasureRange();
         if (scanSize == ScanSize.LaserScan128)
         {
             scan128.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            scan128.ranges = ranges;
+
+            for (int i = 0; i < 128 && i < ranges.Length; i++)
+            {
+                scan128.SetRange(i, ranges[i]);
+            }
+
             DataBroker.Publish(topicName, scan128);
         }
         else 
         {
             scan256.timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            scan256.ranges = ranges;
+
+            for (int i = 0; i < 256 && i < ranges.Length; i++)
+            {
+                scan256.SetRange(i, ranges[i]);
+            }
+
             DataBroker.Publish(topicName, scan256);
         }
     }
