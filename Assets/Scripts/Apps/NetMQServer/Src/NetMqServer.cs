@@ -121,8 +121,8 @@ namespace RSMA.NetMQ
             if (!_isRunning || _pubSocket == null) return;
             if (!UdtpV1Codec.TryGetTypeId(typeof(T), out var typeId))
             {
-                // Preserve pre-v1 topic traffic until codecs and stable IDs are added for each type.
-                PublishLegacy(topicName, data);
+                // Keep unsupported typed payloads opaque until a stable v1 codec is assigned.
+                PublishOpaque(topicName, data);
                 return;
             }
 
@@ -146,6 +146,14 @@ namespace RSMA.NetMQ
             SendMultipart(topicName, header.EncodeV1(), rawData);
         }
 
+        /// <summary>
+        /// Публикация legacy raw camera payload с сохранённым ID 2.
+        /// </summary>
+        public static void PublishCameraRaw(string topicName, byte[] rawData)
+        {
+            PublishRaw(topicName, rawData, UdtpV1Codec.LegacyCameraTypeId);
+        }
+
         private static void PublishV1(string topicName, int typeId, byte[] payload, long payloadTimestamp)
         {
             if (payload.Length > int.MaxValue) return;
@@ -159,7 +167,7 @@ namespace RSMA.NetMQ
             SendMultipart(topicName, header.EncodeV1(), payload);
         }
 
-        private static void PublishLegacy<T>(string topicName, in T data) where T : struct
+        private static void PublishOpaque<T>(string topicName, in T data) where T : struct
         {
             int payloadSize = System.Runtime.CompilerServices.Unsafe.SizeOf<T>();
             byte[] payload = new byte[payloadSize];
@@ -169,7 +177,7 @@ namespace RSMA.NetMQ
                 timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 sequence = NextSequence(),
                 payloadSize = payloadSize,
-                topicTypeId = typeof(T).GetHashCode()
+                topicTypeId = UdtpV1Codec.OpaqueTypeId
             };
             SendMultipart(topicName, header.EncodeV1(), payload);
         }

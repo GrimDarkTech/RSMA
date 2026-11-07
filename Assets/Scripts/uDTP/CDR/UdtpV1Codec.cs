@@ -12,6 +12,8 @@ namespace RSMA.uDTP.CDR
     /// </summary>
     public static class UdtpV1Codec
     {
+        public const int OpaqueTypeId = 0;
+        public const int LegacyCameraTypeId = 2;
         public const int RobotVelocityTypeId = 1001;
         public const int PoseTypeId = 1002;
         public const int LaserScan128TypeId = 1003;
@@ -31,6 +33,9 @@ namespace RSMA.uDTP.CDR
 
         public static bool IsKnownTypeId(int typeId) =>
             typeId == RobotVelocityTypeId || typeId == PoseTypeId || typeId == LaserScan128TypeId;
+
+        public static bool IsOpaqueTypeId(int typeId) =>
+            typeId == OpaqueTypeId || typeId == LegacyCameraTypeId || !IsKnownTypeId(typeId);
 
         public static int GetPayloadSize(int typeId)
         {

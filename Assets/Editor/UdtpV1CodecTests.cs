@@ -28,12 +28,30 @@ namespace RSMA.Tests
         [Test]
         public void LaserScan128HasExpectedVectorSizeAndRoundTrips()
         {
-            var value = new LaserScan128 { timestamp = 1700000000123, angleMin = -1.57079637f, angleMax = 1.57079637f, angleIncrement = 0.02473616f, rangeMin = 0.1f, rangeMax = 30f };
-            for (var i = 0; i < 128; i++) value.SetRange(i, i == 0 ? 0.25f : i + 0.5f);
+            var value = new LaserScan128 { timestamp = 1700000000123, angleMin = -1.57079637f, angleMax = 1.57079637f, angleIncrement = 0.024543693f, rangeMin = 0.1f, rangeMax = 30f };
+            for (var i = 0; i < 128; i++) value.SetRange(i, i == 0 ? 1f : i == 1 ? 2f : i == 127 ? 12f : 0f);
             var bytes = UdtpV1Codec.Encode(value);
             Assert.AreEqual(540, bytes.Length);
+            Assert.AreEqual(1f, BitConverter.ToSingle(bytes, 0));
+            Assert.AreEqual(2f, BitConverter.ToSingle(bytes, 4));
+            Assert.AreEqual(12f, BitConverter.ToSingle(bytes, 508));
             Assert.IsTrue(UdtpV1Codec.TryDecode(1003, bytes, out var decoded));
             Assert.AreEqual(value.GetRange(127), ((LaserScan128)decoded).GetRange(127));
+        }
+
+        [Test]
+        public void LegacyCameraAndUnknownTypesRemainOpaque()
+        {
+            Assert.IsTrue(UdtpV1Codec.IsOpaqueTypeId(UdtpV1Codec.OpaqueTypeId));
+            Assert.IsTrue(UdtpV1Codec.IsOpaqueTypeId(UdtpV1Codec.LegacyCameraTypeId));
+            Assert.IsTrue(UdtpV1Codec.IsOpaqueTypeId(42));
+
+            var camera = new byte[] { 1, 2, 3, 4 };
+            DataBroker.UpdateFromNetwork(
+                "test/camera-opaque",
+                new TopicHeader { timestamp = 123, sequence = 3, payloadSize = camera.Length, topicTypeId = UdtpV1Codec.LegacyCameraTypeId }.EncodeV1(),
+                camera);
+            CollectionAssert.AreEqual(camera, (byte[])DataBroker.GetRawState("test/camera-opaque"));
         }
 
         [Test]
