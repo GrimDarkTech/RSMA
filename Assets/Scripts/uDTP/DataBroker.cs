@@ -1,5 +1,6 @@
 using RSMA.NetMQ;
 using RSMA.uDTP.CDR;
+using RSMA.uDTP.Topics;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -38,6 +39,9 @@ namespace RSMA.uDTP
         private static readonly ConcurrentDictionary<string, byte[]> _rawHeaders
             = new ConcurrentDictionary<string, byte[]>();
 
+        private static readonly ConcurrentDictionary<string, int> _networkTypeIds
+            = new ConcurrentDictionary<string, int>();
+
         public static void RegisterTopic<T>(string topicName)
         {
             _topicRegistry.TryAdd(topicName, typeof(T).Name);
@@ -73,9 +77,17 @@ namespace RSMA.uDTP
             if (!_topics.TryGetValue(topicName, out var storage))
             {
                 storage = new TopicStorage<T>();
-                _topics.TryAdd(topicName, storage);
+                storage = _topics.GetOrAdd(topicName, storage);
             }
-            ((TopicStorage<T>)storage).LatestValue = message;
+            if (storage is TopicStorage<T> typedStorage)
+                typedStorage.LatestValue = message;
+            else
+            {
+                _topics[topicName] = new TopicStorage<T> { LatestValue = message };
+                _rawTopics.TryRemove(topicName, out _);
+                _rawHeaders.TryRemove(topicName, out _);
+                _networkTypeIds.TryRemove(topicName, out _);
+            }
 
             NetMQServer.PublishCdrTopic(topicName, message);
         }
@@ -86,6 +98,8 @@ namespace RSMA.uDTP
         public static void UpdateFromNetwork(string topicName, byte[] payload)
         {
             RegisterTopic(topicName, "NetworkPayload");
+            _topics.TryRemove(topicName, out _);
+            _networkTypeIds.TryRemove(topicName, out _);
             _rawTopics[topicName] = payload;
         }
 
@@ -94,9 +108,45 @@ namespace RSMA.uDTP
         /// </summary>
         public static void UpdateFromNetwork(string topicName, byte[] header, byte[] payload)
         {
+            var decodedHeader = TopicHeader.DecodeV1(header);
+            if (decodedHeader.payloadSize != payload.Length)
+                throw new FormatException("uDTP payloadSize does not match payload frame.");
+
+            if (decodedHeader.topicTypeId >= UdtpV1Codec.RobotVelocityTypeId &&
+                decodedHeader.topicTypeId <= UdtpV1Codec.LaserScan128TypeId &&
+                UdtpV1Codec.IsKnownTypeId(decodedHeader.topicTypeId))
+            {
+                if (!UdtpV1Codec.TryDecode(decodedHeader.topicTypeId, payload, out var decoded))
+                    throw new FormatException("Invalid uDTP v1 payload for the declared type ID.");
+
+                switch (decodedHeader.topicTypeId)
+                {
+                    case UdtpV1Codec.RobotVelocityTypeId:
+                        StoreNetworkValue(topicName, (Topics.RobotVelocity)decoded);
+                        return;
+                    case UdtpV1Codec.PoseTypeId:
+                        StoreNetworkValue(topicName, (Topics.Pose)decoded);
+                        return;
+                    case UdtpV1Codec.LaserScan128TypeId:
+                        StoreNetworkValue(topicName, (Topics.LaserScan128)decoded);
+                        return;
+                }
+            }
+
+            // Keep legacy raw IDs (for example Camera=2) as opaque payloads.
             RegisterTopic(topicName, "NetworkPayload");
+            _topics.TryRemove(topicName, out _);
             _rawHeaders[topicName] = header;
             _rawTopics[topicName] = payload;
+            _networkTypeIds[topicName] = decodedHeader.topicTypeId;
+        }
+
+        private static void StoreNetworkValue<T>(string topicName, T value) where T : struct
+        {
+            RegisterTopic<T>(topicName);
+            _topics[topicName] = new TopicStorage<T> { LatestValue = value };
+            _rawHeaders.TryRemove(topicName, out _);
+            _networkTypeIds.TryRemove(topicName, out _);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -105,6 +155,11 @@ namespace RSMA.uDTP
             // 1. Проверяем сетевой буфер
             if (_rawTopics.TryGetValue(topicName, out var rawBytes))
             {
+                if (_networkTypeIds.TryGetValue(topicName, out var networkTypeId) &&
+                    UdtpV1Codec.TryGetTypeId(typeof(T), out var expectedTypeId) &&
+                    networkTypeId != expectedTypeId)
+                    return default;
+
                 if (rawBytes.Length >= Unsafe.SizeOf<T>())
                 {
                     return CdrSerializer.Unpack<T>(rawBytes);
@@ -114,7 +169,7 @@ namespace RSMA.uDTP
             // 2. Локальное хранилище Unity
             if (_topics.TryGetValue(topicName, out var storage))
             {
-                return ((TopicStorage<T>)storage).LatestValue;
+                return storage is TopicStorage<T> typedStorage ? typedStorage.LatestValue : default;
             }
 
             return default;

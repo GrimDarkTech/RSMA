@@ -4,12 +4,12 @@ using RSMA.uDTP;
 using RSMA.uDTP.CDR;
 using RSMA.uDTP.Topics;
 using System;
-using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
+using Pose = RSMA.uDTP.Topics.Pose;
 
 namespace RSMA.NetMQ
 {
@@ -23,6 +23,7 @@ namespace RSMA.NetMQ
         private static PublisherSocket _pubSocket;
         private static SubscriberSocket _subSocket;
         private static uint _globalSequence = 0;
+        private static readonly object _publishLock = new object();
 
         public static bool IsRunning => _isRunning;
 
@@ -93,71 +94,40 @@ namespace RSMA.NetMQ
                 {
                     var message = _subSocket.ReceiveMultipartMessage();
 
-                    if (message.FrameCount >= 3)
+                    if (message.FrameCount == 3)
                     {
-                        string topicName = message[0].ConvertToString();
-                        byte[] headerBytes = message[1].ToByteArray();
-                        byte[] payloadBytes = message[2].ToByteArray();
-
-                        DataBroker.UpdateFromNetwork(topicName, headerBytes, payloadBytes);
+                        try
+                        {
+                            string topicName = message[0].ConvertToString();
+                            byte[] headerBytes = message[1].ToByteArray();
+                            byte[] payloadBytes = message[2].ToByteArray();
+                            DataBroker.UpdateFromNetwork(topicName, headerBytes, payloadBytes);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.LogWarning($"Rejected invalid uDTP packet: {ex.Message}");
+                        }
                     }
                 }
             }
         }
 
         /// <summary>
-        /// Быстрая публикация любых blittable/value-структур в CDR через NetMQ
-        /// </summary>
         /// <summary>
         /// Быстрая публикация любых blittable/value-структур в CDR через NetMQ
         /// </summary>
         public static void PublishCdrTopic<T>(string topicName, in T data) where T : struct
         {
             if (!_isRunning || _pubSocket == null) return;
-
-            unsafe
+            if (!UdtpV1Codec.TryGetTypeId(typeof(T), out var typeId))
             {
-                int payloadSize = System.Runtime.CompilerServices.Unsafe.SizeOf<T>();
-                int headerSize = System.Runtime.CompilerServices.Unsafe.SizeOf<TopicHeader>();
-
-                byte[] headerBuffer = ArrayPool<byte>.Shared.Rent(headerSize);
-                byte[] payloadBuffer = ArrayPool<byte>.Shared.Rent(payloadSize);
-
-                try
-                {
-                    // 1. Упаковка данных в CDR
-                    CdrSerializer.Pack(data, payloadBuffer);
-
-                    // 2. Формирование единого заголовка
-                    var header = new TopicHeader
-                    {
-                        timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                        sequence = _globalSequence++,
-                        payloadSize = payloadSize,
-                        topicTypeId = typeof(T).GetHashCode()
-                    };
-                    CdrSerializer.Pack(header, headerBuffer);
-
-                    // 3. Формирование и отправка мультипарт-сообщения NetMQ
-                    var msg = new NetMQMessage();
-
-                    // Frame 0: Имя топика (string)
-                    msg.Append(topicName);
-
-                    // Frame 1: Заголовок (создаем явный NetMQFrame с указанием длины)
-                    msg.Append(new NetMQFrame(headerBuffer, headerSize));
-
-                    // Frame 2: Полезная нагрузка (создаем явный NetMQFrame с указанием длины)
-                    msg.Append(new NetMQFrame(payloadBuffer, payloadSize));
-
-                    _pubSocket.SendMultipartMessage(msg);
-                }
-                finally
-                {
-                    ArrayPool<byte>.Shared.Return(headerBuffer);
-                    ArrayPool<byte>.Shared.Return(payloadBuffer);
-                }
+                // Preserve pre-v1 topic traffic until codecs and stable IDs are added for each type.
+                PublishLegacy(topicName, data);
+                return;
             }
+
+            byte[] payload = UdtpV1Codec.Encode(data);
+            PublishV1(topicName, typeId, payload, GetPayloadTimestamp(data));
         }
 
         /// <summary>
@@ -166,40 +136,68 @@ namespace RSMA.NetMQ
         public static void PublishRaw(string topicName, byte[] rawData, int typeId = 0)
         {
             if (!_isRunning || _pubSocket == null || rawData == null) return;
-
-            unsafe
+            var header = new TopicHeader
             {
-                int headerSize = System.Runtime.CompilerServices.Unsafe.SizeOf<TopicHeader>();
-                byte[] headerBuffer = ArrayPool<byte>.Shared.Rent(headerSize);
+                timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                sequence = NextSequence(),
+                payloadSize = rawData.Length,
+                topicTypeId = typeId
+            };
+            SendMultipart(topicName, header.EncodeV1(), rawData);
+        }
 
-                try
-                {
-                    var header = new TopicHeader
-                    {
-                        timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                        sequence = _globalSequence++,
-                        payloadSize = rawData.Length,
-                        topicTypeId = typeId
-                    };
-                    CdrSerializer.Pack(header, headerBuffer);
+        private static void PublishV1(string topicName, int typeId, byte[] payload, long payloadTimestamp)
+        {
+            if (payload.Length > int.MaxValue) return;
+            var header = new TopicHeader
+            {
+                timestamp = payloadTimestamp > 0 ? payloadTimestamp : DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                sequence = NextSequence(),
+                payloadSize = payload.Length,
+                topicTypeId = typeId
+            };
+            SendMultipart(topicName, header.EncodeV1(), payload);
+        }
 
-                    var msg = new NetMQMessage();
+        private static void PublishLegacy<T>(string topicName, in T data) where T : struct
+        {
+            int payloadSize = System.Runtime.CompilerServices.Unsafe.SizeOf<T>();
+            byte[] payload = new byte[payloadSize];
+            CdrSerializer.Pack(data, payload);
+            var header = new TopicHeader
+            {
+                timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                sequence = NextSequence(),
+                payloadSize = payloadSize,
+                topicTypeId = typeof(T).GetHashCode()
+            };
+            SendMultipart(topicName, header.EncodeV1(), payload);
+        }
 
-                    // Frame 0: Имя топика
-                    msg.Append(topicName);
+        private static uint NextSequence()
+        {
+            lock (_publishLock)
+                return _globalSequence++;
+        }
 
-                    // Frame 1: Заголовок
-                    msg.Append(new NetMQFrame(headerBuffer, headerSize));
+        private static long GetPayloadTimestamp<T>(in T value) where T : struct
+        {
+            if (value is RobotVelocity velocity) return velocity.timestamp;
+            if (value is Pose pose) return pose.timestamp;
+            if (value is LaserScan128 scan) return scan.timestamp;
+            return 0;
+        }
 
-                    // Frame 2: Сырые данные
-                    msg.Append(new NetMQFrame(rawData, rawData.Length));
-
-                    _pubSocket.SendMultipartMessage(msg);
-                }
-                finally
-                {
-                    ArrayPool<byte>.Shared.Return(headerBuffer);
-                }
+        private static void SendMultipart(string topicName, byte[] header, byte[] payload)
+        {
+            lock (_publishLock)
+            {
+                if (!_isRunning || _pubSocket == null) return;
+                var message = new NetMQMessage();
+                message.Append(topicName);
+                message.Append(header);
+                message.Append(payload);
+                _pubSocket.SendMultipartMessage(message);
             }
         }
 
