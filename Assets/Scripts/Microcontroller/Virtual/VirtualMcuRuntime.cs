@@ -27,7 +27,8 @@ namespace RSMA.Microcontroller.Virtual
         bool DigitalRead(byte pin);
     }
 
-    public sealed class VirtualGpioBank : IVirtualMcuHal, IVirtualInputSource, IVirtualButtonHost
+    public sealed class VirtualGpioBank : IVirtualMcuHal, IVirtualInputSource, IVirtualButtonHost,
+        IVirtualGpioEdgeSource
     {
         private readonly Dictionary<byte, VirtualPinMode> modes = new Dictionary<byte, VirtualPinMode>();
         private readonly Dictionary<byte, bool> values = new Dictionary<byte, bool>();
@@ -131,15 +132,9 @@ namespace RSMA.Microcontroller.Virtual
                 states[input.Pin].LineLevel = input.Level;
                 if (previous == input.Level)
                     continue;
-                InputEdge?.Invoke(new VirtualGpioInputEvent
-                {
-                    VirtualPin = input.Pin,
-                    PreviousLevel = previous,
-                    Level = input.Level,
-                    TimestampMilliseconds = input.Timestamp,
-                    Sequence = input.Sequence,
-                    Edge = input.Level ? VirtualGpioEdge.Rising : VirtualGpioEdge.Falling
-                });
+                InputEdge?.Invoke(new VirtualGpioInputEvent(
+                    input.Pin, previous, input.Level, input.Timestamp, input.Sequence,
+                    input.Level ? VirtualGpioEdge.Rising : VirtualGpioEdge.Falling));
             }
         }
 
@@ -195,7 +190,8 @@ namespace RSMA.Microcontroller.Virtual
             this.package = package ?? throw new ArgumentNullException(nameof(package));
             this.hal = hal ?? throw new ArgumentNullException(nameof(hal));
             inputSource = hal as IVirtualInputSource;
-            this.interruptController = interruptController;
+            this.interruptController = interruptController ??
+                (hal is IVirtualGpioEdgeSource edgeSource ? new VirtualInterruptController(edgeSource) : null);
             programCounter = package.Bytecode.EntryPoint;
             State = VirtualExecutionState.Ready;
         }
@@ -212,8 +208,13 @@ namespace RSMA.Microcontroller.Virtual
         {
             if (deltaMilliseconds < 0 || double.IsNaN(deltaMilliseconds) || double.IsInfinity(deltaMilliseconds))
                 throw new ArgumentOutOfRangeException(nameof(deltaMilliseconds));
-            if (State == VirtualExecutionState.Halted || State == VirtualExecutionState.Faulted)
+            if (State == VirtualExecutionState.Faulted)
                 return;
+            if (State == VirtualExecutionState.Halted)
+            {
+                inputSource?.AdvanceInputTo(SimulatedTimeMilliseconds);
+                return;
+            }
 
             var targetTime = SimulatedTimeMilliseconds + deltaMilliseconds;
             if (State == VirtualExecutionState.Ready)
@@ -230,7 +231,7 @@ namespace RSMA.Microcontroller.Virtual
                     if (State == VirtualExecutionState.Waiting)
                     {
                         var nextInput = inputSource?.NextInputTimestampMilliseconds;
-                        if (nextInput.HasValue && nextInput.Value < wakeTimeMilliseconds && nextInput.Value <= targetTime)
+                        if (nextInput.HasValue && nextInput.Value <= wakeTimeMilliseconds && nextInput.Value <= targetTime)
                         {
                             SimulatedTimeMilliseconds = nextInput.Value;
                             inputSource.AdvanceInputTo(SimulatedTimeMilliseconds);

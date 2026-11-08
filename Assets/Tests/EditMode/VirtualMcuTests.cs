@@ -200,6 +200,16 @@ namespace RSMA.Microcontroller.Virtual.Tests
                 var invocation = Assert.Throws<TargetInvocationException>(() =>
                     digitalWrite.Invoke(adapter, new object[] { (byte)13, true }));
                 Assert.IsInstanceOf<InvalidOperationException>(invocation.InnerException);
+
+                var inputAdapter = (IVirtualButtonHost)adapter;
+                var irqMachine = new VirtualMachine(MakeIrqPackage(13), (IVirtualMcuHal)adapter);
+                new VirtualButton(inputAdapter, 13).PressAt(10);
+                irqMachine.Advance(50);
+                Assert.AreEqual(VirtualExecutionState.Waiting, irqMachine.State);
+                Assert.AreEqual(0, irqMachine.InterruptDepth);
+                irqMachine.Advance(50);
+                Assert.AreEqual(VirtualExecutionState.Halted, irqMachine.State);
+                Assert.IsFalse((bool)adapterType.GetMethod("DigitalRead").Invoke(adapter, new object[] { (byte)13 }));
             }
             finally
             {
@@ -321,6 +331,25 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
+        public void VirtualInterruptControllerRetainsEdgesWhileDisabled()
+        {
+            var gpio = new VirtualGpioBank();
+            gpio.ConfigurePin(7, VirtualPinMode.Input, VirtualPinPullMode.PullUp,
+                VirtualPinOutputType.PushPull);
+            var controller = new VirtualInterruptController(gpio);
+            controller.Attach(7, (byte)VirtualGpioEdge.Falling, 0);
+            new VirtualButton(gpio, 7).PressAt(1);
+            gpio.AdvanceInputTo(1);
+
+            Assert.IsTrue(controller.HasPendingInterrupt);
+            Assert.IsFalse(controller.TryDequeue(out _));
+            controller.Enable();
+            Assert.IsTrue(controller.TryDequeue(out var request));
+            Assert.AreEqual(VirtualGpioEdge.Falling, request.Edge);
+            Assert.AreEqual(1.0, request.TimestampMilliseconds);
+        }
+
+        [Test]
         public void VirtualMachineExecutesPackedConfigurePinHalCall()
         {
             var package = new RsfwPackage
@@ -424,7 +453,7 @@ namespace RSMA.Microcontroller.Virtual.Tests
             return package;
         }
 
-        private static RsfwPackage MakeIrqPackage()
+        private static RsfwPackage MakeIrqPackage(byte pin = 7)
         {
             var package = new RsfwPackage
             {
@@ -440,12 +469,12 @@ namespace RSMA.Microcontroller.Virtual.Tests
             package.Bytecode.Instructions.Add(new RsfwInstruction
             {
                 Opcode = RsfwOpcode.HalCall,
-                Operands = new byte[] { 6, 0, 7, 2 }
+                Operands = new byte[] { 6, 0, pin, 2 }
             });
             package.Bytecode.Instructions.Add(new RsfwInstruction
             {
                 Opcode = RsfwOpcode.AttachIrq,
-                Operands = new byte[] { 7, 2, 5, 0, 0, 0 }
+                Operands = new byte[] { pin, 2, 5, 0, 0, 0 }
             });
             package.Bytecode.Instructions.Add(new RsfwInstruction
             {

@@ -19,6 +19,15 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
     public string FaultMessage => virtualMachine?.FaultMessage;
     public double SimulatedTimeMilliseconds => virtualMachine?.SimulatedTimeMilliseconds ?? 0.0;
 
+    public bool SetButtonPressed(byte virtualPin, bool pressed)
+    {
+        if (virtualMachine == null || hal == null)
+            return false;
+
+        hal.ScheduleInputLevel(virtualPin, virtualMachine.SimulatedTimeMilliseconds, !pressed);
+        return true;
+    }
+
     private void OnEnable()
     {
         if (firmware == null)

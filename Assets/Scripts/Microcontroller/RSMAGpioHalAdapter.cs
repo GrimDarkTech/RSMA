@@ -13,7 +13,8 @@ public sealed class VirtualPinBinding
     public bool resetLatchLevel;
 }
 
-public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualInputSource, IVirtualButtonHost
+public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualInputSource, IVirtualButtonHost,
+    IVirtualGpioEdgeSource
 {
     private readonly RSMAGPIO gpio;
     private readonly VirtualBoardProfile profile;
@@ -155,15 +156,9 @@ public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualInputSource, IV
                 input.Level ? RSMAGPIO.High : RSMAGPIO.Low);
             if (previous == input.Level)
                 continue;
-            InputEdge?.Invoke(new VirtualGpioInputEvent
-            {
-                VirtualPin = input.Pin,
-                PreviousLevel = previous,
-                Level = input.Level,
-                TimestampMilliseconds = input.Timestamp,
-                Sequence = input.Sequence,
-                Edge = input.Level ? VirtualGpioEdge.Rising : VirtualGpioEdge.Falling
-            });
+            InputEdge?.Invoke(new VirtualGpioInputEvent(
+                input.Pin, previous, input.Level, input.Timestamp, input.Sequence,
+                input.Level ? VirtualGpioEdge.Rising : VirtualGpioEdge.Falling));
         }
     }
 

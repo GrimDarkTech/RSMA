@@ -11,18 +11,34 @@ namespace RSMA.Microcontroller.Virtual
 
     public sealed class VirtualGpioInputEvent
     {
-        public byte VirtualPin { get; internal set; }
-        public bool PreviousLevel { get; internal set; }
-        public bool Level { get; internal set; }
-        public double TimestampMilliseconds { get; internal set; }
-        public ulong Sequence { get; internal set; }
-        public VirtualGpioEdge Edge { get; internal set; }
+        public byte VirtualPin { get; }
+        public bool PreviousLevel { get; }
+        public bool Level { get; }
+        public double TimestampMilliseconds { get; }
+        public ulong Sequence { get; }
+        public VirtualGpioEdge Edge { get; }
+
+        public VirtualGpioInputEvent(byte virtualPin, bool previousLevel, bool level,
+            double timestampMilliseconds, ulong sequence, VirtualGpioEdge edge)
+        {
+            VirtualPin = virtualPin;
+            PreviousLevel = previousLevel;
+            Level = level;
+            TimestampMilliseconds = timestampMilliseconds;
+            Sequence = sequence;
+            Edge = edge;
+        }
     }
 
     public interface IVirtualInputSource
     {
         double? NextInputTimestampMilliseconds { get; }
         void AdvanceInputTo(double timestampMilliseconds);
+    }
+
+    public interface IVirtualGpioEdgeSource
+    {
+        event Action<VirtualGpioInputEvent> InputEdge;
     }
 
     public interface IVirtualButtonHost
@@ -62,7 +78,7 @@ namespace RSMA.Microcontroller.Virtual
 
         public VirtualInterruptController() { }
 
-        public VirtualInterruptController(VirtualGpioBank gpio)
+        public VirtualInterruptController(IVirtualGpioEdgeSource gpio)
         {
             Connect(gpio);
         }
@@ -91,7 +107,7 @@ namespace RSMA.Microcontroller.Virtual
             return true;
         }
 
-        public void Connect(VirtualGpioBank gpio)
+        public void Connect(IVirtualGpioEdgeSource gpio)
         {
             if (gpio == null) throw new ArgumentNullException(nameof(gpio));
             gpio.InputEdge += OnInputEdge;
@@ -99,7 +115,7 @@ namespace RSMA.Microcontroller.Virtual
 
         private void OnInputEdge(VirtualGpioInputEvent input)
         {
-            if (!Enabled || !bindings.TryGetValue(input.VirtualPin, out var binding))
+            if (!bindings.TryGetValue(input.VirtualPin, out var binding))
                 return;
             var edgeBit = (byte)input.Edge;
             if ((binding.EdgeMask & edgeBit) == 0)
