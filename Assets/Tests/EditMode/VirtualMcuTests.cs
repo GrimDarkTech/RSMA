@@ -1,4 +1,6 @@
 using System;
+using System.Collections;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -155,6 +157,65 @@ namespace RSMA.Microcontroller.Virtual.Tests
             machine.Advance(0);
 
             Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+        }
+
+        [Test]
+        public void GpioAdapterUsesExistingRSMAGpioWithoutTouchingUnmappedPins()
+        {
+            var host = new GameObject("RSMAGPIO adapter integration test");
+            try
+            {
+                var gpioType = Type.GetType("RSMAGPIO, Assembly-CSharp", true);
+                var portType = Type.GetType("GPIOPort, Assembly-CSharp", true);
+                var pinType = Type.GetType("GPIOPin, Assembly-CSharp", true);
+                var adapterType = Type.GetType("RSMAGpioHalAdapter, Assembly-CSharp", true);
+                var gpio = host.AddComponent(gpioType);
+                var ports = (IList)gpioType.GetMethod("GetPortList").Invoke(gpio, null);
+                var port = Activator.CreateInstance(portType);
+                portType.GetField("name").SetValue(port, "PC");
+                var pins = (IList)portType.GetField("pins").GetValue(port);
+                var ledPin = CreateLegacyPin(pinType, "13", 0.0f);
+                var neighborPin = CreateLegacyPin(pinType, "12", 0.75f);
+                pins.Add(ledPin);
+                pins.Add(neighborPin);
+                ports.Add(port);
+
+                var adapter = adapterType.GetMethod("CreateStm32F103Default")
+                    .Invoke(null, new[] { gpio });
+                var pinMode = adapterType.GetMethod("PinMode");
+                var digitalWrite = adapterType.GetMethod("DigitalWrite");
+                var outputMode = (VirtualPinMode)Enum.Parse(typeof(VirtualPinMode), "Output");
+                var inputMode = (VirtualPinMode)Enum.Parse(typeof(VirtualPinMode), "Input");
+
+                pinMode.Invoke(adapter, new object[] { (byte)13, outputMode });
+                digitalWrite.Invoke(adapter, new object[] { (byte)13, true });
+                Assert.AreEqual(1.0f, pinType.GetField("value").GetValue(ledPin));
+                Assert.AreEqual(0.75f, pinType.GetField("value").GetValue(neighborPin));
+
+                adapterType.GetMethod("ApplySafeState").Invoke(adapter, null);
+                Assert.AreEqual(0.0f, pinType.GetField("value").GetValue(ledPin));
+                Assert.AreEqual(0.75f, pinType.GetField("value").GetValue(neighborPin));
+
+                pinMode.Invoke(adapter, new object[] { (byte)13, inputMode });
+                var invocation = Assert.Throws<TargetInvocationException>(() =>
+                    digitalWrite.Invoke(adapter, new object[] { (byte)13, true }));
+                Assert.IsInstanceOf<InvalidOperationException>(invocation.InnerException);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(host);
+            }
+        }
+
+        private static object CreateLegacyPin(Type pinType, string name, float value)
+        {
+            var pin = Activator.CreateInstance(pinType);
+            pinType.GetField("name").SetValue(pin, name);
+            pinType.GetField("value").SetValue(pin, value);
+            pinType.GetField("pinMode").SetValue(pin, Enum.ToObject(
+                pinType.GetField("pinMode").FieldType, 0));
+            pinType.GetField("outputDefaulValue").SetValue(pin, value);
+            return pin;
         }
 
         private static RsfwPackage MakeBlinkPackage()
