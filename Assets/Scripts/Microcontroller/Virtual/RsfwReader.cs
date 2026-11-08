@@ -304,12 +304,15 @@ namespace RSMA.Microcontroller.Virtual
         {
             var service = ReadU16(operands, 0);
             var value = operands[3];
-            if (service < (ushort)RsmaHalService.PinMode || service > (ushort)RsmaHalService.Millis)
+            if (service < (ushort)RsmaHalService.PinMode || service > (ushort)RsmaHalService.ConfigurePin)
                 throw new RsfwFormatException("HAL_CALL contains an unknown service ID");
             if (service == (ushort)RsmaHalService.PinMode && value > (byte)VirtualPinMode.Output)
                 throw new RsfwFormatException("HAL PinMode value must be Input(0) or Output(1)");
             if (service == (ushort)RsmaHalService.DigitalWrite && value > 1)
                 throw new RsfwFormatException("HAL DigitalWrite value must be 0 or 1");
+            if (service == (ushort)RsmaHalService.ConfigurePin &&
+                ((value & 0xF0) != 0 || ((value >> 1) & 0x03) == 0x03))
+                throw new RsfwFormatException("HAL ConfigurePin contains invalid configuration bits");
         }
 
         private static byte[] Slice(byte[] source, int offset, int count)

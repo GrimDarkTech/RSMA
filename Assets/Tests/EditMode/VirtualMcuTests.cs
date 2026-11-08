@@ -207,6 +207,103 @@ namespace RSMA.Microcontroller.Virtual.Tests
             }
         }
 
+        [Test]
+        public void Stm32BoardProfileContainsTypedPc13Definition()
+        {
+            var profile = RsmaBoardProfiles.CreateStm32F103();
+            var definition = profile.GetPin(13);
+
+            Assert.AreEqual(RsmaBoardProfiles.Stm32F103BoardId, profile.BoardId);
+            Assert.AreEqual("PC", definition.PortName);
+            Assert.AreEqual("13", definition.PinName);
+            Assert.AreEqual(VirtualPinMode.Input, definition.ResetMode);
+            Assert.AreEqual(VirtualPinPullMode.None, definition.ResetPullMode);
+            Assert.AreEqual(VirtualPinOutputType.PushPull, definition.OutputType);
+            Assert.IsFalse(definition.ResetLatchLevel);
+        }
+
+        [Test]
+        public void BoardProfileRejectsDuplicateVirtualAndPhysicalMappings()
+        {
+            Assert.Throws<BoardProfileException>(() => new VirtualBoardProfile(
+                "test",
+                new[]
+                {
+                    new VirtualPinDefinition(1, "PA", "1"),
+                    new VirtualPinDefinition(1, "PA", "2")
+                }));
+
+            Assert.Throws<BoardProfileException>(() => new VirtualBoardProfile(
+                "test",
+                new[]
+                {
+                    new VirtualPinDefinition(1, "PA", "1"),
+                    new VirtualPinDefinition(2, "PA", "1")
+                }));
+        }
+
+        [Test]
+        public void VirtualGpioPreservesTypedStateAndReportsMissingPin()
+        {
+            var gpio = new VirtualGpioBank();
+            gpio.ConfigurePin(7, VirtualPinMode.Output, VirtualPinPullMode.PullDown,
+                VirtualPinOutputType.OpenDrain);
+            gpio.DigitalWrite(7, true);
+            var state = gpio.GetState(7);
+
+            Assert.AreEqual(VirtualPinMode.Output, state.Mode);
+            Assert.AreEqual(VirtualPinPullMode.PullDown, state.PullMode);
+            Assert.AreEqual(VirtualPinOutputType.OpenDrain, state.OutputType);
+            Assert.IsTrue(state.LatchLevel);
+            Assert.IsTrue(state.LineLevel);
+            Assert.Throws<InvalidOperationException>(() => gpio.GetState(8));
+        }
+
+        [Test]
+        public void VirtualMachineExecutesPackedConfigurePinHalCall()
+        {
+            var package = new RsfwPackage
+            {
+                Manifest = new RsfwManifest
+                {
+                    BoardId = "test",
+                    FlashSize = 1024,
+                    RamSize = 256,
+                    EntryPointName = "reset"
+                },
+                Bytecode = new RsfwBytecode { EntryPoint = 0 }
+            };
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                // mode=Output, pull=PullDown, output type=OpenDrain
+                Operands = new byte[] { 6, 0, 7, 13 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 2, 0, 7, 1 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            var gpio = new VirtualGpioBank();
+            var machine = new VirtualMachine(package, gpio);
+            machine.Advance(0);
+
+            var state = gpio.GetState(7);
+            Assert.AreEqual(VirtualPinMode.Output, state.Mode);
+            Assert.AreEqual(VirtualPinPullMode.PullDown, state.PullMode);
+            Assert.AreEqual(VirtualPinOutputType.OpenDrain, state.OutputType);
+            Assert.IsTrue(state.LatchLevel);
+            Assert.IsTrue(state.LineLevel);
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+        }
+
+
         private static object CreateLegacyPin(Type pinType, string name, float value)
         {
             var pin = Activator.CreateInstance(pinType);

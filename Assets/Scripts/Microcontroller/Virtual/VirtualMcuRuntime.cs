@@ -21,6 +21,8 @@ namespace RSMA.Microcontroller.Virtual
     public interface IVirtualMcuHal
     {
         void PinMode(byte pin, VirtualPinMode mode);
+        void ConfigurePin(byte pin, VirtualPinMode mode, VirtualPinPullMode pullMode,
+            VirtualPinOutputType outputType);
         void DigitalWrite(byte pin, bool value);
         bool DigitalRead(byte pin);
     }
@@ -29,14 +31,31 @@ namespace RSMA.Microcontroller.Virtual
     {
         private readonly Dictionary<byte, VirtualPinMode> modes = new Dictionary<byte, VirtualPinMode>();
         private readonly Dictionary<byte, bool> values = new Dictionary<byte, bool>();
+        private readonly Dictionary<byte, VirtualGpioPinState> states = new Dictionary<byte, VirtualGpioPinState>();
 
         public event Action<byte, bool> OutputChanged;
 
         public void PinMode(byte pin, VirtualPinMode mode)
         {
+            ConfigurePin(pin, mode, VirtualPinPullMode.None, VirtualPinOutputType.PushPull);
+        }
+
+        public void ConfigurePin(byte pin, VirtualPinMode mode, VirtualPinPullMode pullMode,
+            VirtualPinOutputType outputType)
+        {
             modes[pin] = mode;
             if (!values.ContainsKey(pin))
                 values[pin] = false;
+            if (!states.TryGetValue(pin, out var state))
+            {
+                state = new VirtualGpioPinState { VirtualPin = pin };
+                states.Add(pin, state);
+            }
+            state.Mode = mode;
+            state.PullMode = pullMode;
+            state.OutputType = outputType;
+            state.LatchLevel = values[pin];
+            state.LineLevel = values[pin];
         }
 
         public void DigitalWrite(byte pin, bool value)
@@ -48,6 +67,8 @@ namespace RSMA.Microcontroller.Virtual
 
             values.TryGetValue(pin, out var previous);
             values[pin] = value;
+            states[pin].LatchLevel = value;
+            states[pin].LineLevel = value;
             if (previous != value)
                 OutputChanged?.Invoke(pin, value);
         }
@@ -62,6 +83,13 @@ namespace RSMA.Microcontroller.Virtual
         public VirtualPinMode GetMode(byte pin)
         {
             return modes.TryGetValue(pin, out var mode) ? mode : throw new InvalidOperationException("GPIO pin has not been configured");
+        }
+
+        public VirtualGpioPinState GetState(byte pin)
+        {
+            if (!states.TryGetValue(pin, out var state))
+                throw new InvalidOperationException("GPIO pin has not been configured");
+            return state;
         }
     }
 
@@ -218,6 +246,18 @@ namespace RSMA.Microcontroller.Virtual
                     if (value > (byte)VirtualPinMode.Output)
                         throw new VirtualMachineFaultException("Unsupported GPIO pin mode");
                     hal.PinMode(argument, (VirtualPinMode)value);
+                    break;
+                case RsmaHalService.ConfigurePin:
+                    if ((value & 0x01) > (byte)VirtualPinMode.Output ||
+                        ((value >> 1) & 0x03) > (byte)VirtualPinPullMode.PullDown ||
+                        ((value >> 3) & 0x01) > (byte)VirtualPinOutputType.OpenDrain ||
+                        (value & 0xF0) != 0)
+                        throw new VirtualMachineFaultException("Unsupported GPIO configuration");
+                    hal.ConfigurePin(
+                        argument,
+                        (VirtualPinMode)(value & 0x01),
+                        (VirtualPinPullMode)((value >> 1) & 0x03),
+                        (VirtualPinOutputType)((value >> 3) & 0x01));
                     break;
                 case RsmaHalService.DigitalWrite:
                     hal.DigitalWrite(argument, value != 0);

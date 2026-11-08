@@ -47,7 +47,8 @@ namespace RSMA.Microcontroller.Virtual
         DigitalWrite = 2,
         DigitalRead = 3,
         DelayMs = 4,
-        Millis = 5
+        Millis = 5,
+        ConfigurePin = 6
     }
 
     public sealed class RsfwFormatException : Exception
