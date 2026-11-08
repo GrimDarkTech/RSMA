@@ -13,12 +13,26 @@ public sealed class VirtualPinBinding
     public bool resetLatchLevel;
 }
 
-public sealed class RSMAGpioHalAdapter : IVirtualMcuHal
+public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualInputSource, IVirtualButtonHost
 {
     private readonly RSMAGPIO gpio;
     private readonly VirtualBoardProfile profile;
     private readonly Dictionary<byte, ConnectedPin> bindings = new Dictionary<byte, ConnectedPin>();
     private readonly Dictionary<byte, VirtualGpioPinState> states = new Dictionary<byte, VirtualGpioPinState>();
+    private readonly List<ScheduledInput> scheduledInputs = new List<ScheduledInput>();
+    private ulong nextInputSequence;
+
+    private sealed class ScheduledInput
+    {
+        public byte Pin;
+        public bool Level;
+        public double Timestamp;
+        public ulong Sequence;
+    }
+
+    public event Action<VirtualGpioInputEvent> InputEdge;
+    public double? NextInputTimestampMilliseconds => scheduledInputs.Count == 0
+        ? (double?)null : scheduledInputs[0].Timestamp;
 
     public RSMAGpioHalAdapter(RSMAGPIO gpio, IEnumerable<VirtualPinBinding> pinBindings)
         : this(gpio, CreateProfileFromBindings(pinBindings))
@@ -76,6 +90,11 @@ public sealed class RSMAGpioHalAdapter : IVirtualMcuHal
         state.Mode = mode;
         state.PullMode = pullMode;
         state.OutputType = outputType;
+        if (mode == VirtualPinMode.Input && pullMode == VirtualPinPullMode.PullUp && !state.LineLevel)
+        {
+            gpio.WritePin(connectedPin.portName, connectedPin.pinName, RSMAGPIO.High);
+            state.LineLevel = true;
+        }
         if (mode == VirtualPinMode.Output)
             WriteLine(pin, state.LatchLevel);
     }
@@ -98,6 +117,54 @@ public sealed class RSMAGpioHalAdapter : IVirtualMcuHal
         var state = GetState(pin);
         state.LineLevel = gpio.GetPin(Resolve(pin)).value >= 0.5f;
         return state.LineLevel;
+    }
+
+    public void ScheduleInputLevel(byte pin, double timestampMilliseconds, bool level)
+    {
+        if (double.IsNaN(timestampMilliseconds) || double.IsInfinity(timestampMilliseconds) || timestampMilliseconds < 0)
+            throw new ArgumentOutOfRangeException(nameof(timestampMilliseconds));
+        if (GetState(pin).Mode != VirtualPinMode.Input)
+            throw new InvalidOperationException("Input events require input mode");
+
+        scheduledInputs.Add(new ScheduledInput
+        {
+            Pin = pin,
+            Level = level,
+            Timestamp = timestampMilliseconds,
+            Sequence = nextInputSequence++
+        });
+        scheduledInputs.Sort((left, right) =>
+        {
+            var timestamp = left.Timestamp.CompareTo(right.Timestamp);
+            return timestamp != 0 ? timestamp : left.Sequence.CompareTo(right.Sequence);
+        });
+    }
+
+    public void AdvanceInputTo(double timestampMilliseconds)
+    {
+        if (double.IsNaN(timestampMilliseconds) || double.IsInfinity(timestampMilliseconds))
+            throw new ArgumentOutOfRangeException(nameof(timestampMilliseconds));
+        while (scheduledInputs.Count != 0 && scheduledInputs[0].Timestamp <= timestampMilliseconds)
+        {
+            var input = scheduledInputs[0];
+            scheduledInputs.RemoveAt(0);
+            var state = GetState(input.Pin);
+            var previous = state.LineLevel;
+            state.LineLevel = input.Level;
+            gpio.WritePin(Resolve(input.Pin).portName, Resolve(input.Pin).pinName,
+                input.Level ? RSMAGPIO.High : RSMAGPIO.Low);
+            if (previous == input.Level)
+                continue;
+            InputEdge?.Invoke(new VirtualGpioInputEvent
+            {
+                VirtualPin = input.Pin,
+                PreviousLevel = previous,
+                Level = input.Level,
+                TimestampMilliseconds = input.Timestamp,
+                Sequence = input.Sequence,
+                Edge = input.Level ? VirtualGpioEdge.Rising : VirtualGpioEdge.Falling
+            });
+        }
     }
 
     public void ApplySafeState()
@@ -130,6 +197,11 @@ public sealed class RSMAGpioHalAdapter : IVirtualMcuHal
         if (!states.TryGetValue(pin, out var state))
             throw new InvalidOperationException("Virtual GPIO pin is not mapped: " + pin);
         return state;
+    }
+
+    public VirtualPinMode GetMode(byte pin)
+    {
+        return GetState(pin).Mode;
     }
 
     private void WriteLine(byte pin, bool value)

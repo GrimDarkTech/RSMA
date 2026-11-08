@@ -259,7 +259,16 @@ namespace RSMA.Microcontroller.Virtual
                     case RsfwOpcode.SubI32:
                     case RsfwOpcode.Return:
                     case RsfwOpcode.ReadTime:
+                    case RsfwOpcode.EnableIrq:
+                    case RsfwOpcode.DisableIrq:
+                    case RsfwOpcode.ReturnIrq:
                         RequireOperands(instruction, 0);
+                        break;
+                    case RsfwOpcode.AttachIrq:
+                        RequireOperands(instruction, 6);
+                        if ((instruction.Operands[1] & 0x03) == 0 || (instruction.Operands[1] & 0xFC) != 0 ||
+                            ReadU32(instruction.Operands, 2) >= package.Bytecode.Instructions.Count)
+                            throw new RsfwFormatException("ATTACH_IRQ contains an invalid edge mask or target");
                         break;
                     case RsfwOpcode.ConstI32:
                         RequireOperands(instruction, 4);

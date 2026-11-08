@@ -27,13 +27,26 @@ namespace RSMA.Microcontroller.Virtual
         bool DigitalRead(byte pin);
     }
 
-    public sealed class VirtualGpioBank : IVirtualMcuHal
+    public sealed class VirtualGpioBank : IVirtualMcuHal, IVirtualInputSource, IVirtualButtonHost
     {
         private readonly Dictionary<byte, VirtualPinMode> modes = new Dictionary<byte, VirtualPinMode>();
         private readonly Dictionary<byte, bool> values = new Dictionary<byte, bool>();
         private readonly Dictionary<byte, VirtualGpioPinState> states = new Dictionary<byte, VirtualGpioPinState>();
+        private readonly List<ScheduledInput> scheduledInputs = new List<ScheduledInput>();
+        private ulong nextInputSequence;
+
+        private sealed class ScheduledInput
+        {
+            public byte Pin;
+            public bool Level;
+            public double Timestamp;
+            public ulong Sequence;
+        }
 
         public event Action<byte, bool> OutputChanged;
+        public event Action<VirtualGpioInputEvent> InputEdge;
+        public double? NextInputTimestampMilliseconds => scheduledInputs.Count == 0
+            ? (double?)null : scheduledInputs[0].Timestamp;
 
         public void PinMode(byte pin, VirtualPinMode mode)
         {
@@ -45,7 +58,7 @@ namespace RSMA.Microcontroller.Virtual
         {
             modes[pin] = mode;
             if (!values.ContainsKey(pin))
-                values[pin] = false;
+                values[pin] = mode == VirtualPinMode.Input && pullMode == VirtualPinPullMode.PullUp;
             if (!states.TryGetValue(pin, out var state))
             {
                 state = new VirtualGpioPinState { VirtualPin = pin };
@@ -55,6 +68,8 @@ namespace RSMA.Microcontroller.Virtual
             state.PullMode = pullMode;
             state.OutputType = outputType;
             state.LatchLevel = values[pin];
+            if (mode == VirtualPinMode.Input && !state.LineLevel && pullMode == VirtualPinPullMode.PullUp)
+                values[pin] = true;
             state.LineLevel = values[pin];
         }
 
@@ -78,6 +93,54 @@ namespace RSMA.Microcontroller.Virtual
             if (!values.TryGetValue(pin, out var value))
                 throw new InvalidOperationException("GPIO pin has not been configured");
             return value;
+        }
+
+        public void ScheduleInputLevel(byte pin, double timestampMilliseconds, bool level)
+        {
+            if (double.IsNaN(timestampMilliseconds) || double.IsInfinity(timestampMilliseconds) || timestampMilliseconds < 0)
+                throw new ArgumentOutOfRangeException(nameof(timestampMilliseconds));
+            if (!modes.TryGetValue(pin, out var mode))
+                throw new InvalidOperationException("GPIO pin has not been configured");
+            if (mode != VirtualPinMode.Input)
+                throw new InvalidOperationException("Input events require input mode");
+
+            scheduledInputs.Add(new ScheduledInput
+            {
+                Pin = pin,
+                Level = level,
+                Timestamp = timestampMilliseconds,
+                Sequence = nextInputSequence++
+            });
+            scheduledInputs.Sort((left, right) =>
+            {
+                var timestamp = left.Timestamp.CompareTo(right.Timestamp);
+                return timestamp != 0 ? timestamp : left.Sequence.CompareTo(right.Sequence);
+            });
+        }
+
+        public void AdvanceInputTo(double timestampMilliseconds)
+        {
+            if (double.IsNaN(timestampMilliseconds) || double.IsInfinity(timestampMilliseconds))
+                throw new ArgumentOutOfRangeException(nameof(timestampMilliseconds));
+            while (scheduledInputs.Count != 0 && scheduledInputs[0].Timestamp <= timestampMilliseconds)
+            {
+                var input = scheduledInputs[0];
+                scheduledInputs.RemoveAt(0);
+                var previous = values[input.Pin];
+                values[input.Pin] = input.Level;
+                states[input.Pin].LineLevel = input.Level;
+                if (previous == input.Level)
+                    continue;
+                InputEdge?.Invoke(new VirtualGpioInputEvent
+                {
+                    VirtualPin = input.Pin,
+                    PreviousLevel = previous,
+                    Level = input.Level,
+                    TimestampMilliseconds = input.Timestamp,
+                    Sequence = input.Sequence,
+                    Edge = input.Level ? VirtualGpioEdge.Rising : VirtualGpioEdge.Falling
+                });
+            }
         }
 
         public VirtualPinMode GetMode(byte pin)
@@ -105,16 +168,34 @@ namespace RSMA.Microcontroller.Virtual
 
         private readonly RsfwPackage package;
         private readonly IVirtualMcuHal hal;
+        private readonly IVirtualInputSource inputSource;
+        private readonly IVirtualInterruptController interruptController;
         private readonly Stack<uint> callStack = new Stack<uint>();
+        private readonly Stack<IrqReturnState> irqReturnStack = new Stack<IrqReturnState>();
         private readonly Stack<int> valueStack = new Stack<int>();
         private readonly int[] slots = new int[256];
         private uint programCounter;
         private double wakeTimeMilliseconds;
 
+        private sealed class IrqReturnState
+        {
+            public uint ProgramCounter;
+            public bool WasWaiting;
+            public double WakeTimeMilliseconds;
+        }
+
         public VirtualMachine(RsfwPackage package, IVirtualMcuHal hal)
+            : this(package, hal, null)
+        {
+        }
+
+        public VirtualMachine(RsfwPackage package, IVirtualMcuHal hal,
+            IVirtualInterruptController interruptController)
         {
             this.package = package ?? throw new ArgumentNullException(nameof(package));
             this.hal = hal ?? throw new ArgumentNullException(nameof(hal));
+            inputSource = hal as IVirtualInputSource;
+            this.interruptController = interruptController;
             programCounter = package.Bytecode.EntryPoint;
             State = VirtualExecutionState.Ready;
         }
@@ -125,6 +206,7 @@ namespace RSMA.Microcontroller.Virtual
         public string FaultMessage { get; private set; }
         public int StackDepth => valueStack.Count;
         public double WakeTimeMilliseconds => wakeTimeMilliseconds;
+        public int InterruptDepth => irqReturnStack.Count;
 
         public void Advance(double deltaMilliseconds)
         {
@@ -142,14 +224,26 @@ namespace RSMA.Microcontroller.Virtual
                 var executed = 0;
                 while (State != VirtualExecutionState.Halted && State != VirtualExecutionState.Faulted)
                 {
+                    inputSource?.AdvanceInputTo(SimulatedTimeMilliseconds);
+                    if (TryDispatchInterrupt())
+                        continue;
                     if (State == VirtualExecutionState.Waiting)
                     {
+                        var nextInput = inputSource?.NextInputTimestampMilliseconds;
+                        if (nextInput.HasValue && nextInput.Value < wakeTimeMilliseconds && nextInput.Value <= targetTime)
+                        {
+                            SimulatedTimeMilliseconds = nextInput.Value;
+                            inputSource.AdvanceInputTo(SimulatedTimeMilliseconds);
+                            continue;
+                        }
                         if (wakeTimeMilliseconds > targetTime)
                         {
                             SimulatedTimeMilliseconds = targetTime;
+                            inputSource?.AdvanceInputTo(targetTime);
                             return;
                         }
                         SimulatedTimeMilliseconds = wakeTimeMilliseconds;
+                        inputSource?.AdvanceInputTo(SimulatedTimeMilliseconds);
                         State = VirtualExecutionState.Running;
                     }
                     if (State != VirtualExecutionState.Running)
@@ -159,6 +253,7 @@ namespace RSMA.Microcontroller.Virtual
                     ExecuteInstruction(package.Bytecode.Instructions[(int)programCounter]);
                 }
                 SimulatedTimeMilliseconds = targetTime;
+                inputSource?.AdvanceInputTo(targetTime);
             }
             catch (Exception exception)
             {
@@ -228,11 +323,53 @@ namespace RSMA.Microcontroller.Virtual
                 case RsfwOpcode.HalCall:
                     ExecuteHalCall(instruction.Operands);
                     break;
+                case RsfwOpcode.AttachIrq:
+                    RequireInterruptController().Attach(instruction.Operands[0], instruction.Operands[1],
+                        ReadU32(instruction.Operands, 2));
+                    break;
+                case RsfwOpcode.EnableIrq:
+                    RequireInterruptController().Enable();
+                    break;
+                case RsfwOpcode.DisableIrq:
+                    RequireInterruptController().Disable();
+                    break;
+                case RsfwOpcode.ReturnIrq:
+                    if (irqReturnStack.Count == 0)
+                        throw new VirtualMachineFaultException("RETURN_IRQ executed outside an interrupt handler");
+                    var returnState = irqReturnStack.Pop();
+                    wakeTimeMilliseconds = returnState.WakeTimeMilliseconds;
+                    State = returnState.WasWaiting && wakeTimeMilliseconds > SimulatedTimeMilliseconds
+                        ? VirtualExecutionState.Waiting : VirtualExecutionState.Running;
+                    next = returnState.ProgramCounter;
+                    break;
                 default:
                     throw new VirtualMachineFaultException("Unsupported opcode " + instruction.Opcode);
             }
 
             programCounter = next;
+        }
+
+        private bool TryDispatchInterrupt()
+        {
+            if (interruptController == null || irqReturnStack.Count != 0 ||
+                !interruptController.TryDequeue(out var request))
+                return false;
+            irqReturnStack.Push(new IrqReturnState
+            {
+                ProgramCounter = programCounter,
+                WasWaiting = State == VirtualExecutionState.Waiting,
+                WakeTimeMilliseconds = wakeTimeMilliseconds
+            });
+            programCounter = request.TargetInstruction;
+            State = VirtualExecutionState.Running;
+            return true;
+        }
+
+        private IVirtualInterruptController RequireInterruptController()
+        {
+            if (interruptController == null)
+                throw new VirtualMachineFaultException("Firmware requires an interrupt controller");
+            return interruptController;
         }
 
         private void ExecuteHalCall(byte[] operands)

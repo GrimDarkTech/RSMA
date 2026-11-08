@@ -38,7 +38,11 @@ namespace RSMA.Microcontroller.Virtual
         Return = 0x0A,
         ReadTime = 0x0B,
         Wait = 0x0C,
-        HalCall = 0x0D
+        HalCall = 0x0D,
+        AttachIrq = 0x0E,
+        EnableIrq = 0x0F,
+        DisableIrq = 0x10,
+        ReturnIrq = 0x11
     }
 
     public enum RsmaHalService : ushort

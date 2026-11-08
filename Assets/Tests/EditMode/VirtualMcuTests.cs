@@ -260,6 +260,67 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
+        public void VirtualButtonUsesActiveLowEdgesAndStableTimestampFifo()
+        {
+            var gpio = new VirtualGpioBank();
+            gpio.ConfigurePin(7, VirtualPinMode.Input, VirtualPinPullMode.PullUp,
+                VirtualPinOutputType.PushPull);
+            Assert.IsTrue(gpio.DigitalRead(7));
+
+            var events = new System.Collections.Generic.List<VirtualGpioInputEvent>();
+            gpio.InputEdge += events.Add;
+            var button = new VirtualButton(gpio, 7);
+            button.PressAt(10);
+            button.PressAt(10);
+            button.ReleaseAt(20);
+            gpio.AdvanceInputTo(20);
+
+            Assert.AreEqual(2, events.Count);
+            Assert.AreEqual(VirtualGpioEdge.Falling, events[0].Edge);
+            Assert.AreEqual(10.0, events[0].TimestampMilliseconds);
+            Assert.AreEqual(VirtualGpioEdge.Rising, events[1].Edge);
+            Assert.AreEqual(20.0, events[1].TimestampMilliseconds);
+            Assert.IsTrue(gpio.DigitalRead(7));
+        }
+
+        [Test]
+        public void VirtualInputEventsAreOrderedByTimestampThenInsertionSequence()
+        {
+            var gpio = new VirtualGpioBank();
+            gpio.ConfigurePin(7, VirtualPinMode.Input, VirtualPinPullMode.None,
+                VirtualPinOutputType.PushPull);
+            var timestamps = new System.Collections.Generic.List<double>();
+            gpio.InputEdge += input => timestamps.Add(input.TimestampMilliseconds);
+            gpio.ScheduleInputLevel(7, 20, true);
+            gpio.ScheduleInputLevel(7, 10, true);
+            gpio.ScheduleInputLevel(7, 10, false);
+            gpio.AdvanceInputTo(20);
+
+            Assert.AreEqual(3, timestamps.Count);
+            Assert.AreEqual(10.0, timestamps[0]);
+            Assert.AreEqual(10.0, timestamps[1]);
+            Assert.AreEqual(20.0, timestamps[2]);
+        }
+
+        [Test]
+        public void VirtualInterruptControllerDispatchesDeferredFifoAndReturnsToWait()
+        {
+            var gpio = new VirtualGpioBank();
+            gpio.ConfigurePin(7, VirtualPinMode.Input, VirtualPinPullMode.PullUp,
+                VirtualPinOutputType.PushPull);
+            var controller = new VirtualInterruptController(gpio);
+            var package = MakeIrqPackage();
+            var machine = new VirtualMachine(package, gpio, controller);
+            new VirtualButton(gpio, 7).PressAt(10);
+
+            machine.Advance(50);
+            Assert.AreEqual(VirtualExecutionState.Waiting, machine.State);
+            Assert.AreEqual(0, machine.InterruptDepth);
+            machine.Advance(50);
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+        }
+
+        [Test]
         public void VirtualMachineExecutesPackedConfigurePinHalCall()
         {
             var package = new RsfwPackage
@@ -359,6 +420,67 @@ namespace RSMA.Microcontroller.Virtual.Tests
             {
                 Opcode = RsfwOpcode.Jump,
                 Operands = new byte[] { 1, 0, 0, 0 }
+            });
+            return package;
+        }
+
+        private static RsfwPackage MakeIrqPackage()
+        {
+            var package = new RsfwPackage
+            {
+                Manifest = new RsfwManifest
+                {
+                    BoardId = "test",
+                    FlashSize = 1,
+                    RamSize = 1,
+                    EntryPointName = "reset"
+                },
+                Bytecode = new RsfwBytecode { EntryPoint = 0 }
+            };
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 6, 0, 7, 2 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.AttachIrq,
+                Operands = new byte[] { 7, 2, 5, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.EnableIrq,
+                Operands = Array.Empty<byte>()
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Wait,
+                Operands = new byte[] { 100, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Jump,
+                Operands = new byte[] { 8, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.ConstI32,
+                Operands = new byte[] { 42, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Store,
+                Operands = new byte[] { 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.ReturnIrq,
+                Operands = Array.Empty<byte>()
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
             });
             return package;
         }
