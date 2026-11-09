@@ -1058,13 +1058,21 @@ PrefabInstance:
       propertyPath: m_Name
       value: RedLED
       objectReference: {fileID: 0}
+    - target: {fileID: 5407665838429275107, guid: 979e3a70f4bec3148911a58c78c25fc7, type: 3}
+      propertyPath: virtualPin
+      value: 13
+      objectReference: {fileID: 0}
+    - target: {fileID: 5407665838429275107, guid: 979e3a70f4bec3148911a58c78c25fc7, type: 3}
+      propertyPath: virtualMicrocontroller
+      value: 
+      objectReference: {fileID: 8926710231652144084}
     - target: {fileID: 5512786446549443590, guid: 979e3a70f4bec3148911a58c78c25fc7, type: 3}
       propertyPath: m_RootOrder
       value: 4
       objectReference: {fileID: 0}
     - target: {fileID: 5512786446549443590, guid: 979e3a70f4bec3148911a58c78c25fc7, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0.41660815
+      value: -0.4193
       objectReference: {fileID: 0}
     - target: {fileID: 5512786446549443590, guid: 979e3a70f4bec3148911a58c78c25fc7, type: 3}
       propertyPath: m_LocalPosition.y
@@ -1072,7 +1080,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5512786446549443590, guid: 979e3a70f4bec3148911a58c78c25fc7, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -0.4216514
+      value: -0.3292
       objectReference: {fileID: 0}
     - target: {fileID: 5512786446549443590, guid: 979e3a70f4bec3148911a58c78c25fc7, type: 3}
       propertyPath: m_LocalRotation.w
@@ -1107,6 +1115,146 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 979e3a70f4bec3148911a58c78c25fc7, type: 3}
+--- !u!1 &493196619
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 493196624}
+  - component: {fileID: 493196623}
+  - component: {fileID: 493196622}
+  - component: {fileID: 493196621}
+  - component: {fileID: 493196620}
+  m_Layer: 0
+  m_Name: Cube (2)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!54 &493196620
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 493196619}
+  serializedVersion: 5
+  m_Mass: 0.015
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 1
+  m_IsKinematic: 0
+  m_Interpolate: 0
+  m_Constraints: 0
+  m_CollisionDetection: 0
+--- !u!65 &493196621
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 493196619}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!23 &493196622
+MeshRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 493196619}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 1
+  m_LightProbeUsage: 1
+  m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 3
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
+  m_MaskInteraction: 0
+  m_AdditionalVertexStreams: {fileID: 0}
+--- !u!33 &493196623
+MeshFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 493196619}
+  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!4 &493196624
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 493196619}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.3478, y: 0.0314, z: -0.3316}
+  m_LocalScale: {x: 0.02, y: 0.02, z: 0.02}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &616524318
 GameObject:
   m_ObjectHideFlags: 0
@@ -1321,13 +1469,33 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 566700428371617547, guid: ef56b36b6d03b6546aa024967d2d24d5, type: 3}
+      propertyPath: virtualPin1
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 566700428371617547, guid: ef56b36b6d03b6546aa024967d2d24d5, type: 3}
+      propertyPath: virtualPin2
+      value: 11
+      objectReference: {fileID: 0}
+    - target: {fileID: 566700428371617547, guid: ef56b36b6d03b6546aa024967d2d24d5, type: 3}
+      propertyPath: virtualPwmPin
+      value: 13
+      objectReference: {fileID: 0}
+    - target: {fileID: 566700428371617547, guid: ef56b36b6d03b6546aa024967d2d24d5, type: 3}
+      propertyPath: virtualMicrocontroller
+      value: 
+      objectReference: {fileID: 8926710231652144084}
+    - target: {fileID: 1300773007471543919, guid: ef56b36b6d03b6546aa024967d2d24d5, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 4436938963024438317, guid: ef56b36b6d03b6546aa024967d2d24d5, type: 3}
       propertyPath: m_RootOrder
       value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 4436938963024438317, guid: ef56b36b6d03b6546aa024967d2d24d5, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0.3418
+      value: -0.3163
       objectReference: {fileID: 0}
     - target: {fileID: 4436938963024438317, guid: ef56b36b6d03b6546aa024967d2d24d5, type: 3}
       propertyPath: m_LocalPosition.y
@@ -1335,7 +1503,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4436938963024438317, guid: ef56b36b6d03b6546aa024967d2d24d5, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -0.4128
+      value: -0.4003
       objectReference: {fileID: 0}
     - target: {fileID: 4436938963024438317, guid: ef56b36b6d03b6546aa024967d2d24d5, type: 3}
       propertyPath: m_LocalRotation.w
@@ -1980,7 +2148,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 3620610359481387237, guid: d4212673b9b9752419d22dd29966209d, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -0.2209916
+      value: -0.3796
       objectReference: {fileID: 0}
     - target: {fileID: 3620610359481387237, guid: d4212673b9b9752419d22dd29966209d, type: 3}
       propertyPath: m_LocalPosition.y
@@ -1988,7 +2156,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3620610359481387237, guid: d4212673b9b9752419d22dd29966209d, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -0.32204017
+      value: -0.4278
       objectReference: {fileID: 0}
     - target: {fileID: 3620610359481387237, guid: d4212673b9b9752419d22dd29966209d, type: 3}
       propertyPath: m_LocalRotation.w
@@ -2045,7 +2213,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5133706033622392169, guid: e17ed1725ad8fd64bb01c44d53416f49, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0.3742
+      value: -0.3441
       objectReference: {fileID: 0}
     - target: {fileID: 5133706033622392169, guid: e17ed1725ad8fd64bb01c44d53416f49, type: 3}
       propertyPath: m_LocalPosition.y
@@ -2053,7 +2221,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5133706033622392169, guid: e17ed1725ad8fd64bb01c44d53416f49, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0.146
+      value: -0.3378
       objectReference: {fileID: 0}
     - target: {fileID: 5133706033622392169, guid: e17ed1725ad8fd64bb01c44d53416f49, type: 3}
       propertyPath: m_LocalRotation.w
@@ -2088,9 +2256,21 @@ PrefabInstance:
       value: Servo
       objectReference: {fileID: 0}
     - target: {fileID: 6929150882101246447, guid: e17ed1725ad8fd64bb01c44d53416f49, type: 3}
+      propertyPath: virtualPin
+      value: 13
+      objectReference: {fileID: 0}
+    - target: {fileID: 6929150882101246447, guid: e17ed1725ad8fd64bb01c44d53416f49, type: 3}
+      propertyPath: connectedBody
+      value: 
+      objectReference: {fileID: 493196620}
+    - target: {fileID: 6929150882101246447, guid: e17ed1725ad8fd64bb01c44d53416f49, type: 3}
       propertyPath: isDrawAnchors
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 6929150882101246447, guid: e17ed1725ad8fd64bb01c44d53416f49, type: 3}
+      propertyPath: virtualMicrocontroller
+      value: 
+      objectReference: {fileID: 8926710231652144084}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -3439,7 +3619,7 @@ Transform:
   m_GameObject: {fileID: 8926710231652144083}
   serializedVersion: 2
   m_LocalRotation: {x: -0.70710677, y: -0, z: -0, w: 0.7071068}
-  m_LocalPosition: {x: -0.26448408, y: -0.012146838, z: -0.31046426}
+  m_LocalPosition: {x: -0.4108, y: -0.0121, z: -0.404}
   m_LocalScale: {x: 1.3944193, y: 1.3944193, z: 1.3944193}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -4281,6 +4461,9 @@ MonoBehaviour:
     portName: 
     pinName: 
   connectMicrocontroller: {fileID: 0}
+  virtualMicrocontroller: {fileID: 0}
+  virtualPin: 0
+  usePwmBrightness: 1
   ledLight: {fileID: 0}
 --- !u!114 &6690573501765782897
 MonoBehaviour:
@@ -4372,6 +4555,24 @@ MonoBehaviour:
       outputDefaulValue: 0
       pinOutputMode: 0
     - name: 6
+      value: 0
+      pinMode: 0
+      pinPullMode: 0
+      outputDefaulValue: 0
+      pinOutputMode: 0
+    - name: 10
+      value: 0
+      pinMode: 0
+      pinPullMode: 0
+      outputDefaulValue: 0
+      pinOutputMode: 0
+    - name: 11
+      value: 0
+      pinMode: 0
+      pinPullMode: 0
+      outputDefaulValue: 0
+      pinOutputMode: 0
+    - name: 13
       value: 0
       pinMode: 0
       pinPullMode: 0
@@ -4850,19 +5051,38 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 40e74716e51847f080985786061addcf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RSMAVirtualMicrocontroller
-  firmware: {fileID: 4900000, guid: 3ae8a43520e948c2bda03627cfa4777e, type: 3}
+  firmware: {fileID: 4900000, guid: af5e8636ae5045f9870579c109fa3b3f, type: 3}
   gpio: {fileID: 6690573501765782897}
   pinBindings:
   - virtualPin: 13
     gpioPin:
       portName: PC
-      pinName: 6
+      pinName: 13
+    pullMode: 1
+    outputMode: 0
+    resetMode: 1
+    resetLatchLevel: 0
+  - virtualPin: 10
+    gpioPin:
+      portName: PC
+      pinName: 10
+    pullMode: 1
+    outputMode: 0
+    resetMode: 1
+    resetLatchLevel: 0
+  - virtualPin: 11
+    gpioPin:
+      portName: PC
+      pinName: 11
     pullMode: 1
     outputMode: 0
     resetMode: 1
     resetLatchLevel: 0
   expectedBoardId: RSMA-STM32F103
   stopOutputsOnDisable: 1
+  irqDispatchCount: 0
+  lastIrqVirtualPin: -1
+  lastIrqEdge: None
 --- !u!114 &8926710231652144085
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4877,7 +5097,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RSMAVirtualButtonInput
   microcontroller: {fileID: 8926710231652144084}
   limitSwitch: {fileID: 1782884676}
-  virtualPin: 13
+  virtualPin: 15
 --- !u!33 &9073276430778129932
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -4980,3 +5200,4 @@ SceneRoots:
   - {fileID: 1042417565}
   - {fileID: 2211318227192508270}
   - {fileID: 1109631640}
+  - {fileID: 493196624}
