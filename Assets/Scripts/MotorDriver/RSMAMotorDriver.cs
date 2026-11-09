@@ -1,4 +1,5 @@
 using UnityEngine;
+using RSMA.Microcontroller.Virtual;
 
 /// <summary>
 /// Implements properties and functionality of electric motor driver
@@ -24,6 +25,12 @@ public class RSMAMotorDriver : MonoBehaviour
     /// </summary>
     public RSMAGPIO connectMicrocontroller;
 
+    [Header("Virtual MCU PWM")]
+    [SerializeField] private RSMAVirtualMicrocontroller virtualMicrocontroller;
+    [SerializeField] private byte virtualPin1;
+    [SerializeField] private byte virtualPin2;
+    [SerializeField] private byte virtualPwmPin;
+
     private float portIn1;
     private float portIn2;
     private float portPWM;
@@ -47,7 +54,14 @@ public class RSMAMotorDriver : MonoBehaviour
 
     private void Update()
     {
-        if(connectMicrocontroller != null)
+        if (virtualMicrocontroller != null)
+        {
+            portIn1 = virtualMicrocontroller.GetPinValue(virtualPin1) >= 0.5f ? 1f : 0f;
+            portIn2 = virtualMicrocontroller.GetPinValue(virtualPin2) >= 0.5f ? 1f : 0f;
+            portPWM = Mathf.Clamp01(virtualMicrocontroller.GetPinValue(virtualPwmPin));
+            output = portPWM * (portIn1 - portIn2);
+        }
+        else if(connectMicrocontroller != null)
         {
             portIn1 = connectMicrocontroller.GetPin(connectedPin1).value;
             portIn2 = connectMicrocontroller.GetPin(connectedPin2).value;

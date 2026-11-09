@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Linq;
+using RSMA.Microcontroller.Virtual;
 
 /// <summary>
 /// Implements properties and functionality of stepper motor driver
@@ -29,6 +30,13 @@ public class StepperDriver : MonoBehaviour
     /// </summary>
     public RSMAGPIO connectMicrocontroller;
 
+    [Header("Virtual MCU GPIO")]
+    [SerializeField] private RSMAVirtualMicrocontroller virtualMicrocontroller;
+    [SerializeField] private byte virtualChannel1Pin;
+    [SerializeField] private byte virtualChannel2Pin;
+    [SerializeField] private byte virtualChannel3Pin;
+    [SerializeField] private byte virtualChannel4Pin;
+
     private int outputSingal;
 
     /// <summary>
@@ -42,35 +50,38 @@ public class StepperDriver : MonoBehaviour
 
     private void Update()
     {
-        if(connectMicrocontroller != null)
+        if (virtualMicrocontroller != null)
         {
-            int[] input = new int[4];
-
-            input[0] = (int)connectMicrocontroller.GetPin(channel1Pin).value;
-            input[1] = (int)connectMicrocontroller.GetPin(channel2Pin).value;
-            input[2] = (int)connectMicrocontroller.GetPin(channel3Pin).value;
-            input[3] = (int)connectMicrocontroller.GetPin(channel4Pin).value;
-
-            if (Enumerable.SequenceEqual(input, new int[] { 1, 1, 0, 0 }))
-            {
-                outputSingal = 1;
-            }
-            else if (Enumerable.SequenceEqual(input, new int[] { 0, 1, 1, 0 }))
-            {
-                outputSingal = 2;
-            }
-            else if (Enumerable.SequenceEqual(input, new int[] { 0, 0, 1, 1 }))
-            {
-                outputSingal = 3;
-            }
-            else if (Enumerable.SequenceEqual(input, new int[] { 1, 0, 0, 1 }))
-            {
-                outputSingal = 4;
-            }
-            else
-            {
-                outputSingal = 0;
-            }
+            UpdateOutput(
+                virtualMicrocontroller.GetPinValue(virtualChannel1Pin),
+                virtualMicrocontroller.GetPinValue(virtualChannel2Pin),
+                virtualMicrocontroller.GetPinValue(virtualChannel3Pin),
+                virtualMicrocontroller.GetPinValue(virtualChannel4Pin));
         }
+        else if(connectMicrocontroller != null)
+        {
+            UpdateOutput(
+                connectMicrocontroller.GetPin(channel1Pin).value,
+                connectMicrocontroller.GetPin(channel2Pin).value,
+                connectMicrocontroller.GetPin(channel3Pin).value,
+                connectMicrocontroller.GetPin(channel4Pin).value);
+        }
+    }
+
+    private void UpdateOutput(float channel1, float channel2, float channel3, float channel4)
+    {
+        var input = new[]
+        {
+            channel1 >= 0.5f ? 1 : 0,
+            channel2 >= 0.5f ? 1 : 0,
+            channel3 >= 0.5f ? 1 : 0,
+            channel4 >= 0.5f ? 1 : 0
+        };
+
+        if (Enumerable.SequenceEqual(input, new[] { 1, 1, 0, 0 })) outputSingal = 1;
+        else if (Enumerable.SequenceEqual(input, new[] { 0, 1, 1, 0 })) outputSingal = 2;
+        else if (Enumerable.SequenceEqual(input, new[] { 0, 0, 1, 1 })) outputSingal = 3;
+        else if (Enumerable.SequenceEqual(input, new[] { 1, 0, 0, 1 })) outputSingal = 4;
+        else outputSingal = 0;
     }
 }

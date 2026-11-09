@@ -11,6 +11,9 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
     [SerializeField] private List<VirtualPinBinding> pinBindings = new List<VirtualPinBinding>();
     [SerializeField] private string expectedBoardId = "RSMA-STM32F103";
     [SerializeField] private bool stopOutputsOnDisable = true;
+    [SerializeField] private int irqDispatchCount;
+    [SerializeField] private int lastIrqVirtualPin = -1;
+    [SerializeField] private string lastIrqEdge = "None";
 
     private RSMAGpioHalAdapter hal;
     private VirtualMachine virtualMachine;
@@ -18,6 +21,23 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
     public VirtualExecutionState ExecutionState => virtualMachine?.State ?? VirtualExecutionState.Ready;
     public string FaultMessage => virtualMachine?.FaultMessage;
     public double SimulatedTimeMilliseconds => virtualMachine?.SimulatedTimeMilliseconds ?? 0.0;
+    public int IrqDispatchCount => irqDispatchCount;
+    public int LastIrqVirtualPin => lastIrqVirtualPin;
+    public string LastIrqEdge => lastIrqEdge;
+
+    public float GetPinValue(byte virtualPin)
+    {
+        if (hal == null)
+            return 0f;
+        return hal.ReadPinValue(virtualPin);
+    }
+
+    public void PwmWrite(byte virtualPin, byte dutyCycle)
+    {
+        if (hal == null)
+            throw new InvalidOperationException("Virtual MCU is not initialized");
+        ((IVirtualPwmHal)hal).PwmWrite(virtualPin, dutyCycle);
+    }
 
     public bool SetButtonPressed(byte virtualPin, bool pressed)
     {
@@ -56,6 +76,10 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
                 ? RSMAGpioHalAdapter.CreateStm32F103Default(gpio)
                 : new RSMAGpioHalAdapter(gpio, pinBindings);
             virtualMachine = new VirtualMachine(package, hal);
+            irqDispatchCount = 0;
+            lastIrqVirtualPin = -1;
+            lastIrqEdge = "None";
+            virtualMachine.InterruptDispatched += OnInterruptDispatched;
         }
         catch (Exception exception)
         {
@@ -84,9 +108,18 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
 
     private void OnDisable()
     {
+        if (virtualMachine != null)
+            virtualMachine.InterruptDispatched -= OnInterruptDispatched;
         if (stopOutputsOnDisable)
             hal?.ApplySafeState();
         virtualMachine = null;
         hal = null;
+    }
+
+    private void OnInterruptDispatched(VirtualInterruptRequest request)
+    {
+        irqDispatchCount++;
+        lastIrqVirtualPin = request.VirtualPin;
+        lastIrqEdge = request.Edge.ToString();
     }
 }

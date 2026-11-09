@@ -393,6 +393,78 @@ namespace RSMA.Microcontroller.Virtual.Tests
             Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
         }
 
+        [Test]
+        public void VirtualMachinePwmHalCallPreservesNormalizedDutyCycle()
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 1, 0, 7, 1 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 7, 0, 7, 64 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            var gpio = new VirtualGpioBank();
+            var machine = new VirtualMachine(package, gpio);
+            machine.Advance(0);
+
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            Assert.AreEqual(64f / 255f, gpio.GetOutputValue(7), 0.0001f);
+        }
+
+        [Test]
+        public void GpioAdapterWritesPwmDutyAsNormalizedLegacyPinValue()
+        {
+            var host = new GameObject("RSMAGPIO PWM adapter test");
+            try
+            {
+                var gpioType = Type.GetType("RSMAGPIO, Assembly-CSharp", true);
+                var portType = Type.GetType("GPIOPort, Assembly-CSharp", true);
+                var pinType = Type.GetType("GPIOPin, Assembly-CSharp", true);
+                var adapterType = Type.GetType("RSMAGpioHalAdapter, Assembly-CSharp", true);
+                var gpio = host.AddComponent(gpioType);
+                var ports = (IList)gpioType.GetMethod("GetPortList").Invoke(gpio, null);
+                var port = Activator.CreateInstance(portType);
+                portType.GetField("name").SetValue(port, "PC");
+                var pins = (IList)portType.GetField("pins").GetValue(port);
+                pins.Add(CreateLegacyPin(pinType, "7", 0f));
+                ports.Add(port);
+
+                var bindingType = Type.GetType("VirtualPinBinding, Assembly-CSharp", true);
+                var binding = Activator.CreateInstance(bindingType);
+                bindingType.GetField("virtualPin").SetValue(binding, (byte)7);
+                var connectedPin = Activator.CreateInstance(bindingType.GetField("gpioPin").FieldType);
+                connectedPin.GetType().GetField("portName").SetValue(connectedPin, "PC");
+                connectedPin.GetType().GetField("pinName").SetValue(connectedPin, "7");
+                bindingType.GetField("gpioPin").SetValue(binding, connectedPin);
+                bindingType.GetField("resetMode").SetValue(binding,
+                    Enum.ToObject(bindingType.GetField("resetMode").FieldType, 0));
+                var bindingArray = Array.CreateInstance(bindingType, 1);
+                bindingArray.SetValue(binding, 0);
+
+                var adapter = adapterType.GetConstructor(new[] { gpioType, typeof(System.Collections.Generic.IEnumerable<>).MakeGenericType(bindingType) })
+                    .Invoke(new object[] { gpio, bindingArray });
+                adapterType.GetMethod("PwmWrite").Invoke(adapter, new object[] { (byte)7, (byte)64 });
+                var dutyValue = adapterType.GetMethod("ReadPinValue").Invoke(adapter, new object[] { (byte)7 });
+
+                Assert.AreEqual(64f / 255f, (float)dutyValue, 0.0001f);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(host);
+            }
+        }
+
 
         private static object CreateLegacyPin(Type pinType, string name, float value)
         {

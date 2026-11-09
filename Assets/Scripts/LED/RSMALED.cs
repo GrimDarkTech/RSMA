@@ -1,4 +1,5 @@
 using UnityEngine;
+using RSMA.Microcontroller.Virtual;
 
 /// <summary>
 /// Implements properties and functionality of Light Emitting Diode 
@@ -25,7 +26,13 @@ public class RSMALED : MonoBehaviour
     /// </summary>
     public RSMAGPIO connectMicrocontroller;
 
+    [Header("Virtual MCU PWM")]
+    [SerializeField] private RSMAVirtualMicrocontroller virtualMicrocontroller;
+    [SerializeField] private byte virtualPin;
+    [SerializeField] private bool usePwmBrightness = true;
+
     private Color defaultColor;
+    private float brightness;
     private Material ledMaterial;
     [SerializeField] private Light ledLight;
 
@@ -36,26 +43,43 @@ public class RSMALED : MonoBehaviour
         {
             colorBody = gameObject.GetComponent<Renderer>();
         }
-        ledMaterial = colorBody.material;
+        if (colorBody != null)
+            ledMaterial = colorBody.material;
         ledLight = gameObject.GetComponent<Light>();
         ledLight.color = color;
-        defaultColor = ledMaterial.color;
+        ledLight.intensity = 1f;
+        if (ledMaterial != null)
+            defaultColor = ledMaterial.color;
     }
     private void Update()
     {
-        if(connectMicrocontroller != null)
+        if (virtualMicrocontroller != null)
+        {
+            brightness = Mathf.Clamp01(virtualMicrocontroller.GetPinValue(virtualPin));
+            mode = (ushort)(brightness > 0f ? 1 : 0);
+        }
+        else if(connectMicrocontroller != null)
         {
             mode = (ushort)connectMicrocontroller.GetPin(connectedPin).value;
+            brightness = Mathf.Clamp01(connectMicrocontroller.GetPin(connectedPin).value);
         }
-        if (mode == 1)
+        if (brightness > 0f)
         {
             ledLight.enabled = true;
-            ledMaterial.color = color;
+            if (usePwmBrightness)
+            {
+                ledLight.intensity = brightness;
+                if (ledMaterial != null)
+                    ledMaterial.color = Color.Lerp(defaultColor, color, brightness);
+            }
+            else if (ledMaterial != null)
+                ledMaterial.color = color;
         }
         else
         {
             ledLight.enabled = false;
-            ledMaterial.color = defaultColor;
+            if (ledMaterial != null)
+                ledMaterial.color = defaultColor;
         }
     }
     /// <summary>
@@ -65,5 +89,12 @@ public class RSMALED : MonoBehaviour
     public void SetMode(ushort mode)
     {
         this.mode = mode;
+        brightness = mode == 0 ? 0f : 1f;
+    }
+
+    public void SetPwm(byte dutyCycle)
+    {
+        brightness = dutyCycle / 255f;
+        mode = dutyCycle == 0 ? (ushort)0 : (ushort)1;
     }
 }

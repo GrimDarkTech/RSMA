@@ -1,4 +1,5 @@
 using UnityEngine;
+using RSMA.Microcontroller.Virtual;
 /// <summary>
 /// Implements properties and functionality of servo motor
 /// </summary>
@@ -23,6 +24,9 @@ public class RSMAServo : MonoBehaviour
     /// Microcontroller GPIO port pin connected to servo
     /// </summary>
     public ConnectedPin connectedPin;
+    [Header("Virtual MCU PWM")]
+    [SerializeField] private RSMAVirtualMicrocontroller virtualMicrocontroller;
+    [SerializeField] private byte virtualPin;
     /// <summary>
     /// If True, servo has limits
     /// </summary>
@@ -86,9 +90,17 @@ public class RSMAServo : MonoBehaviour
     }
     private void FixedUpdate()
     {
-        if (microcontroller != null)
+        if (virtualMicrocontroller != null)
         {
-            input = microcontroller.GetPin(connectedPin).value;
+            input = Mathf.Clamp01(virtualMicrocontroller.GetPinValue(virtualPin));
+        }
+        else if (microcontroller != null)
+        {
+            input = Mathf.Clamp01(microcontroller.GetPin(connectedPin).value);
+        }
+        else
+        {
+            input = 0f;
         }
 
         var jointSpring = _hingeJoint.spring;

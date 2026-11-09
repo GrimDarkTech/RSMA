@@ -27,11 +27,17 @@ namespace RSMA.Microcontroller.Virtual
         bool DigitalRead(byte pin);
     }
 
+    public interface IVirtualPwmHal
+    {
+        void PwmWrite(byte pin, byte dutyCycle);
+    }
+
     public sealed class VirtualGpioBank : IVirtualMcuHal, IVirtualInputSource, IVirtualButtonHost,
-        IVirtualGpioEdgeSource
+        IVirtualGpioEdgeSource, IVirtualPwmHal
     {
         private readonly Dictionary<byte, VirtualPinMode> modes = new Dictionary<byte, VirtualPinMode>();
         private readonly Dictionary<byte, bool> values = new Dictionary<byte, bool>();
+        private readonly Dictionary<byte, float> pwmValues = new Dictionary<byte, float>();
         private readonly Dictionary<byte, VirtualGpioPinState> states = new Dictionary<byte, VirtualGpioPinState>();
         private readonly List<ScheduledInput> scheduledInputs = new List<ScheduledInput>();
         private ulong nextInputSequence;
@@ -69,6 +75,8 @@ namespace RSMA.Microcontroller.Virtual
             state.PullMode = pullMode;
             state.OutputType = outputType;
             state.LatchLevel = values[pin];
+            if (!pwmValues.ContainsKey(pin))
+                pwmValues[pin] = values[pin] ? 1f : 0f;
             if (mode == VirtualPinMode.Input && !state.LineLevel && pullMode == VirtualPinPullMode.PullUp)
                 values[pin] = true;
             state.LineLevel = values[pin];
@@ -87,6 +95,7 @@ namespace RSMA.Microcontroller.Virtual
             states[pin].LineLevel = value;
             if (previous != value)
                 OutputChanged?.Invoke(pin, value);
+            pwmValues[pin] = value ? 1f : 0f;
         }
 
         public bool DigitalRead(byte pin)
@@ -94,6 +103,29 @@ namespace RSMA.Microcontroller.Virtual
             if (!values.TryGetValue(pin, out var value))
                 throw new InvalidOperationException("GPIO pin has not been configured");
             return value;
+        }
+
+        public float GetOutputValue(byte pin)
+        {
+            if (!modes.ContainsKey(pin))
+                throw new InvalidOperationException("GPIO pin has not been configured");
+            return pwmValues.TryGetValue(pin, out var value) ? value : (values[pin] ? 1f : 0f);
+        }
+
+        public void PwmWrite(byte pin, byte dutyCycle)
+        {
+            if (!modes.TryGetValue(pin, out var mode))
+                throw new InvalidOperationException("GPIO pin has not been configured");
+            if (mode != VirtualPinMode.Output)
+                throw new InvalidOperationException("PWM write requires output mode");
+
+            var value = dutyCycle / 255f;
+            pwmValues[pin] = value;
+            var digitalValue = dutyCycle >= 128;
+            values[pin] = digitalValue;
+            states[pin].LatchLevel = digitalValue;
+            states[pin].LineLevel = digitalValue;
+            OutputChanged?.Invoke(pin, digitalValue);
         }
 
         public void ScheduleInputLevel(byte pin, double timestampMilliseconds, bool level)
@@ -203,6 +235,7 @@ namespace RSMA.Microcontroller.Virtual
         public int StackDepth => valueStack.Count;
         public double WakeTimeMilliseconds => wakeTimeMilliseconds;
         public int InterruptDepth => irqReturnStack.Count;
+        public event Action<VirtualInterruptRequest> InterruptDispatched;
 
         public void Advance(double deltaMilliseconds)
         {
@@ -363,6 +396,7 @@ namespace RSMA.Microcontroller.Virtual
             });
             programCounter = request.TargetInstruction;
             State = VirtualExecutionState.Running;
+            InterruptDispatched?.Invoke(request);
             return true;
         }
 
@@ -396,6 +430,11 @@ namespace RSMA.Microcontroller.Virtual
                         (VirtualPinMode)(value & 0x01),
                         (VirtualPinPullMode)((value >> 1) & 0x03),
                         (VirtualPinOutputType)((value >> 3) & 0x01));
+                    break;
+                case RsmaHalService.PwmWrite:
+                    if (!(hal is IVirtualPwmHal pwmHal))
+                        throw new VirtualMachineFaultException("Firmware requires PWM support");
+                    pwmHal.PwmWrite(argument, value);
                     break;
                 case RsmaHalService.DigitalWrite:
                     hal.DigitalWrite(argument, value != 0);

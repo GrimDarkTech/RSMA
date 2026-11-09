@@ -12,9 +12,8 @@ public sealed class VirtualPinBinding
     public PinModes resetMode = PinModes.Input;
     public bool resetLatchLevel;
 }
-
-public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualInputSource, IVirtualButtonHost,
-    IVirtualGpioEdgeSource
+public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtualInputSource,
+    IVirtualButtonHost, IVirtualGpioEdgeSource
 {
     private readonly RSMAGPIO gpio;
     private readonly VirtualBoardProfile profile;
@@ -111,6 +110,24 @@ public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualInputSource, IV
         state.LatchLevel = value;
         gpio.WritePin(connectedPin.portName, connectedPin.pinName, value ? RSMAGPIO.High : RSMAGPIO.Low);
         state.LineLevel = gpioPin.value >= 0.5f;
+    }
+
+    public void PwmWrite(byte pin, byte dutyCycle)
+    {
+        var connectedPin = Resolve(pin);
+        var state = GetState(pin);
+        if (state.Mode != VirtualPinMode.Output)
+            throw new InvalidOperationException("PWM write requires an output pin");
+
+        var value = dutyCycle / 255.0f;
+        gpio.WritePin(connectedPin.portName, connectedPin.pinName, value);
+        state.LatchLevel = dutyCycle >= 128;
+        state.LineLevel = value >= 0.5f;
+    }
+
+    public float ReadPinValue(byte pin)
+    {
+        return gpio.GetPin(Resolve(pin)).value;
     }
 
     public bool DigitalRead(byte pin)
