@@ -32,6 +32,92 @@ namespace RSMA.Microcontroller.Virtual
         void PwmWrite(byte pin, byte dutyCycle);
     }
 
+    public interface IVirtualUartHal
+    {
+        void Begin(byte port, byte baudRatePreset);
+        int Available(byte port);
+        byte Read(byte port);
+        void Write(byte port, byte value);
+    }
+
+    public sealed class VirtualUartBank : IVirtualUartHal
+    {
+        public const byte PortCount = 4;
+        public const byte BaudRateCount = 5;
+        public const int ReceiveBufferCapacity = 256;
+
+        private static readonly int[] BaudRates = { 9600, 19200, 38400, 57600, 115200 };
+        private readonly PortState[] ports = { new PortState(), new PortState(), new PortState(), new PortState() };
+
+        private sealed class PortState
+        {
+            public bool Initialized;
+            public int BaudRate;
+            public readonly Queue<byte> ReceiveBuffer = new Queue<byte>();
+        }
+
+        public event Action<byte, byte> Transmitted;
+
+        public void Begin(byte port, byte baudRatePreset)
+        {
+            var state = GetPort(port);
+            if (baudRatePreset >= BaudRates.Length)
+                throw new InvalidOperationException("UART baud rate preset is unsupported");
+            state.BaudRate = BaudRates[baudRatePreset];
+            state.Initialized = true;
+        }
+
+        public int Available(byte port)
+        {
+            return GetInitializedPort(port).ReceiveBuffer.Count;
+        }
+
+        public byte Read(byte port)
+        {
+            var buffer = GetInitializedPort(port).ReceiveBuffer;
+            if (buffer.Count == 0)
+                throw new InvalidOperationException("UART receive buffer is empty");
+            return buffer.Dequeue();
+        }
+
+        public void Write(byte port, byte value)
+        {
+            GetInitializedPort(port);
+            Transmitted?.Invoke(port, value);
+        }
+
+        public void InjectReceived(byte port, byte[] data)
+        {
+            if (data == null)
+                throw new ArgumentNullException(nameof(data));
+            var buffer = GetInitializedPort(port).ReceiveBuffer;
+            if (data.Length > ReceiveBufferCapacity - buffer.Count)
+                throw new InvalidOperationException("UART receive buffer capacity exceeded");
+            foreach (var value in data)
+                buffer.Enqueue(value);
+        }
+
+        public int GetBaudRate(byte port)
+        {
+            return GetInitializedPort(port).BaudRate;
+        }
+
+        private PortState GetInitializedPort(byte port)
+        {
+            var state = GetPort(port);
+            if (!state.Initialized)
+                throw new InvalidOperationException("UART port has not been initialized");
+            return state;
+        }
+
+        private PortState GetPort(byte port)
+        {
+            if (port >= ports.Length)
+                throw new InvalidOperationException("UART port is outside the supported range");
+            return ports[port];
+        }
+    }
+
     public sealed class VirtualGpioBank : IVirtualMcuHal, IVirtualInputSource, IVirtualButtonHost,
         IVirtualGpioEdgeSource, IVirtualPwmHal
     {
@@ -197,6 +283,7 @@ namespace RSMA.Microcontroller.Virtual
         private readonly IVirtualMcuHal hal;
         private readonly IVirtualInputSource inputSource;
         private readonly IVirtualInterruptController interruptController;
+        private readonly IVirtualUartHal uart;
         private readonly Stack<uint> callStack = new Stack<uint>();
         private readonly Stack<IrqReturnState> irqReturnStack = new Stack<IrqReturnState>();
         private readonly Stack<int> valueStack = new Stack<int>();
@@ -212,18 +299,25 @@ namespace RSMA.Microcontroller.Virtual
         }
 
         public VirtualMachine(RsfwPackage package, IVirtualMcuHal hal)
-            : this(package, hal, null)
+            : this(package, hal, null, null)
         {
         }
 
         public VirtualMachine(RsfwPackage package, IVirtualMcuHal hal,
             IVirtualInterruptController interruptController)
+            : this(package, hal, interruptController, null)
+        {
+        }
+
+        public VirtualMachine(RsfwPackage package, IVirtualMcuHal hal,
+            IVirtualInterruptController interruptController, IVirtualUartHal uart)
         {
             this.package = package ?? throw new ArgumentNullException(nameof(package));
             this.hal = hal ?? throw new ArgumentNullException(nameof(hal));
             inputSource = hal as IVirtualInputSource;
             this.interruptController = interruptController ??
                 (hal is IVirtualGpioEdgeSource edgeSource ? new VirtualInterruptController(edgeSource) : null);
+            this.uart = uart;
             programCounter = package.Bytecode.EntryPoint;
             State = VirtualExecutionState.Ready;
         }
@@ -449,9 +543,33 @@ namespace RSMA.Microcontroller.Virtual
                 case RsmaHalService.Millis:
                     valueStack.Push(unchecked((int)SimulatedTimeMilliseconds));
                     break;
+                case RsmaHalService.UartBegin:
+                    RequireUart().Begin(argument, value);
+                    break;
+                case RsmaHalService.UartAvailable:
+                    valueStack.Push(RequireUart().Available(argument));
+                    break;
+                case RsmaHalService.UartRead:
+                    valueStack.Push(RequireUart().Read(argument));
+                    break;
+                case RsmaHalService.UartWrite:
+                {
+                    var transmittedValue = PopValue();
+                    if (transmittedValue < byte.MinValue || transmittedValue > byte.MaxValue)
+                        throw new VirtualMachineFaultException("UART write value must be between 0 and 255");
+                    RequireUart().Write(argument, (byte)transmittedValue);
+                    break;
+                }
                 default:
                     throw new VirtualMachineFaultException("Unsupported HAL service " + service);
             }
+        }
+
+        private IVirtualUartHal RequireUart()
+        {
+            if (uart == null)
+                throw new VirtualMachineFaultException("Firmware requires UART support");
+            return uart;
         }
 
         private int PopValue()

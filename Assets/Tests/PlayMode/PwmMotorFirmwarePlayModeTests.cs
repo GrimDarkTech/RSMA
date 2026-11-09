@@ -11,7 +11,7 @@ namespace RSMA.Microcontroller.Virtual.PlayMode.Tests
         [UnityTest]
         public IEnumerator PwmMotorFirmwareRampsReversesAndStops()
         {
-            var firmware = Resources.Load<TextAsset>("RSMA/Firmware/pwm_motor_test");
+            var firmware = LoadFirmware("pwm_motor_test");
             Assert.IsNotNull(firmware, "PWM motor RSFW TextAsset was not loaded from Resources");
 
             var package = RsfwReader.Read(firmware.bytes);
@@ -55,6 +55,26 @@ namespace RSMA.Microcontroller.Virtual.PlayMode.Tests
             Assert.IsFalse(gpio.DigitalRead(11));
 
             yield return null;
+        }
+
+        private static TextAsset LoadFirmware(string assetName)
+        {
+            var assets = Resources.LoadAll<TextAsset>("RSMA/Firmware");
+            foreach (var asset in assets)
+            {
+                if (asset.name == assetName || asset.name == assetName + ".rsfw")
+                    return asset;
+            }
+
+            var importedNames = new System.Text.StringBuilder();
+            foreach (var asset in assets)
+            {
+                if (importedNames.Length != 0)
+                    importedNames.Append(", ");
+                importedNames.Append(asset.name);
+            }
+            Assert.Fail("No firmware TextAsset named '" + assetName + "' was found. Imported resources: " + importedNames);
+            return null;
         }
     }
 }

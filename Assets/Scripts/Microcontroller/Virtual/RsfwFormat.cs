@@ -53,7 +53,11 @@ namespace RSMA.Microcontroller.Virtual
         DelayMs = 4,
         Millis = 5,
         ConfigurePin = 6,
-        PwmWrite = 7
+        PwmWrite = 7,
+        UartBegin = 8,
+        UartAvailable = 9,
+        UartRead = 10,
+        UartWrite = 11
     }
 
     public sealed class RsfwFormatException : Exception

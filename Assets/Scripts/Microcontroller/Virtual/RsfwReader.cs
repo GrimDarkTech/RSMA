@@ -313,7 +313,7 @@ namespace RSMA.Microcontroller.Virtual
         {
             var service = ReadU16(operands, 0);
             var value = operands[3];
-            if (service < (ushort)RsmaHalService.PinMode || service > (ushort)RsmaHalService.PwmWrite)
+            if (service < (ushort)RsmaHalService.PinMode || service > (ushort)RsmaHalService.UartWrite)
                 throw new RsfwFormatException("HAL_CALL contains an unknown service ID");
             if (service == (ushort)RsmaHalService.PinMode && value > (byte)VirtualPinMode.Output)
                 throw new RsfwFormatException("HAL PinMode value must be Input(0) or Output(1)");
@@ -322,6 +322,15 @@ namespace RSMA.Microcontroller.Virtual
             if (service == (ushort)RsmaHalService.ConfigurePin &&
                 ((value & 0xF0) != 0 || ((value >> 1) & 0x03) == 0x03))
                 throw new RsfwFormatException("HAL ConfigurePin contains invalid configuration bits");
+            if (service >= (ushort)RsmaHalService.UartBegin)
+            {
+                if (operands[2] >= VirtualUartBank.PortCount)
+                    throw new RsfwFormatException("HAL UART port is outside the supported range");
+                if (service == (ushort)RsmaHalService.UartBegin && value >= VirtualUartBank.BaudRateCount)
+                    throw new RsfwFormatException("HAL UART baud rate preset is unsupported");
+                if (service != (ushort)RsmaHalService.UartBegin && value != 0)
+                    throw new RsfwFormatException("HAL UART reserved value must be zero");
+            }
         }
 
         private static byte[] Slice(byte[] source, int offset, int count)

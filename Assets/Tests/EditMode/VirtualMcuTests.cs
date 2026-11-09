@@ -455,6 +455,62 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
+        public void VirtualMachineUartWriteConsumesStackByteAndRaisesTransmissionEvent()
+        {
+            var package = MakeBlinkPackage();
+            package.Manifest.RequiredPeripherals.Add("UART");
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 8, 0, 0, 4 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.ConstI32,
+                Operands = new byte[] { 65, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 11, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            var uart = new VirtualUartBank();
+            var transmissions = new System.Collections.Generic.List<byte>();
+            uart.Transmitted += (_, value) => transmissions.Add(value);
+            var machine = new VirtualMachine(package, new VirtualGpioBank(), null, uart);
+            machine.Advance(0);
+
+            Assert.AreEqual(115200, uart.GetBaudRate(0));
+            CollectionAssert.AreEqual(new byte[] { 65 }, transmissions);
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+        }
+
+        [Test]
+        public void VirtualUartBankPreservesReceiveFifoOrderAndRejectsOverflow()
+        {
+            var uart = new VirtualUartBank();
+            uart.Begin(0, 0);
+            uart.InjectReceived(0, new byte[] { 0x41, 0x42, 0x43 });
+
+            Assert.AreEqual(3, uart.Available(0));
+            Assert.AreEqual(0x41, uart.Read(0));
+            Assert.AreEqual(0x42, uart.Read(0));
+            Assert.AreEqual(1, uart.Available(0));
+            Assert.AreEqual(0x43, uart.Read(0));
+            Assert.AreEqual(0, uart.Available(0));
+            Assert.Throws<InvalidOperationException>(() => uart.Read(0));
+            Assert.Throws<InvalidOperationException>(() => uart.InjectReceived(
+                0, new byte[VirtualUartBank.ReceiveBufferCapacity + 1]));
+        }
+
+        [Test]
         public void VirtualMachineRejectsPwmWriteToInputPin()
         {
             var package = MakeBlinkPackage();

@@ -17,6 +17,7 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
 
     private RSMAGpioHalAdapter hal;
     private VirtualMachine virtualMachine;
+    private VirtualUartBank uart;
 
     public VirtualExecutionState ExecutionState => virtualMachine?.State ?? VirtualExecutionState.Ready;
     public string FaultMessage => virtualMachine?.FaultMessage;
@@ -24,6 +25,7 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
     public int IrqDispatchCount => irqDispatchCount;
     public int LastIrqVirtualPin => lastIrqVirtualPin;
     public string LastIrqEdge => lastIrqEdge;
+    public event Action<byte, byte> UartTransmitted;
 
     public float GetPinValue(byte virtualPin)
     {
@@ -46,6 +48,13 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
 
         hal.ScheduleInputLevel(virtualPin, virtualMachine.SimulatedTimeMilliseconds, !pressed);
         return true;
+    }
+
+    public void InjectUartReceive(byte port, byte[] data)
+    {
+        if (uart == null)
+            throw new InvalidOperationException("Virtual MCU UART is not initialized");
+        uart.InjectReceived(port, data);
     }
 
     private void OnEnable()
@@ -75,7 +84,9 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
             hal = pinBindings.Count == 0 && expectedBoardId == "RSMA-STM32F103"
                 ? RSMAGpioHalAdapter.CreateStm32F103Default(gpio)
                 : new RSMAGpioHalAdapter(gpio, pinBindings);
-            virtualMachine = new VirtualMachine(package, hal);
+            uart = new VirtualUartBank();
+            uart.Transmitted += OnUartTransmitted;
+            virtualMachine = new VirtualMachine(package, hal, null, uart);
             irqDispatchCount = 0;
             lastIrqVirtualPin = -1;
             lastIrqEdge = "None";
@@ -86,6 +97,9 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
             Debug.LogError("Virtual MCU failed to load firmware: " + exception.Message, this);
             virtualMachine = null;
             hal = null;
+            if (uart != null)
+                uart.Transmitted -= OnUartTransmitted;
+            uart = null;
             enabled = false;
         }
     }
@@ -112,6 +126,9 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
             virtualMachine.InterruptDispatched -= OnInterruptDispatched;
         if (stopOutputsOnDisable)
             hal?.ApplySafeState();
+        if (uart != null)
+            uart.Transmitted -= OnUartTransmitted;
+        uart = null;
         virtualMachine = null;
         hal = null;
     }
@@ -121,5 +138,10 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
         irqDispatchCount++;
         lastIrqVirtualPin = request.VirtualPin;
         lastIrqEdge = request.Edge.ToString();
+    }
+
+    private void OnUartTransmitted(byte port, byte value)
+    {
+        UartTransmitted?.Invoke(port, value);
     }
 }
