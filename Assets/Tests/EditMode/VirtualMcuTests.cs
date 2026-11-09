@@ -422,6 +422,85 @@ namespace RSMA.Microcontroller.Virtual.Tests
             Assert.AreEqual(64f / 255f, gpio.GetOutputValue(7), 0.0001f);
         }
 
+        [TestCase(0, 0f, false)]
+        [TestCase(128, 128f / 255f, true)]
+        [TestCase(255, 1f, true)]
+        public void VirtualMachinePwmHalCallHandlesDutyCycleBoundaries(
+            byte dutyCycle, float expectedValue, bool expectedDigitalLevel)
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 1, 0, 7, 1 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 7, 0, 7, dutyCycle }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            var gpio = new VirtualGpioBank();
+            var machine = new VirtualMachine(package, gpio);
+            machine.Advance(0);
+
+            Assert.AreEqual(expectedValue, gpio.GetOutputValue(7), 0.0001f);
+            Assert.AreEqual(expectedDigitalLevel, gpio.DigitalRead(7));
+        }
+
+        [Test]
+        public void VirtualMachineRejectsPwmWriteToInputPin()
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 1, 0, 7, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 7, 0, 7, 128 }
+            });
+
+            var machine = new VirtualMachine(package, new VirtualGpioBank());
+            Assert.Throws<VirtualMachineFaultException>(() => machine.Advance(0));
+        }
+
+        [Test]
+        public void PwmMotorTestFixtureRampsAndReversesConfiguredPins()
+        {
+            var firmware = AssetDatabase.LoadAssetAtPath<TextAsset>(
+                "Assets/Resources/RSMA/Firmware/pwm_motor_test.rsfw.bytes");
+            Assert.IsNotNull(firmware, "PWM motor test firmware was not imported as TextAsset");
+
+            var gpio = new VirtualGpioBank();
+            var machine = new VirtualMachine(RsfwReader.Read(firmware.bytes), gpio);
+            machine.Advance(0);
+
+            Assert.AreEqual(VirtualPinMode.Output, gpio.GetState(10).Mode);
+            Assert.AreEqual(VirtualPinMode.Output, gpio.GetState(11).Mode);
+            Assert.AreEqual(VirtualPinMode.Output, gpio.GetState(13).Mode);
+            Assert.AreEqual(0f, gpio.GetOutputValue(13), 0.0001f);
+
+            machine.Advance(500);
+            Assert.AreEqual(64f / 255f, gpio.GetOutputValue(13), 0.0001f);
+            Assert.IsTrue(gpio.DigitalRead(10));
+            Assert.IsFalse(gpio.DigitalRead(11));
+
+            machine.Advance(4500);
+            Assert.AreEqual(64f / 255f, gpio.GetOutputValue(13), 0.0001f);
+            Assert.IsFalse(gpio.DigitalRead(10));
+            Assert.IsTrue(gpio.DigitalRead(11));
+        }
+
         [Test]
         public void GpioAdapterWritesPwmDutyAsNormalizedLegacyPinValue()
         {
