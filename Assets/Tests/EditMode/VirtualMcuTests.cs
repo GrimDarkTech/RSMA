@@ -160,6 +160,102 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
+        public void VirtualMachineFaultsWhenProgramCounterLeavesBytecode()
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Jump,
+                Operands = new byte[] { 1, 0, 0, 0 }
+            });
+
+            var machine = new VirtualMachine(package, new VirtualGpioBank());
+            var exception = Assert.Throws<VirtualMachineFaultException>(() => machine.Advance(0));
+
+            Assert.AreEqual(VirtualExecutionState.Faulted, machine.State);
+            StringAssert.Contains("execution failed at instruction 1", exception.Message);
+            Assert.IsNotEmpty(machine.FaultMessage);
+        }
+
+        [Test]
+        public void VirtualMachineFaultsWhenInstructionBudgetIsExceeded()
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Jump,
+                Operands = new byte[] { 0, 0, 0, 0 }
+            });
+
+            var machine = new VirtualMachine(package, new VirtualGpioBank());
+            var exception = Assert.Throws<VirtualMachineFaultException>(() => machine.Advance(0));
+
+            Assert.AreEqual(VirtualExecutionState.Faulted, machine.State);
+            StringAssert.Contains("Instruction budget exceeded", exception.Message);
+            StringAssert.Contains("tight loop", machine.FaultMessage);
+        }
+
+        [Test]
+        public void VirtualMachineCallsSubroutineAndReturnsToCaller()
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Call,
+                Operands = new byte[] { 3, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Nop,
+                Operands = Array.Empty<byte>()
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.ConstI32,
+                Operands = new byte[] { 42, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Return,
+                Operands = Array.Empty<byte>()
+            });
+
+            var machine = new VirtualMachine(package, new VirtualGpioBank());
+            machine.Advance(0);
+
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            Assert.AreEqual(1u, machine.ProgramCounter);
+            Assert.AreEqual(1, machine.StackDepth);
+        }
+
+        [Test]
+        public void VirtualMachineFaultsOnValueStackUnderflow()
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.AddI32,
+                Operands = Array.Empty<byte>()
+            });
+
+            var machine = new VirtualMachine(package, new VirtualGpioBank());
+            var exception = Assert.Throws<VirtualMachineFaultException>(() => machine.Advance(0));
+
+            Assert.AreEqual(VirtualExecutionState.Faulted, machine.State);
+            StringAssert.Contains("VM value stack underflow", exception.Message);
+            Assert.AreEqual(0, machine.StackDepth);
+        }
+
+        [Test]
         public void GpioAdapterUsesExistingRSMAGpioWithoutTouchingUnmappedPins()
         {
             var host = new GameObject("RSMAGPIO adapter integration test");
