@@ -11,6 +11,45 @@ namespace RSMA.Tests
     public sealed class StepperDriverFirmwarePlayModeTests
     {
         [Test]
+        public void GpioWritePinOverloadsOnlyWriteOutputPins()
+        {
+            var gpioObject = new GameObject("GPIO WritePin test");
+            try
+            {
+                var gpio = gpioObject.AddComponent<RSMAGPIO>();
+                AddPin(gpio, "PA", "0");
+                AddPin(gpio, "PA", "1");
+                gpio.GetPin("PA", "1").pinMode = PinModes.Output;
+
+                LogAssert.Expect(LogType.Warning, "GPIO GPIO WritePin test can't set pin state, 0 mode is Input");
+                gpio.WritePin("PA", "0", 0.75f);
+                LogAssert.Expect(LogType.Warning, "GPIO GPIO WritePin test can't set pin state, 0 mode is Input");
+                gpio.WritePin(0, "0", 0.75f);
+                LogAssert.Expect(LogType.Warning, "GPIO GPIO WritePin test can't set pin state, 0 mode is Input");
+                gpio.WritePin("PA", 0, 0.75f);
+                LogAssert.Expect(LogType.Warning, "GPIO GPIO WritePin test can't set pin state, 0 mode is Input");
+                gpio.WritePin(0, 0, 0.75f);
+
+                Assert.AreEqual(RSMAGPIO.Low, gpio.GetPin("PA", "0").value);
+
+                gpio.WritePin("PA", "1", 0.25f);
+                gpio.WritePin(0, "1", 0.5f);
+                gpio.WritePin("PA", 1, 0.75f);
+                gpio.WritePin(0, 1, 1f);
+
+                Assert.AreEqual(1f, gpio.GetPin("PA", "1").value);
+                Assert.DoesNotThrow(() => gpio.WritePin(-1, 0, 1f));
+                Assert.DoesNotThrow(() => gpio.WritePin(0, -1, 1f));
+                Assert.DoesNotThrow(() => gpio.WritePin("PA", -1, 1f));
+                Assert.DoesNotThrow(() => gpio.WritePin(0, "missing", 1f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(gpioObject);
+            }
+        }
+
+        [Test]
         public void L298nStepperPrefabKeepsLegacyFourChannelWiring()
         {
             var prefab = LoadPrefab("Assets/Prefabs/Drivers/L298n-Stepper.prefab");
@@ -63,21 +102,29 @@ namespace RSMA.Tests
                 Physics.simulationMode = SimulationMode.Script;
                 mcuObject.SetActive(false);
                 var gpio = gpioObject.AddComponent<RSMAGPIO>();
-                AddPin(gpio, "PC", "10");
-                AddPin(gpio, "PC", "11");
-                AddPin(gpio, "PC", "12");
-                AddPin(gpio, "PC", "13");
+                AddPin(gpio, "PB", "13");
+                AddPin(gpio, "PB", "14");
+                AddPin(gpio, "PA", "10");
+                AddPin(gpio, "PA", "11");
 
                 var mcu = mcuObject.AddComponent<RSMAVirtualMicrocontroller>();
                 SetPrivateField(mcu, "firmware", LoadFirmware("stepper_motor_test"));
                 SetPrivateField(mcu, "gpio", gpio);
                 SetPrivateField(mcu, "pinBindings", new List<VirtualPinBinding>
                 {
-                    Binding(10), Binding(11), Binding(12), Binding(13)
+                    Binding(10, "PB", "13"),
+                    Binding(11, "PB", "14"),
+                    Binding(12, "PA", "10"),
+                    Binding(13, "PA", "11")
                 });
                 mcuObject.SetActive(true);
 
                 var driver = driverObject.AddComponent<StepperDriver>();
+                driver.channel1Pin = new ConnectedPin { portName = "PB", pinName = "13" };
+                driver.channel2Pin = new ConnectedPin { portName = "PB", pinName = "14" };
+                driver.channel3Pin = new ConnectedPin { portName = "PA", pinName = "10" };
+                driver.channel4Pin = new ConnectedPin { portName = "PA", pinName = "11" };
+                driver.connectMicrocontroller = gpio;
                 SetPrivateField(driver, "virtualMicrocontroller", mcu);
                 SetPrivateField(driver, "virtualChannel1Pin", (byte)10);
                 SetPrivateField(driver, "virtualChannel2Pin", (byte)11);
@@ -110,6 +157,10 @@ namespace RSMA.Tests
                 Assert.AreEqual(0f, motor.GetComponent<HingeJoint>().spring.targetPosition, 0.0001f);
 
                 AdvanceAndAssert(mcu, driver, motor, 100, 1, 1.8f);
+                AssertGpio(gpio, "PB", "13", 1f);
+                AssertGpio(gpio, "PB", "14", 1f);
+                AssertGpio(gpio, "PA", "10", 0f);
+                AssertGpio(gpio, "PA", "11", 0f);
                 AdvanceAndAssert(mcu, driver, motor, 100, 2, 3.6f);
                 AdvanceAndAssert(mcu, driver, motor, 100, 3, 5.4f);
                 AdvanceAndAssert(mcu, driver, motor, 100, 4, 7.2f);
@@ -121,7 +172,10 @@ namespace RSMA.Tests
                 AdvanceAndAssert(mcu, driver, motor, 100, 3, 5.4f);
                 AdvanceAndAssert(mcu, driver, motor, 100, 2, 3.6f);
                 AdvanceAndAssert(mcu, driver, motor, 100, 1, 1.8f);
-                AdvanceAndAssert(mcu, driver, motor, 100, 0, 1.8f);
+                mcuObject.SetActive(false);
+                UpdateDriver(driver);
+                Assert.AreEqual(0, driver.output, "Disabling the MCU should clear the active stepper phase");
+                AssertAllStepperPinsLow(gpio);
             }
             finally
             {
@@ -174,12 +228,12 @@ namespace RSMA.Tests
                 .Invoke(motor, null);
         }
 
-        private static VirtualPinBinding Binding(byte virtualPin)
+        private static VirtualPinBinding Binding(byte virtualPin, string portName, string pinName)
         {
             return new VirtualPinBinding
             {
                 virtualPin = virtualPin,
-                gpioPin = new ConnectedPin { portName = "PC", pinName = virtualPin.ToString() },
+                gpioPin = new ConnectedPin { portName = portName, pinName = pinName },
                 pullMode = PinPullModes.NoPullUpDown,
                 outputMode = PinOutputModes.PushPull,
                 resetMode = PinModes.Input
@@ -215,6 +269,20 @@ namespace RSMA.Tests
                 value = RSMAGPIO.Low,
                 outputDefaulValue = RSMAGPIO.Low
             });
+        }
+
+        private static void AssertGpio(RSMAGPIO gpio, string portName, string pinName, float expected)
+        {
+            Assert.AreEqual(expected, gpio.GetPin(portName, pinName).value, 0.0001f,
+                "Unexpected GPIO level at " + portName + pinName);
+        }
+
+        private static void AssertAllStepperPinsLow(RSMAGPIO gpio)
+        {
+            AssertGpio(gpio, "PB", "13", RSMAGPIO.Low);
+            AssertGpio(gpio, "PB", "14", RSMAGPIO.Low);
+            AssertGpio(gpio, "PA", "10", RSMAGPIO.Low);
+            AssertGpio(gpio, "PA", "11", RSMAGPIO.Low);
         }
 
         private static void SetPrivateField(object target, string fieldName, object value)

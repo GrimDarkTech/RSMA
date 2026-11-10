@@ -37,26 +37,7 @@ public class RSMAGPIO : MonoBehaviour
     /// <remarks>Works with pins in output mode only</remarks>
     public void WritePin(string portName, string pinName, float value)
     {
-        GPIOPin pin2Write = null;
-        foreach (var port in ports)
-        {
-            if (port.name == portName)
-            {
-                foreach (var pin in port.pins)
-                {
-                    if (pin.name == pinName)
-                    {
-                        pin2Write = pin;
-                        break;
-                    }
-                }
-                break;
-            }
-        }
-        if(pin2Write != null)
-        {
-            pin2Write.value = value;
-        }
+        WritePin(GetPin(portName, pinName), value);
     }
     /// <summary>
     /// Toggles output value of GPIO port pin 
@@ -67,21 +48,11 @@ public class RSMAGPIO : MonoBehaviour
     /// <remarks>Works with pins in output mode only</remarks>
     public void WritePin(int portIndex, int pinIndex, float value)
     {
-        if(portIndex < ports.Count)
-        {
-            if (pinIndex < ports[portIndex].pins.Count)
-            {
-                GPIOPin pin2Write = ports[portIndex].pins[pinIndex];
-                if (pin2Write != null)
-                {
-                    if (pin2Write.pinMode == PinModes.Output)
-                    {
-                        pin2Write.value = value;
-                    }
-                    Debug.LogWarning($"GPIO {gameObject.name} can't set pin state, {pin2Write.name} mode is Input");
-                }
-            }
-        }
+        if (portIndex < 0 || portIndex >= ports.Count ||
+            pinIndex < 0 || pinIndex >= ports[portIndex].pins.Count)
+            return;
+
+        WritePin(ports[portIndex].pins[pinIndex], value);
     }
     /// <summary>
     /// Toggles output value of GPIO port pin 
@@ -92,26 +63,10 @@ public class RSMAGPIO : MonoBehaviour
     /// <remarks>Works with pins in output mode only</remarks>
     public void WritePin(int portIndex, string pinName, float value)
     {
-        GPIOPin pin2Write = null;
-        if (portIndex < ports.Count)
-        {
-            foreach (var pin in ports[portIndex].pins)
-            {
-                if (pin.name == pinName)
-                {
-                    pin2Write = pin;
-                    break;
-                }
-            }
-        }
-        if (pin2Write != null)
-        {
-            if (pin2Write.pinMode == PinModes.Output)
-            {
-                pin2Write.value = value;
-            }
-            Debug.LogWarning($"GPIO {gameObject.name} can't set pin state, {pin2Write.name} mode is Input");
-        }
+        if (portIndex < 0 || portIndex >= ports.Count)
+            return;
+
+        WritePin(ports[portIndex].pins.Find(pin => pin.name == pinName), value);
     }
     /// <summary>
     /// Toggles output value of GPIO port pin
@@ -127,21 +82,26 @@ public class RSMAGPIO : MonoBehaviour
         {
             if (port.name == portName)
             {
+                if (pinIndex < 0 || pinIndex >= port.pins.Count)
+                    return;
                 pin2Write = port.pins[pinIndex];
                 break;
             }
         }
-        if (pin2Write != null)
+        WritePin(pin2Write, value);
+    }
+
+    private void WritePin(GPIOPin pin, float value)
+    {
+        if (pin == null)
+            return;
+        if (pin.pinMode != PinModes.Output)
         {
-            if (pin2Write.pinMode == PinModes.Output)
-            {
-                pin2Write.value = value;
-            }
-            else
-            {
-                Debug.LogWarning($"GPIO {gameObject.name} can't set pin state, pin with index {pin2Write.name} mode is Input");
-            }
+            Debug.LogWarning($"GPIO {gameObject.name} can't set pin state, {pin.name} mode is Input");
+            return;
         }
+
+        pin.value = value;
     }
     /// <summary>
     /// Gets GPIO port pin object by port name and pin name
