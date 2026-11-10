@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.TestTools;
 using RSMA.Microcontroller.Virtual;
@@ -9,6 +10,32 @@ namespace RSMA.Tests
 {
     public sealed class StepperDriverFirmwarePlayModeTests
     {
+        [Test]
+        public void L298nStepperPrefabKeepsLegacyFourChannelWiring()
+        {
+            var prefab = LoadPrefab("Assets/Prefabs/Drivers/L298n-Stepper.prefab");
+            var driver = prefab.GetComponentInChildren<StepperDriver>(true);
+
+            Assert.IsNotNull(driver, "L298n-Stepper prefab must contain a StepperDriver");
+            AssertPin(driver.channel1Pin, "PB", "13");
+            AssertPin(driver.channel2Pin, "PB", "14");
+            AssertPin(driver.channel3Pin, "PA", "10");
+            AssertPin(driver.channel4Pin, "PA", "11");
+        }
+
+        [Test]
+        public void StepperMotorPrefabKeepsPhysicalMotorConfiguration()
+        {
+            var prefab = LoadPrefab("Assets/Prefabs/Motors/us17hs4401s.prefab");
+            var motor = prefab.GetComponent<StepperMotor>();
+
+            Assert.IsNotNull(motor, "us17hs4401s prefab must contain a StepperMotor");
+            Assert.AreEqual(1.8f, motor.stepAngle, 0.0001f);
+            Assert.AreEqual(Vector3.forward, motor.motorAxis);
+            Assert.IsNotNull(prefab.GetComponent<Rigidbody>(),
+                "Stepper motor prefab must keep its required Rigidbody");
+        }
+
         [UnitySetUp]
         public IEnumerator EnterPlayMode()
         {
@@ -30,8 +57,10 @@ namespace RSMA.Tests
             var driverObject = new GameObject("Stepper test driver");
             var motorObject = new GameObject("Stepper test motor");
             var rotorObject = new GameObject("Stepper test rotor");
+            var previousSimulationMode = Physics.simulationMode;
             try
             {
+                Physics.simulationMode = SimulationMode.Script;
                 mcuObject.SetActive(false);
                 var gpio = gpioObject.AddComponent<RSMAGPIO>();
                 AddPin(gpio, "PC", "10");
@@ -55,13 +84,20 @@ namespace RSMA.Tests
                 SetPrivateField(driver, "virtualChannel3Pin", (byte)12);
                 SetPrivateField(driver, "virtualChannel4Pin", (byte)13);
 
-                motorObject.AddComponent<Rigidbody>();
-                rotorObject.AddComponent<Rigidbody>();
+                var motorBody = motorObject.AddComponent<Rigidbody>();
+                motorBody.useGravity = false;
+                motorBody.constraints = RigidbodyConstraints.FreezePosition |
+                                       RigidbodyConstraints.FreezeRotationX |
+                                       RigidbodyConstraints.FreezeRotationY;
+                var rotorBody = rotorObject.AddComponent<Rigidbody>();
+                rotorBody.isKinematic = true;
                 var motor = motorObject.AddComponent<StepperMotor>();
                 motor.connectedBody = rotorObject;
                 motor.motorDriver = driver;
                 motor.motorAxis = Vector3.forward;
                 motor.stepAngle = 1.8f;
+                motor.torque = 500f;
+                motor.holdingTorque = 5f;
                 typeof(StepperMotor).GetMethod(
                     "Start", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                     .Invoke(motor, null);
@@ -78,6 +114,8 @@ namespace RSMA.Tests
                 AdvanceAndAssert(mcu, driver, motor, 100, 3, 5.4f);
                 AdvanceAndAssert(mcu, driver, motor, 100, 4, 7.2f);
                 AdvanceAndAssert(mcu, driver, motor, 100, 0, 7.2f);
+                Assert.Greater(Mathf.Abs(motor.GetComponent<HingeJoint>().angle), 0.1f,
+                    "Stepper phases should produce physical rotation, not only a new spring target");
 
                 AdvanceAndAssert(mcu, driver, motor, 100, 4, 7.2f);
                 AdvanceAndAssert(mcu, driver, motor, 100, 3, 5.4f);
@@ -92,6 +130,7 @@ namespace RSMA.Tests
                 Object.Destroy(driverObject);
                 Object.Destroy(motorObject);
                 Object.Destroy(rotorObject);
+                Physics.simulationMode = previousSimulationMode;
             }
 
             yield return null;
@@ -108,6 +147,8 @@ namespace RSMA.Tests
             AdvanceSimulation(mcu, milliseconds);
             UpdateDriver(driver);
             UpdateMotor(motor);
+            for (var index = 0; index < 10; index++)
+                Physics.Simulate(Time.fixedDeltaTime);
             Assert.AreEqual(expectedOutput, driver.output);
             Assert.AreEqual(expectedTargetPosition,
                 motor.GetComponent<HingeJoint>().spring.targetPosition, 0.0001f);
@@ -188,6 +229,19 @@ namespace RSMA.Tests
             return (T)target.GetType().GetField(
                 fieldName, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                 .GetValue(target);
+        }
+
+        private static GameObject LoadPrefab(string path)
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            Assert.IsNotNull(prefab, "Prefab was not found: " + path);
+            return prefab;
+        }
+
+        private static void AssertPin(ConnectedPin actual, string expectedPort, string expectedPin)
+        {
+            Assert.AreEqual(expectedPort, actual.portName);
+            Assert.AreEqual(expectedPin, actual.pinName);
         }
     }
 }
