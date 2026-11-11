@@ -480,6 +480,40 @@ namespace RSMA.Microcontroller.Virtual
                     PushValue(unchecked(left - right));
                     break;
                 }
+                case RsfwOpcode.CmpEqI32:
+                    PushValue(PopValue() == PopValue() ? 1 : 0);
+                    break;
+                case RsfwOpcode.CmpNeI32:
+                    PushValue(PopValue() != PopValue() ? 1 : 0);
+                    break;
+                case RsfwOpcode.CmpLtI32:
+                {
+                    var right = PopValue();
+                    var left = PopValue();
+                    PushValue(left < right ? 1 : 0);
+                    break;
+                }
+                case RsfwOpcode.CmpLeI32:
+                {
+                    var right = PopValue();
+                    var left = PopValue();
+                    PushValue(left <= right ? 1 : 0);
+                    break;
+                }
+                case RsfwOpcode.CmpGtI32:
+                {
+                    var right = PopValue();
+                    var left = PopValue();
+                    PushValue(left > right ? 1 : 0);
+                    break;
+                }
+                case RsfwOpcode.CmpGeI32:
+                {
+                    var right = PopValue();
+                    var left = PopValue();
+                    PushValue(left >= right ? 1 : 0);
+                    break;
+                }
                 case RsfwOpcode.Jump:
                     next = ReadU32(instruction.Operands, 0);
                     break;

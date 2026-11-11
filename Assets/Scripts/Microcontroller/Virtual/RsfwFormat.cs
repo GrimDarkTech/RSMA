@@ -42,7 +42,13 @@ namespace RSMA.Microcontroller.Virtual
         AttachIrq = 0x0E,
         EnableIrq = 0x0F,
         DisableIrq = 0x10,
-        ReturnIrq = 0x11
+        ReturnIrq = 0x11,
+        CmpEqI32 = 0x12,
+        CmpNeI32 = 0x13,
+        CmpLtI32 = 0x14,
+        CmpLeI32 = 0x15,
+        CmpGtI32 = 0x16,
+        CmpGeI32 = 0x17
     }
 
     public enum RsmaHalService : ushort

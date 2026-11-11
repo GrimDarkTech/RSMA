@@ -257,6 +257,12 @@ namespace RSMA.Microcontroller.Virtual
                     case RsfwOpcode.Halt:
                     case RsfwOpcode.AddI32:
                     case RsfwOpcode.SubI32:
+                    case RsfwOpcode.CmpEqI32:
+                    case RsfwOpcode.CmpNeI32:
+                    case RsfwOpcode.CmpLtI32:
+                    case RsfwOpcode.CmpLeI32:
+                    case RsfwOpcode.CmpGtI32:
+                    case RsfwOpcode.CmpGeI32:
                     case RsfwOpcode.Return:
                     case RsfwOpcode.ReadTime:
                     case RsfwOpcode.EnableIrq:

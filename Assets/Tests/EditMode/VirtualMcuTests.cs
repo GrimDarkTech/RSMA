@@ -267,6 +267,104 @@ namespace RSMA.Microcontroller.Virtual.Tests
             Assert.IsFalse(machine.Step());
         }
 
+        [TestCase(RsfwOpcode.CmpEqI32, 7, 7, 1)]
+        [TestCase(RsfwOpcode.CmpEqI32, 7, 3, 0)]
+        [TestCase(RsfwOpcode.CmpNeI32, 7, 3, 1)]
+        [TestCase(RsfwOpcode.CmpNeI32, 7, 7, 0)]
+        [TestCase(RsfwOpcode.CmpLtI32, 3, 7, 1)]
+        [TestCase(RsfwOpcode.CmpLtI32, 7, 3, 0)]
+        [TestCase(RsfwOpcode.CmpLeI32, 7, 7, 1)]
+        [TestCase(RsfwOpcode.CmpLeI32, 8, 7, 0)]
+        [TestCase(RsfwOpcode.CmpGtI32, 7, 3, 1)]
+        [TestCase(RsfwOpcode.CmpGtI32, 3, 7, 0)]
+        [TestCase(RsfwOpcode.CmpGeI32, 7, 7, 1)]
+        [TestCase(RsfwOpcode.CmpGeI32, 3, 7, 0)]
+        public void VirtualMachineExecutesIntegerComparisonOpcodes(
+            RsfwOpcode opcode, int left, int right, int expected)
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(MakeConstI32(left));
+            package.Bytecode.Instructions.Add(MakeConstI32(right));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = opcode,
+                Operands = Array.Empty<byte>()
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.JumpIf,
+                Operands = new byte[] { 6, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(MakeConstI32(0));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+            package.Bytecode.Instructions.Add(MakeConstI32(1));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            ReadPackageThroughReader(package);
+            Assert.AreEqual(opcode, package.Bytecode.Instructions[2].Opcode);
+            var machine = new VirtualMachine(package, new VirtualGpioBank());
+
+            machine.Advance(0);
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            Assert.AreEqual(expected == 0 ? 5u : 7u, machine.ProgramCounter);
+            Assert.AreEqual(1, machine.StackDepth);
+        }
+
+        [Test]
+        public void VirtualMachineUsesComparisonResultForConditionalJump()
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(MakeConstI32(9));
+            package.Bytecode.Instructions.Add(MakeConstI32(4));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.CmpGtI32,
+                Operands = Array.Empty<byte>()
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.JumpIf,
+                Operands = new byte[] { 6, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(MakeConstI32(0));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+            package.Bytecode.Instructions.Add(MakeConstI32(1));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            ReadPackageThroughReader(package);
+            var machine = new VirtualMachine(package, new VirtualGpioBank());
+
+            Assert.IsTrue(machine.Step());
+            Assert.IsTrue(machine.Step());
+            Assert.IsTrue(machine.Step());
+            Assert.IsTrue(machine.Step());
+
+            Assert.AreEqual(6u, machine.ProgramCounter);
+            Assert.IsTrue(machine.Step());
+            Assert.IsTrue(machine.Step());
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            Assert.AreEqual(7u, machine.ProgramCounter);
+            Assert.AreEqual(1, machine.StackDepth);
+        }
+
         [Test]
         public void VirtualMachineStepExecutesCallAndReturnOneInstructionAtATime()
         {
