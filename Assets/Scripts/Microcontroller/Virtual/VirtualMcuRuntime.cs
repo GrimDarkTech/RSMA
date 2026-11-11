@@ -278,6 +278,7 @@ namespace RSMA.Microcontroller.Virtual
     public sealed class VirtualMachine
     {
         private const int MaxInstructionsPerAdvance = 100000;
+        private const int MaxCallDepth = 256;
 
         private readonly RsfwPackage package;
         private readonly IVirtualMcuHal hal;
@@ -430,6 +431,8 @@ namespace RSMA.Microcontroller.Virtual
                         next = ReadU32(instruction.Operands, 0);
                     break;
                 case RsfwOpcode.Call:
+                    if (callStack.Count >= MaxCallDepth)
+                        throw new VirtualMachineFaultException("CALL stack depth limit exceeded");
                     callStack.Push(next);
                     next = ReadU32(instruction.Operands, 0);
                     break;

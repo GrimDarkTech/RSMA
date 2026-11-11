@@ -23,6 +23,56 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
+        public void ReaderRejectsInvalidInstructionOperands()
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.ConstI32,
+                Operands = new byte[] { 1, 0, 0 }
+            });
+
+            Assert.Throws<RsfwFormatException>(() => ReadPackageThroughReader(package));
+        }
+
+        [Test]
+        public void ReaderRejectsBranchTargetOutsideInstructionList()
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Jump,
+                Operands = new byte[] { 1, 0, 0, 0 }
+            });
+
+            Assert.Throws<RsfwFormatException>(() => ReadPackageThroughReader(package));
+        }
+
+        [TestCase(0, 0, 0, "unknown service")]
+        [TestCase(1, 0, 2, "invalid pin mode")]
+        [TestCase(2, 0, 2, "invalid digital value")]
+        [TestCase(6, 0, 0x10, "invalid GPIO configuration")]
+        [TestCase(8, 4, 0, "invalid UART port")]
+        [TestCase(8, 0, 5, "invalid UART baud preset")]
+        [TestCase(9, 0, 1, "nonzero UART reserved value")]
+        public void ReaderRejectsInvalidHalOperands(int service, int argument, int value, string caseName)
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { (byte)service, 0, (byte)argument, (byte)value }
+            });
+
+            var exception = Assert.Throws<RsfwFormatException>(() => ReadPackageThroughReader(package));
+
+            Assert.IsNotNull(exception, caseName);
+        }
+
+        [Test]
         public void ReaderRejectsCorruptHeaderChecksum()
         {
             var firmware = AssetDatabase.LoadAssetAtPath<TextAsset>(
@@ -236,6 +286,40 @@ namespace RSMA.Microcontroller.Virtual.Tests
             Assert.AreEqual(1, machine.StackDepth);
         }
 
+        [TestCase(256, false)]
+        [TestCase(257, true)]
+        public void VirtualMachineEnforcesCallStackDepthLimit(int callCount, bool shouldFault)
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            for (var i = 0; i < callCount; ++i)
+            {
+                package.Bytecode.Instructions.Add(new RsfwInstruction
+                {
+                    Opcode = RsfwOpcode.Call,
+                    Operands = new byte[] { (byte)((i + 1) & 0xFF), (byte)((i + 1) >> 8), 0, 0 }
+                });
+            }
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            var machine = new VirtualMachine(package, new VirtualGpioBank());
+            if (!shouldFault)
+            {
+                Assert.DoesNotThrow(() => machine.Advance(0));
+                Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+                return;
+            }
+
+            var exception = Assert.Throws<VirtualMachineFaultException>(() => machine.Advance(0));
+
+            Assert.AreEqual(VirtualExecutionState.Faulted, machine.State);
+            StringAssert.Contains("CALL stack depth limit exceeded", exception.Message);
+        }
+
         [Test]
         public void VirtualMachineFaultsOnValueStackUnderflow()
         {
@@ -252,6 +336,103 @@ namespace RSMA.Microcontroller.Virtual.Tests
 
             Assert.AreEqual(VirtualExecutionState.Faulted, machine.State);
             StringAssert.Contains("VM value stack underflow", exception.Message);
+            Assert.AreEqual(0, machine.StackDepth);
+        }
+
+        [Test]
+        public void VirtualMachineArithmeticAndMemorySlotsPreserveValues()
+        {
+            var package = MakeBlinkPackage();
+            package.Manifest.RequiredPeripherals.Add("UART");
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 8, 0, 0, 4 }
+            });
+            package.Bytecode.Instructions.Add(MakeConstI32(10));
+            package.Bytecode.Instructions.Add(MakeConstI32(3));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.SubI32,
+                Operands = Array.Empty<byte>()
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Store,
+                Operands = new byte[] { 255, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Load,
+                Operands = new byte[] { 255, 0 }
+            });
+            package.Bytecode.Instructions.Add(MakeConstI32(2));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.AddI32,
+                Operands = Array.Empty<byte>()
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Store,
+                Operands = new byte[] { 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Load,
+                Operands = new byte[] { 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 11, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            var uart = new VirtualUartBank();
+            var transmitted = new System.Collections.Generic.List<byte>();
+            uart.Transmitted += (_, value) => transmitted.Add(value);
+            var machine = new VirtualMachine(package, new VirtualGpioBank(), null, uart);
+            machine.Advance(0);
+
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            CollectionAssert.AreEqual(new byte[] { 9 }, transmitted);
+            Assert.AreEqual(0, machine.StackDepth);
+        }
+
+        [TestCase(1, 3u)]
+        [TestCase(0, 2u)]
+        public void VirtualMachineJumpIfBranchesOnlyForNonzeroStackValue(int condition, uint expectedProgramCounter)
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(MakeConstI32(condition));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.JumpIf,
+                Operands = new byte[] { 3, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            var machine = new VirtualMachine(package, new VirtualGpioBank());
+            machine.Advance(0);
+
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            Assert.AreEqual(expectedProgramCounter, machine.ProgramCounter);
             Assert.AreEqual(0, machine.StackDepth);
         }
 
@@ -627,6 +808,63 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
+        public void VirtualMachineFaultsWhenUartIsRequiredButUnavailable()
+        {
+            var package = MakeBlinkPackage();
+            package.Manifest.RequiredPeripherals.Add("UART");
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 8, 0, 0, 0 }
+            });
+
+            var machine = new VirtualMachine(package, new VirtualGpioBank());
+            var exception = Assert.Throws<VirtualMachineFaultException>(() => machine.Advance(0));
+
+            StringAssert.Contains("Firmware requires UART support", exception.Message);
+            Assert.AreEqual(VirtualExecutionState.Faulted, machine.State);
+        }
+
+        [Test]
+        public void VirtualMachineFaultsWhenPwmIsRequiredButUnavailable()
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 7, 0, 7, 128 }
+            });
+
+            var machine = new VirtualMachine(package, new BasicVirtualHal());
+            var exception = Assert.Throws<VirtualMachineFaultException>(() => machine.Advance(0));
+
+            StringAssert.Contains("Firmware requires PWM support", exception.Message);
+            Assert.AreEqual(VirtualExecutionState.Faulted, machine.State);
+        }
+
+        [TestCase(-1)]
+        [TestCase(256)]
+        public void VirtualMachineRejectsUartWriteValuesOutsideByteRange(int value)
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(MakeConstI32(value));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 11, 0, 0, 0 }
+            });
+
+            var machine = new VirtualMachine(package, new VirtualGpioBank(), null, new VirtualUartBank());
+            var exception = Assert.Throws<VirtualMachineFaultException>(() => machine.Advance(0));
+
+            StringAssert.Contains("UART write value must be between 0 and 255", exception.Message);
+            Assert.AreEqual(VirtualExecutionState.Faulted, machine.State);
+        }
+
+        [Test]
         public void PwmMotorTestFixtureRampsAndReversesConfiguredPins()
         {
             var firmware = AssetDatabase.LoadAssetAtPath<TextAsset>(
@@ -708,6 +946,21 @@ namespace RSMA.Microcontroller.Virtual.Tests
             return pin;
         }
 
+        private sealed class BasicVirtualHal : IVirtualMcuHal
+        {
+            public void PinMode(byte pin, VirtualPinMode mode) { }
+
+            public void ConfigurePin(byte pin, VirtualPinMode mode, VirtualPinPullMode pullMode,
+                VirtualPinOutputType outputType) { }
+
+            public void DigitalWrite(byte pin, bool value) { }
+
+            public bool DigitalRead(byte pin)
+            {
+                return false;
+            }
+        }
+
         private static RsfwPackage MakeBlinkPackage()
         {
             var package = new RsfwPackage
@@ -754,6 +1007,37 @@ namespace RSMA.Microcontroller.Virtual.Tests
                 Operands = new byte[] { 1, 0, 0, 0 }
             });
             return package;
+        }
+
+        private static RsfwInstruction MakeConstI32(int value)
+        {
+            var bits = unchecked((uint)value);
+            return new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.ConstI32,
+                Operands = new byte[]
+                {
+                    (byte)bits,
+                    (byte)(bits >> 8),
+                    (byte)(bits >> 16),
+                    (byte)(bits >> 24)
+                }
+            };
+        }
+
+        private static void ReadPackageThroughReader(RsfwPackage package)
+        {
+            var validate = typeof(RsfwReader).GetMethod("ValidatePackage",
+                BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.IsNotNull(validate);
+            try
+            {
+                validate.Invoke(null, new object[] { package });
+            }
+            catch (TargetInvocationException exception)
+            {
+                throw exception.InnerException;
+            }
         }
 
         private static RsfwPackage MakeIrqPackage(byte pin = 7)
