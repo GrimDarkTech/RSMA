@@ -67,6 +67,13 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
         lastIrqEdge = "None";
     }
 
+    public bool Step()
+    {
+        if (virtualMachine == null)
+            throw new InvalidOperationException("Virtual MCU is not initialized");
+        return virtualMachine.Step();
+    }
+
     private void OnEnable()
     {
         if (firmware == null)

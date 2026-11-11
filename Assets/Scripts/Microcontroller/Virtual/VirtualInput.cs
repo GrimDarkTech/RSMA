@@ -67,6 +67,8 @@ namespace RSMA.Microcontroller.Virtual
 
     public sealed class VirtualInterruptController : IVirtualInterruptController
     {
+        public const int MaxPendingInterrupts = 4096;
+
         private sealed class Binding
         {
             public byte EdgeMask;
@@ -120,6 +122,8 @@ namespace RSMA.Microcontroller.Virtual
             var edgeBit = (byte)input.Edge;
             if ((binding.EdgeMask & edgeBit) == 0)
                 return;
+            if (pending.Count >= MaxPendingInterrupts)
+                throw new InvalidOperationException("Virtual interrupt queue capacity exceeded");
             pending.Enqueue(new VirtualInterruptRequest
             {
                 VirtualPin = input.VirtualPin,

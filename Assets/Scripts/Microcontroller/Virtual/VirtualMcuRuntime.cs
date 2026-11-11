@@ -121,6 +121,8 @@ namespace RSMA.Microcontroller.Virtual
     public sealed class VirtualGpioBank : IVirtualMcuHal, IVirtualInputSource, IVirtualButtonHost,
         IVirtualGpioEdgeSource, IVirtualPwmHal
     {
+        public const int MaxScheduledInputEvents = 4096;
+
         private readonly Dictionary<byte, VirtualPinMode> modes = new Dictionary<byte, VirtualPinMode>();
         private readonly Dictionary<byte, bool> values = new Dictionary<byte, bool>();
         private readonly Dictionary<byte, float> pwmValues = new Dictionary<byte, float>();
@@ -222,6 +224,8 @@ namespace RSMA.Microcontroller.Virtual
                 throw new InvalidOperationException("GPIO pin has not been configured");
             if (mode != VirtualPinMode.Input)
                 throw new InvalidOperationException("Input events require input mode");
+            if (scheduledInputs.Count >= MaxScheduledInputEvents)
+                throw new InvalidOperationException("Virtual GPIO input event capacity exceeded");
 
             scheduledInputs.Add(new ScheduledInput
             {
@@ -344,6 +348,45 @@ namespace RSMA.Microcontroller.Virtual
             SimulatedTimeMilliseconds = 0.0;
             FaultMessage = null;
             State = VirtualExecutionState.Ready;
+        }
+
+        public bool Step()
+        {
+            if (State == VirtualExecutionState.Halted || State == VirtualExecutionState.Faulted)
+                return false;
+
+            try
+            {
+                inputSource?.AdvanceInputTo(SimulatedTimeMilliseconds);
+                if (State == VirtualExecutionState.Ready)
+                    State = VirtualExecutionState.Running;
+
+                TryDispatchInterrupt();
+
+                if (State == VirtualExecutionState.Waiting)
+                {
+                    if (wakeTimeMilliseconds > SimulatedTimeMilliseconds)
+                        return false;
+                    State = VirtualExecutionState.Running;
+                }
+
+                if (State != VirtualExecutionState.Running)
+                    return false;
+
+                ExecuteInstruction(package.Bytecode.Instructions[(int)programCounter]);
+                if (State == VirtualExecutionState.Running && programCounter >= package.Bytecode.Instructions.Count)
+                    throw new VirtualMachineFaultException("Program counter is outside bytecode");
+                return true;
+            }
+            catch (Exception exception)
+            {
+                State = VirtualExecutionState.Faulted;
+                FaultMessage = exception.Message;
+                if (exception is VirtualMachineFaultException)
+                    throw;
+                throw new VirtualMachineFaultException(
+                    "Virtual MCU execution failed at instruction " + programCounter, exception);
+            }
         }
 
         public void Advance(double deltaMilliseconds)

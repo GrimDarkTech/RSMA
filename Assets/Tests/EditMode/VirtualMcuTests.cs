@@ -244,6 +244,194 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
+        public void VirtualMachineStepExecutesExactlyOneInstructionAndHonorsTerminalStates()
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(MakeConstI32(17));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            var machine = new VirtualMachine(package, new VirtualGpioBank());
+
+            Assert.IsTrue(machine.Step());
+            Assert.AreEqual(VirtualExecutionState.Running, machine.State);
+            Assert.AreEqual(1u, machine.ProgramCounter);
+            Assert.AreEqual(1, machine.StackDepth);
+            Assert.IsTrue(machine.Step());
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            Assert.AreEqual(1u, machine.ProgramCounter);
+            Assert.IsFalse(machine.Step());
+        }
+
+        [Test]
+        public void VirtualMachineStepExecutesCallAndReturnOneInstructionAtATime()
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Call,
+                Operands = new byte[] { 3, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Nop,
+                Operands = Array.Empty<byte>()
+            });
+            package.Bytecode.Instructions.Add(MakeConstI32(21));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Return,
+                Operands = Array.Empty<byte>()
+            });
+
+            var machine = new VirtualMachine(package, new VirtualGpioBank());
+
+            Assert.IsTrue(machine.Step());
+            Assert.AreEqual(3u, machine.ProgramCounter);
+            Assert.IsTrue(machine.Step());
+            Assert.AreEqual(4u, machine.ProgramCounter);
+            Assert.AreEqual(1, machine.StackDepth);
+            Assert.IsTrue(machine.Step());
+            Assert.AreEqual(1u, machine.ProgramCounter);
+            Assert.AreEqual(1, machine.StackDepth);
+            Assert.IsTrue(machine.Step());
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+        }
+
+        [Test]
+        public void VirtualMachineStepWaitsUntilAdvanceReachesWakeTime()
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Wait,
+                Operands = new byte[] { 10, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            var machine = new VirtualMachine(package, new VirtualGpioBank());
+
+            Assert.IsTrue(machine.Step());
+            Assert.AreEqual(VirtualExecutionState.Waiting, machine.State);
+            Assert.AreEqual(10.0, machine.WakeTimeMilliseconds);
+            Assert.IsFalse(machine.Step());
+            Assert.AreEqual(1u, machine.ProgramCounter);
+
+            machine.Advance(10);
+
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            Assert.AreEqual(10.0, machine.SimulatedTimeMilliseconds);
+            Assert.IsFalse(machine.Step());
+        }
+
+        [Test]
+        public void VirtualMachineStepFaultsAndRemainsStoppedUntilReset()
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.AddI32,
+                Operands = Array.Empty<byte>()
+            });
+
+            var machine = new VirtualMachine(package, new VirtualGpioBank());
+            var exception = Assert.Throws<VirtualMachineFaultException>(() => machine.Step());
+
+            Assert.AreEqual(VirtualExecutionState.Faulted, machine.State);
+            StringAssert.Contains("VM value stack underflow", exception.Message);
+            Assert.IsFalse(machine.Step());
+
+            machine.Reset();
+
+            Assert.AreEqual(VirtualExecutionState.Ready, machine.State);
+            Assert.Throws<VirtualMachineFaultException>(() => machine.Step());
+            Assert.AreEqual(VirtualExecutionState.Faulted, machine.State);
+        }
+
+        [Test]
+        public void VirtualMachineStepFaultsWhenBranchLeavesBytecode()
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Jump,
+                Operands = new byte[] { 1, 0, 0, 0 }
+            });
+
+            var machine = new VirtualMachine(package, new VirtualGpioBank());
+
+            var exception = Assert.Throws<VirtualMachineFaultException>(() => machine.Step());
+
+            Assert.AreEqual(VirtualExecutionState.Faulted, machine.State);
+            StringAssert.Contains("Program counter is outside bytecode", exception.Message);
+        }
+
+        [Test]
+        public void VirtualMachineStepDispatchesInterruptThenExecutesOneHandlerInstruction()
+        {
+            var gpio = new VirtualGpioBank();
+            gpio.ConfigurePin(7, VirtualPinMode.Input, VirtualPinPullMode.PullUp,
+                VirtualPinOutputType.PushPull);
+            var controller = new VirtualInterruptController(gpio);
+            controller.Attach(7, (byte)VirtualGpioEdge.Falling, 2);
+            controller.Enable();
+
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Wait,
+                Operands = new byte[] { 50, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+            package.Bytecode.Instructions.Add(MakeConstI32(7));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.ReturnIrq,
+                Operands = Array.Empty<byte>()
+            });
+
+            var machine = new VirtualMachine(package, gpio, controller);
+            Assert.IsTrue(machine.Step());
+            Assert.AreEqual(VirtualExecutionState.Waiting, machine.State);
+
+            new VirtualButton(gpio, 7).PressAt(5);
+            gpio.AdvanceInputTo(5);
+
+            Assert.IsTrue(machine.Step());
+            Assert.AreEqual(3u, machine.ProgramCounter);
+            Assert.AreEqual(1, machine.InterruptDepth);
+            Assert.AreEqual(1, machine.StackDepth);
+            Assert.IsTrue(machine.Step());
+            Assert.AreEqual(0, machine.InterruptDepth);
+            Assert.AreEqual(1u, machine.ProgramCounter);
+            Assert.AreEqual(VirtualExecutionState.Waiting, machine.State);
+            Assert.AreEqual(50.0, machine.WakeTimeMilliseconds);
+            Assert.IsFalse(machine.Step());
+        }
+
+        [Test]
         public void VirtualMachineResetClearsFaultAndExecutionState()
         {
             var package = MakeBlinkPackage();
@@ -266,7 +454,7 @@ namespace RSMA.Microcontroller.Virtual.Tests
             machine.Reset();
 
             Assert.AreEqual(VirtualExecutionState.Ready, machine.State);
-            Assert.IsNull(machine.FaultMessage);
+            Assert.Throws<VirtualMachineFaultException>(() => machine.Step());
             Assert.AreEqual(0.0, machine.SimulatedTimeMilliseconds);
             Assert.AreEqual(0u, machine.ProgramCounter);
             Assert.AreEqual(0, machine.StackDepth);
@@ -768,6 +956,30 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
+        public void VirtualGpioRejectsInputEventQueueOverflowWithoutDroppingAcceptedEvents()
+        {
+            var gpio = new VirtualGpioBank();
+            gpio.ConfigurePin(7, VirtualPinMode.Input, VirtualPinPullMode.None,
+                VirtualPinOutputType.PushPull);
+            var observed = new System.Collections.Generic.List<VirtualGpioInputEvent>();
+            gpio.InputEdge += observed.Add;
+
+            for (var i = 0; i < VirtualGpioBank.MaxScheduledInputEvents; ++i)
+                gpio.ScheduleInputLevel(7, i + 1, (i & 1) == 0);
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+                gpio.ScheduleInputLevel(7, VirtualGpioBank.MaxScheduledInputEvents + 1, false));
+            StringAssert.Contains("Virtual GPIO input event capacity exceeded", exception.Message);
+
+            gpio.AdvanceInputTo(VirtualGpioBank.MaxScheduledInputEvents);
+
+            Assert.AreEqual(VirtualGpioBank.MaxScheduledInputEvents, observed.Count);
+            Assert.AreEqual(1.0, observed[0].TimestampMilliseconds);
+            Assert.AreEqual((double)VirtualGpioBank.MaxScheduledInputEvents,
+                observed[observed.Count - 1].TimestampMilliseconds);
+        }
+
+        [Test]
         public void VirtualInterruptControllerDispatchesDeferredFifoAndReturnsToWait()
         {
             var gpio = new VirtualGpioBank();
@@ -802,6 +1014,46 @@ namespace RSMA.Microcontroller.Virtual.Tests
             Assert.IsTrue(controller.TryDequeue(out var request));
             Assert.AreEqual(VirtualGpioEdge.Falling, request.Edge);
             Assert.AreEqual(1.0, request.TimestampMilliseconds);
+        }
+
+        [Test]
+        public void VirtualInterruptControllerRejectsPendingQueueOverflowAndPreservesFifo()
+        {
+            var gpio = new VirtualGpioBank();
+            gpio.ConfigurePin(7, VirtualPinMode.Input, VirtualPinPullMode.None,
+                VirtualPinOutputType.PushPull);
+            var controller = new VirtualInterruptController(gpio);
+            controller.Attach(7, (byte)VirtualGpioEdge.Rising, 12);
+
+            for (var i = 0; i < VirtualInterruptController.MaxPendingInterrupts; ++i)
+            {
+                var fallingTimestamp = i * 2.0 + 1.0;
+                var risingTimestamp = fallingTimestamp + 1.0;
+                gpio.ScheduleInputLevel(7, fallingTimestamp, false);
+                gpio.AdvanceInputTo(fallingTimestamp);
+                gpio.ScheduleInputLevel(7, risingTimestamp, true);
+                gpio.AdvanceInputTo(risingTimestamp);
+            }
+
+            var rejectedTimestamp = VirtualInterruptController.MaxPendingInterrupts * 2.0 + 1.0;
+            gpio.ScheduleInputLevel(7, rejectedTimestamp, false);
+            gpio.AdvanceInputTo(rejectedTimestamp);
+            gpio.ScheduleInputLevel(7, rejectedTimestamp + 1.0, true);
+            rejectedTimestamp += 1.0;
+            var exception = Assert.Throws<InvalidOperationException>(() => gpio.AdvanceInputTo(rejectedTimestamp));
+            StringAssert.Contains("Virtual interrupt queue capacity exceeded", exception.Message);
+            Assert.IsTrue(controller.HasPendingInterrupt);
+
+            controller.Enable();
+            Assert.IsTrue(controller.TryDequeue(out var first));
+            Assert.AreEqual(2.0, first.TimestampMilliseconds);
+            Assert.AreEqual(12u, first.TargetInstruction);
+
+            for (var i = 1; i < VirtualInterruptController.MaxPendingInterrupts; ++i)
+                Assert.IsTrue(controller.TryDequeue(out _));
+
+            Assert.IsFalse(controller.HasPendingInterrupt);
+            Assert.IsFalse(controller.TryDequeue(out _));
         }
 
         [Test]
