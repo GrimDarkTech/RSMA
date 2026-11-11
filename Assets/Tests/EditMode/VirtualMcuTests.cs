@@ -136,6 +136,143 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
+        public void VirtualMachineReadTimeReflectsElapsedTimeAcrossWait()
+        {
+            var package = MakeBlinkPackage();
+            package.Manifest.RequiredPeripherals.Add("UART");
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 8, 0, 0, 4 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.ReadTime,
+                Operands = Array.Empty<byte>()
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Store,
+                Operands = new byte[] { 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Wait,
+                Operands = new byte[] { 25, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.ReadTime,
+                Operands = Array.Empty<byte>()
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Load,
+                Operands = new byte[] { 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.SubI32,
+                Operands = Array.Empty<byte>()
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 11, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            var uart = new VirtualUartBank();
+            var transmissions = new System.Collections.Generic.List<byte>();
+            uart.Transmitted += (_, value) => transmissions.Add(value);
+            var machine = new VirtualMachine(package, new VirtualGpioBank(), null, uart);
+            machine.Advance(0);
+
+            Assert.AreEqual(VirtualExecutionState.Waiting, machine.State);
+            Assert.AreEqual(0.0, machine.SimulatedTimeMilliseconds);
+            Assert.AreEqual(25.0, machine.WakeTimeMilliseconds);
+
+            machine.Advance(25);
+
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            Assert.AreEqual(25.0, machine.SimulatedTimeMilliseconds);
+            CollectionAssert.AreEqual(new byte[] { 25 }, transmissions);
+        }
+
+        [TestCase(-1.0)]
+        [TestCase(double.NaN)]
+        [TestCase(double.PositiveInfinity)]
+        [TestCase(double.NegativeInfinity)]
+        public void VirtualMachineRejectsInvalidAdvanceDelta(double deltaMilliseconds)
+        {
+            var machine = new VirtualMachine(MakeBlinkPackage(), new VirtualGpioBank());
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => machine.Advance(deltaMilliseconds));
+            Assert.AreEqual(VirtualExecutionState.Ready, machine.State);
+            Assert.AreEqual(0.0, machine.SimulatedTimeMilliseconds);
+        }
+
+        [Test]
+        public void VirtualMachineIgnoresAdvanceAfterHaltUntilReset()
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            var machine = new VirtualMachine(package, new VirtualGpioBank());
+            machine.Advance(10);
+            machine.Advance(100);
+
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            Assert.AreEqual(10.0, machine.SimulatedTimeMilliseconds);
+            Assert.AreEqual(0u, machine.ProgramCounter);
+
+            machine.Reset();
+
+            Assert.AreEqual(VirtualExecutionState.Ready, machine.State);
+            Assert.AreEqual(0.0, machine.SimulatedTimeMilliseconds);
+            Assert.AreEqual(0u, machine.ProgramCounter);
+        }
+
+        [Test]
+        public void VirtualMachineResetClearsFaultAndExecutionState()
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.AddI32,
+                Operands = Array.Empty<byte>()
+            });
+
+            var machine = new VirtualMachine(package, new VirtualGpioBank());
+            Assert.Throws<VirtualMachineFaultException>(() => machine.Advance(25));
+            Assert.AreEqual(VirtualExecutionState.Faulted, machine.State);
+            Assert.IsNotEmpty(machine.FaultMessage);
+
+            machine.Advance(100);
+            Assert.AreEqual(VirtualExecutionState.Faulted, machine.State);
+            Assert.AreEqual(0.0, machine.SimulatedTimeMilliseconds);
+
+            machine.Reset();
+
+            Assert.AreEqual(VirtualExecutionState.Ready, machine.State);
+            Assert.IsNull(machine.FaultMessage);
+            Assert.AreEqual(0.0, machine.SimulatedTimeMilliseconds);
+            Assert.AreEqual(0u, machine.ProgramCounter);
+            Assert.AreEqual(0, machine.StackDepth);
+        }
+
+        [Test]
         public void VirtualMachineExecutesGpioBlinkAndResumesAfterWait()
         {
             var package = MakeBlinkPackage();
@@ -337,6 +474,47 @@ namespace RSMA.Microcontroller.Virtual.Tests
             Assert.AreEqual(VirtualExecutionState.Faulted, machine.State);
             StringAssert.Contains("VM value stack underflow", exception.Message);
             Assert.AreEqual(0, machine.StackDepth);
+        }
+
+        [Test]
+        public void VirtualMachineAllowsValueStackToReachConfiguredLimit()
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            for (var i = 0; i < VirtualMachine.MaxValueStackDepth; ++i)
+                package.Bytecode.Instructions.Add(MakeConstI32(i));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            var machine = new VirtualMachine(package, new VirtualGpioBank());
+            machine.Advance(0);
+
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            Assert.AreEqual(VirtualMachine.MaxValueStackDepth, machine.StackDepth);
+        }
+
+        [Test]
+        public void VirtualMachineFaultsWhenValueStackLimitIsExceeded()
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            for (var i = 0; i <= VirtualMachine.MaxValueStackDepth; ++i)
+                package.Bytecode.Instructions.Add(MakeConstI32(i));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            var machine = new VirtualMachine(package, new VirtualGpioBank());
+            var exception = Assert.Throws<VirtualMachineFaultException>(() => machine.Advance(0));
+
+            Assert.AreEqual(VirtualExecutionState.Faulted, machine.State);
+            Assert.AreEqual(VirtualMachine.MaxValueStackDepth, machine.StackDepth);
+            StringAssert.Contains("VM value stack depth limit exceeded", exception.Message);
         }
 
         [Test]
@@ -770,6 +948,67 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
+        public void VirtualMachineReadsUartAvailableCountAndFifoBytesThroughHal()
+        {
+            var package = MakeBlinkPackage();
+            package.Manifest.RequiredPeripherals.Add("UART");
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 8, 0, 0, 4 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 9, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 11, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 10, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 11, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 10, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 11, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            var uart = new VirtualUartBank();
+            uart.Begin(0, 4);
+            uart.InjectReceived(0, new byte[] { 0x41, 0x42 });
+            var transmissions = new System.Collections.Generic.List<byte>();
+            uart.Transmitted += (_, value) => transmissions.Add(value);
+            var machine = new VirtualMachine(package, new VirtualGpioBank(), null, uart);
+            machine.Advance(0);
+
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            CollectionAssert.AreEqual(new byte[] { 2, 0x41, 0x42 }, transmissions);
+            Assert.AreEqual(0, uart.Available(0));
+            Assert.AreEqual(0, machine.StackDepth);
+        }
+
+        [Test]
         public void VirtualUartBankPreservesReceiveFifoOrderAndRejectsOverflow()
         {
             var uart = new VirtualUartBank();
@@ -785,6 +1024,76 @@ namespace RSMA.Microcontroller.Virtual.Tests
             Assert.Throws<InvalidOperationException>(() => uart.Read(0));
             Assert.Throws<InvalidOperationException>(() => uart.InjectReceived(
                 0, new byte[VirtualUartBank.ReceiveBufferCapacity + 1]));
+        }
+
+        [Test]
+        public void VirtualUartBankRejectsNullAndUninitializedAccessAcrossPorts()
+        {
+            var uart = new VirtualUartBank();
+
+            Assert.Throws<ArgumentNullException>(() => uart.InjectReceived(0, null));
+            Assert.Throws<InvalidOperationException>(() => uart.Available(0));
+            Assert.Throws<InvalidOperationException>(() => uart.Read(0));
+            Assert.Throws<InvalidOperationException>(() => uart.Write(0, 1));
+            Assert.Throws<InvalidOperationException>(() => uart.Begin(VirtualUartBank.PortCount, 0));
+
+            uart.Begin(0, 0);
+            uart.Begin(1, 1);
+            uart.InjectReceived(0, new byte[] { 0x10 });
+            uart.InjectReceived(1, new byte[] { 0x20, 0x21 });
+
+            Assert.AreEqual(1, uart.Available(0));
+            Assert.AreEqual(2, uart.Available(1));
+            Assert.AreEqual(0x10, uart.Read(0));
+            Assert.AreEqual(0x20, uart.Read(1));
+            Assert.AreEqual(0x21, uart.Read(1));
+            Assert.AreEqual(0, uart.Available(0));
+            Assert.AreEqual(0, uart.Available(1));
+        }
+
+        [Test]
+        public void VirtualMachineFaultsWhenReadingEmptyUartBuffer()
+        {
+            var package = MakeBlinkPackage();
+            package.Manifest.RequiredPeripherals.Add("UART");
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 8, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 10, 0, 0, 0 }
+            });
+
+            var machine = new VirtualMachine(package, new VirtualGpioBank(), null, new VirtualUartBank());
+            var exception = Assert.Throws<VirtualMachineFaultException>(() => machine.Advance(0));
+
+            StringAssert.Contains("Virtual MCU execution failed at instruction 1", exception.Message);
+            StringAssert.Contains("UART receive buffer is empty", machine.FaultMessage);
+            Assert.AreEqual(VirtualExecutionState.Faulted, machine.State);
+        }
+
+        [Test]
+        public void VirtualMachineFaultsWhenReadingFromUninitializedUartPort()
+        {
+            var package = MakeBlinkPackage();
+            package.Manifest.RequiredPeripherals.Add("UART");
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 10, 0, 1, 0 }
+            });
+
+            var machine = new VirtualMachine(package, new VirtualGpioBank(), null, new VirtualUartBank());
+            var exception = Assert.Throws<VirtualMachineFaultException>(() => machine.Advance(0));
+
+            StringAssert.Contains("Virtual MCU execution failed at instruction 0", exception.Message);
+            StringAssert.Contains("UART port has not been initialized", machine.FaultMessage);
+            Assert.AreEqual(VirtualExecutionState.Faulted, machine.State);
         }
 
         [Test]

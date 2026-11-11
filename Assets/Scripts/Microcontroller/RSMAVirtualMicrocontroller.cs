@@ -57,6 +57,16 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
         uart.InjectReceived(port, data);
     }
 
+    public void Reset()
+    {
+        if (virtualMachine == null)
+            throw new InvalidOperationException("Virtual MCU is not initialized");
+        virtualMachine.Reset();
+        irqDispatchCount = 0;
+        lastIrqVirtualPin = -1;
+        lastIrqEdge = "None";
+    }
+
     private void OnEnable()
     {
         if (firmware == null)

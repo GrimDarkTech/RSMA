@@ -279,6 +279,7 @@ namespace RSMA.Microcontroller.Virtual
     {
         private const int MaxInstructionsPerAdvance = 100000;
         private const int MaxCallDepth = 256;
+        public const int MaxValueStackDepth = 1024;
 
         private readonly RsfwPackage package;
         private readonly IVirtualMcuHal hal;
@@ -331,6 +332,19 @@ namespace RSMA.Microcontroller.Virtual
         public double WakeTimeMilliseconds => wakeTimeMilliseconds;
         public int InterruptDepth => irqReturnStack.Count;
         public event Action<VirtualInterruptRequest> InterruptDispatched;
+
+        public void Reset()
+        {
+            callStack.Clear();
+            irqReturnStack.Clear();
+            valueStack.Clear();
+            Array.Clear(slots, 0, slots.Length);
+            programCounter = package.Bytecode.EntryPoint;
+            wakeTimeMilliseconds = 0.0;
+            SimulatedTimeMilliseconds = 0.0;
+            FaultMessage = null;
+            State = VirtualExecutionState.Ready;
+        }
 
         public void Advance(double deltaMilliseconds)
         {
@@ -405,22 +419,22 @@ namespace RSMA.Microcontroller.Virtual
                     State = VirtualExecutionState.Halted;
                     return;
                 case RsfwOpcode.ConstI32:
-                    valueStack.Push(unchecked((int)ReadU32(instruction.Operands, 0)));
+                    PushValue(unchecked((int)ReadU32(instruction.Operands, 0)));
                     break;
                 case RsfwOpcode.Load:
-                    valueStack.Push(slots[ReadU16(instruction.Operands, 0)]);
+                    PushValue(slots[ReadU16(instruction.Operands, 0)]);
                     break;
                 case RsfwOpcode.Store:
                     slots[ReadU16(instruction.Operands, 0)] = PopValue();
                     break;
                 case RsfwOpcode.AddI32:
-                    valueStack.Push(unchecked(PopValue() + PopValue()));
+                    PushValue(unchecked(PopValue() + PopValue()));
                     break;
                 case RsfwOpcode.SubI32:
                 {
                     var right = PopValue();
                     var left = PopValue();
-                    valueStack.Push(unchecked(left - right));
+                    PushValue(unchecked(left - right));
                     break;
                 }
                 case RsfwOpcode.Jump:
@@ -445,7 +459,7 @@ namespace RSMA.Microcontroller.Virtual
                     next = callStack.Pop();
                     break;
                 case RsfwOpcode.ReadTime:
-                    valueStack.Push(unchecked((int)SimulatedTimeMilliseconds));
+                    PushValue(unchecked((int)SimulatedTimeMilliseconds));
                     break;
                 case RsfwOpcode.Wait:
                     wakeTimeMilliseconds = SimulatedTimeMilliseconds + ReadU32(instruction.Operands, 0);
@@ -537,23 +551,23 @@ namespace RSMA.Microcontroller.Virtual
                     hal.DigitalWrite(argument, value != 0);
                     break;
                 case RsmaHalService.DigitalRead:
-                    valueStack.Push(hal.DigitalRead(argument) ? 1 : 0);
+                    PushValue(hal.DigitalRead(argument) ? 1 : 0);
                     break;
                 case RsmaHalService.DelayMs:
                     wakeTimeMilliseconds = SimulatedTimeMilliseconds + value;
                     State = VirtualExecutionState.Waiting;
                     break;
                 case RsmaHalService.Millis:
-                    valueStack.Push(unchecked((int)SimulatedTimeMilliseconds));
+                    PushValue(unchecked((int)SimulatedTimeMilliseconds));
                     break;
                 case RsmaHalService.UartBegin:
                     RequireUart().Begin(argument, value);
                     break;
                 case RsmaHalService.UartAvailable:
-                    valueStack.Push(RequireUart().Available(argument));
+                    PushValue(RequireUart().Available(argument));
                     break;
                 case RsmaHalService.UartRead:
-                    valueStack.Push(RequireUart().Read(argument));
+                    PushValue(RequireUart().Read(argument));
                     break;
                 case RsmaHalService.UartWrite:
                 {
@@ -580,6 +594,13 @@ namespace RSMA.Microcontroller.Virtual
             if (valueStack.Count == 0)
                 throw new VirtualMachineFaultException("VM value stack underflow");
             return valueStack.Pop();
+        }
+
+        private void PushValue(int value)
+        {
+            if (valueStack.Count >= MaxValueStackDepth)
+                throw new VirtualMachineFaultException("VM value stack depth limit exceeded");
+            valueStack.Push(value);
         }
 
         private static ushort ReadU16(byte[] bytes, int offset)
