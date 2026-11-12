@@ -115,6 +115,35 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
+        public void ArduinoBlinkAndDirectHalBlinkHaveEquivalentGpioState()
+        {
+            var firmware = AssetDatabase.LoadAssetAtPath<TextAsset>(
+                "Assets/Resources/RSMA/Firmware/blink.rsfw.bytes");
+            Assert.IsNotNull(firmware, "C++ generated RSFW fixture was not imported as TextAsset");
+
+            var arduinoGpio = new VirtualGpioBank();
+            var halGpio = new VirtualGpioBank();
+            var arduinoMachine = new VirtualMachine(RsfwReader.Read(firmware.bytes), arduinoGpio);
+            var halMachine = new VirtualMachine(MakeBlinkPackage(), halGpio);
+
+            foreach (var elapsedMilliseconds in new[] { 0.0, 500.0, 500.0, 500.0, 500.0 })
+            {
+                arduinoMachine.Advance(elapsedMilliseconds);
+                halMachine.Advance(elapsedMilliseconds);
+
+                var arduinoState = arduinoGpio.GetState(13);
+                var halState = halGpio.GetState(13);
+                Assert.AreEqual(arduinoMachine.State, halMachine.State);
+                Assert.AreEqual(arduinoState.Mode, halState.Mode);
+                Assert.AreEqual(arduinoState.PullMode, halState.PullMode);
+                Assert.AreEqual(arduinoState.OutputType, halState.OutputType);
+                Assert.AreEqual(arduinoState.LatchLevel, halState.LatchLevel);
+                Assert.AreEqual(arduinoState.LineLevel, halState.LineLevel);
+                Assert.AreEqual(arduinoGpio.GetOutputValue(13), halGpio.GetOutputValue(13), 0.0001f);
+            }
+        }
+
+        [Test]
         public void VirtualMachineKeepsBlinkCadenceAcrossLargeTimeStep()
         {
             var firmware = AssetDatabase.LoadAssetAtPath<TextAsset>(
