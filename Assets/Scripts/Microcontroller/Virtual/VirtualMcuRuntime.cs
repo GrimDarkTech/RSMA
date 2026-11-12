@@ -290,12 +290,18 @@ namespace RSMA.Microcontroller.Virtual
         private readonly IVirtualInputSource inputSource;
         private readonly IVirtualInterruptController interruptController;
         private readonly IVirtualUartHal uart;
-        private readonly Stack<uint> callStack = new Stack<uint>();
+        private readonly Stack<CallFrame> callStack = new Stack<CallFrame>();
         private readonly Stack<IrqReturnState> irqReturnStack = new Stack<IrqReturnState>();
         private readonly Stack<int> valueStack = new Stack<int>();
         private readonly int[] slots = new int[256];
         private uint programCounter;
         private double wakeTimeMilliseconds;
+
+        private sealed class CallFrame
+        {
+            public uint ReturnProgramCounter;
+            public int[] SavedSlots;
+        }
 
         private sealed class IrqReturnState
         {
@@ -524,7 +530,9 @@ namespace RSMA.Microcontroller.Virtual
                 case RsfwOpcode.Call:
                     if (callStack.Count >= MaxCallDepth)
                         throw new VirtualMachineFaultException("CALL stack depth limit exceeded");
-                    callStack.Push(next);
+                    var savedSlots = new int[slots.Length];
+                    Array.Copy(slots, savedSlots, slots.Length);
+                    callStack.Push(new CallFrame { ReturnProgramCounter = next, SavedSlots = savedSlots });
                     next = ReadU32(instruction.Operands, 0);
                     break;
                 case RsfwOpcode.Return:
@@ -533,7 +541,9 @@ namespace RSMA.Microcontroller.Virtual
                         State = VirtualExecutionState.Halted;
                         return;
                     }
-                    next = callStack.Pop();
+                    var callFrame = callStack.Pop();
+                    Array.Copy(callFrame.SavedSlots, slots, slots.Length);
+                    next = callFrame.ReturnProgramCounter;
                     break;
                 case RsfwOpcode.ReadTime:
                     PushValue(unchecked((int)SimulatedTimeMilliseconds));
