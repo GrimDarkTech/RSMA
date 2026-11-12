@@ -285,6 +285,12 @@ namespace RSMA.Microcontroller.Virtual
                         if (ReadU16(instruction.Operands, 0) >= 256)
                             throw new RsfwFormatException("LOAD/STORE slot index exceeds VM memory");
                         break;
+                    case RsfwOpcode.GlobalLoad:
+                    case RsfwOpcode.GlobalStore:
+                        RequireOperands(instruction, 2);
+                        if (ReadU16(instruction.Operands, 0) >= 256)
+                            throw new RsfwFormatException("GLOBAL_LOAD/GLOBAL_STORE index exceeds VM memory");
+                        break;
                     case RsfwOpcode.Jump:
                     case RsfwOpcode.JumpIf:
                     case RsfwOpcode.Call:

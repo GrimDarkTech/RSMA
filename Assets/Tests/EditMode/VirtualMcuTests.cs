@@ -519,6 +519,56 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
+        public void VirtualMachinePreservesGlobalMemoryAcrossCallsAndClearsOnReset()
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(MakeConstI32(7));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.GlobalStore,
+                Operands = new byte[] { 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Call,
+                Operands = new byte[] { 5, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.GlobalLoad,
+                Operands = new byte[] { 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+            package.Bytecode.Instructions.Add(MakeConstI32(9));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.GlobalStore,
+                Operands = new byte[] { 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Return,
+                Operands = Array.Empty<byte>()
+            });
+
+            ReadPackageThroughReader(package);
+            var machine = new VirtualMachine(package, new VirtualGpioBank());
+
+            machine.Advance(0);
+
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            Assert.AreEqual(1, machine.StackDepth);
+            machine.Reset();
+            machine.Advance(0);
+            Assert.AreEqual(1, machine.StackDepth);
+        }
+
+        [Test]
         public void VirtualMachineRestoresCallerSlotsAcrossFunctionCalls()
         {
             var package = MakeBlinkPackage();

@@ -294,6 +294,7 @@ namespace RSMA.Microcontroller.Virtual
         private readonly Stack<IrqReturnState> irqReturnStack = new Stack<IrqReturnState>();
         private readonly Stack<int> valueStack = new Stack<int>();
         private readonly int[] slots = new int[256];
+        private readonly int[] globals = new int[256];
         private uint programCounter;
         private double wakeTimeMilliseconds;
 
@@ -349,6 +350,7 @@ namespace RSMA.Microcontroller.Virtual
             irqReturnStack.Clear();
             valueStack.Clear();
             Array.Clear(slots, 0, slots.Length);
+            Array.Clear(globals, 0, globals.Length);
             programCounter = package.Bytecode.EntryPoint;
             wakeTimeMilliseconds = 0.0;
             SimulatedTimeMilliseconds = 0.0;
@@ -475,6 +477,12 @@ namespace RSMA.Microcontroller.Virtual
                     break;
                 case RsfwOpcode.Store:
                     slots[ReadU16(instruction.Operands, 0)] = PopValue();
+                    break;
+                case RsfwOpcode.GlobalLoad:
+                    PushValue(globals[ReadU16(instruction.Operands, 0)]);
+                    break;
+                case RsfwOpcode.GlobalStore:
+                    globals[ReadU16(instruction.Operands, 0)] = PopValue();
                     break;
                 case RsfwOpcode.AddI32:
                     PushValue(unchecked(PopValue() + PopValue()));
