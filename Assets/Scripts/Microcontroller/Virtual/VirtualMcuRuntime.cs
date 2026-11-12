@@ -14,6 +14,7 @@ namespace RSMA.Microcontroller.Virtual
         Ready,
         Running,
         Waiting,
+        Yielded,
         Halted,
         Faulted
     }
@@ -368,6 +369,8 @@ namespace RSMA.Microcontroller.Virtual
                 inputSource?.AdvanceInputTo(SimulatedTimeMilliseconds);
                 if (State == VirtualExecutionState.Ready)
                     State = VirtualExecutionState.Running;
+                if (State == VirtualExecutionState.Yielded)
+                    State = VirtualExecutionState.Running;
 
                 TryDispatchInterrupt();
 
@@ -408,6 +411,9 @@ namespace RSMA.Microcontroller.Virtual
                 inputSource?.AdvanceInputTo(SimulatedTimeMilliseconds);
                 return;
             }
+
+            if (State == VirtualExecutionState.Yielded)
+                State = VirtualExecutionState.Running;
 
             var targetTime = SimulatedTimeMilliseconds + deltaMilliseconds;
             if (State == VirtualExecutionState.Ready)
@@ -483,6 +489,9 @@ namespace RSMA.Microcontroller.Virtual
                     break;
                 case RsfwOpcode.GlobalStore:
                     globals[ReadU16(instruction.Operands, 0)] = PopValue();
+                    break;
+                case RsfwOpcode.Yield:
+                    State = VirtualExecutionState.Yielded;
                     break;
                 case RsfwOpcode.AddI32:
                     PushValue(unchecked(PopValue() + PopValue()));

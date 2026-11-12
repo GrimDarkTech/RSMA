@@ -268,6 +268,7 @@ namespace RSMA.Microcontroller.Virtual
                     case RsfwOpcode.EnableIrq:
                     case RsfwOpcode.DisableIrq:
                     case RsfwOpcode.ReturnIrq:
+                    case RsfwOpcode.Yield:
                         RequireOperands(instruction, 0);
                         break;
                     case RsfwOpcode.AttachIrq:

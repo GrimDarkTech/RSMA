@@ -780,6 +780,62 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
+        public void VirtualMachineYieldStopsCurrentAdvanceAndResumesOnNextTick()
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Yield,
+                Operands = Array.Empty<byte>()
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            ReadPackageThroughReader(package);
+            var machine = new VirtualMachine(package, new VirtualGpioBank());
+
+            machine.Advance(25);
+
+            Assert.AreEqual(VirtualExecutionState.Yielded, machine.State);
+            Assert.AreEqual(25.0, machine.SimulatedTimeMilliseconds);
+            Assert.AreEqual(1u, machine.ProgramCounter);
+
+            machine.Advance(0);
+
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            Assert.AreEqual(25.0, machine.SimulatedTimeMilliseconds);
+        }
+
+        [Test]
+        public void VirtualMachineStepResumesFromYieldOnTheNextStep()
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Yield,
+                Operands = Array.Empty<byte>()
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+            ReadPackageThroughReader(package);
+            var machine = new VirtualMachine(package, new VirtualGpioBank());
+
+            Assert.IsTrue(machine.Step());
+            Assert.AreEqual(VirtualExecutionState.Yielded, machine.State);
+            Assert.AreEqual(1u, machine.ProgramCounter);
+            Assert.IsTrue(machine.Step());
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+        }
+
+        [Test]
         public void VirtualMachineStepFaultsAndRemainsStoppedUntilReset()
         {
             var package = MakeBlinkPackage();
