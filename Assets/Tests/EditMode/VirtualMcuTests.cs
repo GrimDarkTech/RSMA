@@ -366,6 +366,81 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
+        public void VirtualMachineExecutesForLoopBytecodePattern()
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(MakeConstI32(0));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Store,
+                Operands = new byte[] { 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Load,
+                Operands = new byte[] { 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(MakeConstI32(3));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.CmpLtI32,
+                Operands = Array.Empty<byte>()
+            });
+            package.Bytecode.Instructions.Add(MakeConstI32(0));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.CmpEqI32,
+                Operands = Array.Empty<byte>()
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.JumpIf,
+                Operands = new byte[] { 13, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Load,
+                Operands = new byte[] { 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(MakeConstI32(1));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.AddI32,
+                Operands = Array.Empty<byte>()
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Store,
+                Operands = new byte[] { 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Jump,
+                Operands = new byte[] { 2, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Load,
+                Operands = new byte[] { 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            ReadPackageThroughReader(package);
+            var machine = new VirtualMachine(package, new VirtualGpioBank());
+
+            machine.Advance(0);
+
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            Assert.AreEqual(14u, machine.ProgramCounter);
+            Assert.AreEqual(1, machine.StackDepth);
+        }
+
+        [Test]
         public void VirtualMachineStepExecutesCallAndReturnOneInstructionAtATime()
         {
             var package = MakeBlinkPackage();
@@ -404,6 +479,43 @@ namespace RSMA.Microcontroller.Virtual.Tests
             Assert.AreEqual(1, machine.StackDepth);
             Assert.IsTrue(machine.Step());
             Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+        }
+
+        [Test]
+        public void VirtualMachineReturnsFunctionValueOnSharedValueStack()
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Call,
+                Operands = new byte[] { 3, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Nop,
+                Operands = Array.Empty<byte>()
+            });
+            package.Bytecode.Instructions.Add(MakeConstI32(42));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Return,
+                Operands = Array.Empty<byte>()
+            });
+
+            ReadPackageThroughReader(package);
+            var machine = new VirtualMachine(package, new VirtualGpioBank());
+
+            machine.Advance(0);
+
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            Assert.AreEqual(1u, machine.ProgramCounter);
+            Assert.AreEqual(1, machine.StackDepth);
         }
 
         [Test]
