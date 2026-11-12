@@ -173,6 +173,22 @@ namespace RSMA.Microcontroller.Virtual
             return new VirtualBoardProfile(Stm32F103BoardId, new[]
             {
                 new VirtualPinDefinition(
+                    10,
+                    "PC",
+                    "10",
+                    VirtualPinMode.Input,
+                    VirtualPinPullMode.None,
+                    VirtualPinOutputType.PushPull,
+                    false),
+                new VirtualPinDefinition(
+                    11,
+                    "PC",
+                    "11",
+                    VirtualPinMode.Input,
+                    VirtualPinPullMode.None,
+                    VirtualPinOutputType.PushPull,
+                    false),
+                new VirtualPinDefinition(
                     13,
                     "PC",
                     "13",

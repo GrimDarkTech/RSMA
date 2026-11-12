@@ -1313,6 +1313,8 @@ namespace RSMA.Microcontroller.Virtual.Tests
                 var port = Activator.CreateInstance(portType);
                 portType.GetField("name").SetValue(port, "PC");
                 var pins = (IList)portType.GetField("pins").GetValue(port);
+                pins.Add(CreateLegacyPin(pinType, "10", 0.0f));
+                pins.Add(CreateLegacyPin(pinType, "11", 0.0f));
                 var ledPin = CreateLegacyPin(pinType, "13", 0.0f);
                 var neighborPin = CreateLegacyPin(pinType, "12", 0.75f);
                 pins.Add(ledPin);
@@ -1369,6 +1371,61 @@ namespace RSMA.Microcontroller.Virtual.Tests
             Assert.AreEqual(VirtualPinPullMode.None, definition.ResetPullMode);
             Assert.AreEqual(VirtualPinOutputType.PushPull, definition.OutputType);
             Assert.IsFalse(definition.ResetLatchLevel);
+        }
+
+        [Test]
+        public void Stm32DefaultProfileMapsPwmMotorPinsToPc10Pc11AndPc13()
+        {
+            var profile = RsmaBoardProfiles.CreateStm32F103();
+
+            Assert.AreEqual("PC", profile.GetPin(10).PortName);
+            Assert.AreEqual("10", profile.GetPin(10).PinName);
+            Assert.AreEqual("PC", profile.GetPin(11).PortName);
+            Assert.AreEqual("11", profile.GetPin(11).PinName);
+            Assert.AreEqual("PC", profile.GetPin(13).PortName);
+            Assert.AreEqual("13", profile.GetPin(13).PinName);
+            Assert.Throws<BoardProfileException>(() => profile.GetPin(12));
+        }
+
+        [Test]
+        public void Stm32DefaultAdapterInitializesMappedMotorPins()
+        {
+            var host = new GameObject("STM32F103 default profile integration test");
+            try
+            {
+                var gpioType = Type.GetType("RSMAGPIO, Assembly-CSharp", true);
+                var portType = Type.GetType("GPIOPort, Assembly-CSharp", true);
+                var pinType = Type.GetType("GPIOPin, Assembly-CSharp", true);
+                var adapterType = Type.GetType("RSMAGpioHalAdapter, Assembly-CSharp", true);
+                var gpio = host.AddComponent(gpioType);
+                var ports = (IList)gpioType.GetMethod("GetPortList").Invoke(gpio, null);
+                var port = Activator.CreateInstance(portType);
+                portType.GetField("name").SetValue(port, "PC");
+                var pins = (IList)portType.GetField("pins").GetValue(port);
+                pins.Add(CreateLegacyPin(pinType, "10", 0.0f));
+                pins.Add(CreateLegacyPin(pinType, "11", 0.0f));
+                pins.Add(CreateLegacyPin(pinType, "13", 0.0f));
+                ports.Add(port);
+
+                var adapter = adapterType.GetMethod("CreateStm32F103Default")
+                    .Invoke(null, new[] { gpio });
+                var getMode = adapterType.GetMethod("GetMode");
+                var getState = adapterType.GetMethod("GetState");
+
+                foreach (var pin in new byte[] { 10, 11, 13 })
+                {
+                    var state = getState.Invoke(adapter, new object[] { pin });
+                    Assert.AreEqual(VirtualPinMode.Input, getMode.Invoke(adapter, new object[] { pin }));
+                    Assert.AreEqual(VirtualPinPullMode.None, state.GetType().GetProperty("PullMode").GetValue(state));
+                    Assert.AreEqual(VirtualPinOutputType.PushPull,
+                        state.GetType().GetProperty("OutputType").GetValue(state));
+                    Assert.IsFalse((bool)state.GetType().GetProperty("LatchLevel").GetValue(state));
+                }
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(host);
+            }
         }
 
         [Test]
