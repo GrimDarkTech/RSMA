@@ -38,6 +38,16 @@ namespace RSMA.Microcontroller.Virtual
         ushort AnalogRead(byte channel);
     }
 
+    public interface IVirtualSpiHal
+    {
+        byte SpiTransfer(byte bus, byte value);
+    }
+
+    public interface IVirtualI2cHal
+    {
+        byte I2cTransfer(byte address, byte value);
+    }
+
     public interface IVirtualUartHal
     {
         void Begin(byte port, byte baudRatePreset);
@@ -125,7 +135,7 @@ namespace RSMA.Microcontroller.Virtual
     }
 
     public sealed class VirtualGpioBank : IVirtualMcuHal, IVirtualInputSource, IVirtualButtonHost,
-        IVirtualGpioEdgeSource, IVirtualPwmHal, IVirtualAdcHal
+        IVirtualGpioEdgeSource, IVirtualPwmHal, IVirtualAdcHal, IVirtualSpiHal, IVirtualI2cHal
     {
         public const int MaxScheduledInputEvents = 4096;
 
@@ -133,6 +143,8 @@ namespace RSMA.Microcontroller.Virtual
         private readonly Dictionary<byte, bool> values = new Dictionary<byte, bool>();
         private readonly Dictionary<byte, float> pwmValues = new Dictionary<byte, float>();
         private readonly Dictionary<byte, ushort> analogValues = new Dictionary<byte, ushort>();
+        private readonly Dictionary<byte, byte> spiResponses = new Dictionary<byte, byte>();
+        private readonly Dictionary<byte, byte> i2cResponses = new Dictionary<byte, byte>();
         private readonly Dictionary<byte, VirtualGpioPinState> states = new Dictionary<byte, VirtualGpioPinState>();
         private readonly List<ScheduledInput> scheduledInputs = new List<ScheduledInput>();
         private ulong nextInputSequence;
@@ -217,6 +229,30 @@ namespace RSMA.Microcontroller.Virtual
         public ushort AnalogRead(byte channel)
         {
             return analogValues.TryGetValue(channel, out var value) ? value : (ushort)0;
+        }
+
+        public void SetSpiResponse(byte bus, byte value)
+        {
+            spiResponses[bus] = value;
+        }
+
+        public byte SpiTransfer(byte bus, byte value)
+        {
+            return spiResponses.TryGetValue(bus, out var response) ? response : (byte)0;
+        }
+
+        public void SetI2cResponse(byte address, byte value)
+        {
+            if (address > 0x7F)
+                throw new ArgumentOutOfRangeException(nameof(address), "I2C address must be 7-bit");
+            i2cResponses[address] = value;
+        }
+
+        public byte I2cTransfer(byte address, byte value)
+        {
+            if (address > 0x7F)
+                throw new InvalidOperationException("I2C address must be 7-bit");
+            return i2cResponses.TryGetValue(address, out var response) ? response : (byte)0;
         }
 
         public void PwmWrite(byte pin, byte dutyCycle)
@@ -359,6 +395,7 @@ namespace RSMA.Microcontroller.Virtual
         public double SimulatedTimeMilliseconds { get; private set; }
         public string FaultMessage { get; private set; }
         public int StackDepth => valueStack.Count;
+        public int StackTop => valueStack.Count == 0 ? throw new InvalidOperationException("VM value stack is empty") : valueStack.Peek();
         public double WakeTimeMilliseconds => wakeTimeMilliseconds;
         public int InterruptDepth => irqReturnStack.Count;
         public event Action<VirtualInterruptRequest> InterruptDispatched;
@@ -704,6 +741,32 @@ namespace RSMA.Microcontroller.Virtual
                         throw new VirtualMachineFaultException("Firmware requires ADC support");
                     PushValue(adcHal.AnalogRead(argument));
                     break;
+                case RsmaHalService.SpiTransfer:
+                {
+                    if (value != 0)
+                        throw new VirtualMachineFaultException("SPI transfer reserved value must be zero");
+                    if (!(hal is IVirtualSpiHal spiHal))
+                        throw new VirtualMachineFaultException("Firmware requires SPI support");
+                    var transmittedValue = PopValue();
+                    if (transmittedValue < byte.MinValue || transmittedValue > byte.MaxValue)
+                        throw new VirtualMachineFaultException("SPI transfer value must be between 0 and 255");
+                    PushValue(spiHal.SpiTransfer(argument, (byte)transmittedValue));
+                    break;
+                }
+                case RsmaHalService.I2cTransfer:
+                {
+                    if (value != 0)
+                        throw new VirtualMachineFaultException("I2C transfer reserved value must be zero");
+                    if (argument > 0x7F)
+                        throw new VirtualMachineFaultException("I2C address must be 7-bit");
+                    if (!(hal is IVirtualI2cHal i2cHal))
+                        throw new VirtualMachineFaultException("Firmware requires I2C support");
+                    var transmittedValue = PopValue();
+                    if (transmittedValue < byte.MinValue || transmittedValue > byte.MaxValue)
+                        throw new VirtualMachineFaultException("I2C transfer value must be between 0 and 255");
+                    PushValue(i2cHal.I2cTransfer(argument, (byte)transmittedValue));
+                    break;
+                }
                 default:
                     throw new VirtualMachineFaultException("Unsupported HAL service " + service);
             }

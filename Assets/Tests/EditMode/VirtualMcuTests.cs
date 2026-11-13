@@ -187,6 +187,9 @@ namespace RSMA.Microcontroller.Virtual.Tests
         [TestCase(8, 0, 5, "invalid UART baud preset")]
         [TestCase(9, 0, 1, "nonzero UART reserved value")]
         [TestCase(12, 0, 1, "nonzero ADC reserved value")]
+        [TestCase(13, 0, 1, "nonzero SPI reserved value")]
+        [TestCase(14, 128, 0, "invalid I2C address")]
+        [TestCase(14, 0, 1, "nonzero I2C reserved value")]
         public void ReaderRejectsInvalidHalOperands(int service, int argument, int value, string caseName)
         {
             var package = MakeBlinkPackage();
@@ -1865,6 +1868,39 @@ namespace RSMA.Microcontroller.Virtual.Tests
 
             Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
             Assert.AreEqual(1, machine.StackDepth);
+        }
+
+        [TestCase(13, 2, 0xA5, 0x5A)]
+        [TestCase(14, 0x42, 0xA5, 0xC3)]
+        public void VirtualMachineBusTransferReturnsBackendByteOnStack(
+            int service, int busOrAddress, int transmitted, int expectedReceived)
+        {
+            var package = MakeBlinkPackage();
+            package.Manifest.RequiredPeripherals.Add(service == 13 ? "SPI" : "I2C");
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(MakeConstI32(transmitted));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { (byte)service, 0, (byte)busOrAddress, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            var gpio = new VirtualGpioBank();
+            if (service == (int)RsmaHalService.SpiTransfer)
+                gpio.SetSpiResponse((byte)busOrAddress, (byte)expectedReceived);
+            else
+                gpio.SetI2cResponse((byte)busOrAddress, (byte)expectedReceived);
+            var machine = new VirtualMachine(package, gpio);
+            machine.Advance(0);
+
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            Assert.AreEqual(1, machine.StackDepth);
+            Assert.AreEqual(expectedReceived, machine.StackTop);
         }
 
         [TestCase(0, 0f, false)]

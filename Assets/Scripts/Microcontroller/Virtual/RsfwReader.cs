@@ -326,7 +326,7 @@ namespace RSMA.Microcontroller.Virtual
         {
             var service = ReadU16(operands, 0);
             var value = operands[3];
-            if (service < (ushort)RsmaHalService.PinMode || service > (ushort)RsmaHalService.AnalogRead)
+            if (service < (ushort)RsmaHalService.PinMode || service > (ushort)RsmaHalService.I2cTransfer)
                 throw new RsfwFormatException("HAL_CALL contains an unknown service ID");
             if (service == (ushort)RsmaHalService.PinMode && value > (byte)VirtualPinMode.Output)
                 throw new RsfwFormatException("HAL PinMode value must be Input(0) or Output(1)");
@@ -346,6 +346,11 @@ namespace RSMA.Microcontroller.Virtual
             }
             if (service == (ushort)RsmaHalService.AnalogRead && value != 0)
                 throw new RsfwFormatException("HAL AnalogRead reserved value must be zero");
+            if ((service == (ushort)RsmaHalService.SpiTransfer ||
+                service == (ushort)RsmaHalService.I2cTransfer) && value != 0)
+                throw new RsfwFormatException("HAL bus transfer reserved value must be zero");
+            if (service == (ushort)RsmaHalService.I2cTransfer && operands[2] > 0x7F)
+                throw new RsfwFormatException("HAL I2C address must be 7-bit");
         }
 
         private static byte[] Slice(byte[] source, int offset, int count)

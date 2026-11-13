@@ -67,7 +67,9 @@ namespace RSMA.Microcontroller.Virtual
         UartAvailable = 9,
         UartRead = 10,
         UartWrite = 11,
-        AnalogRead = 12
+        AnalogRead = 12,
+        SpiTransfer = 13,
+        I2cTransfer = 14
     }
 
     public sealed class RsfwFormatException : Exception
