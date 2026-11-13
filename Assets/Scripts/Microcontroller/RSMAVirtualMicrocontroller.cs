@@ -98,9 +98,10 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
                 throw new RsfwFormatException("Firmware board '" + package.Manifest.BoardId +
                     "' does not match configured board '" + expectedBoardId + "'");
 
-            hal = pinBindings.Count == 0 && expectedBoardId == "RSMA-STM32F103"
-                ? RSMAGpioHalAdapter.CreateStm32F103Default(gpio)
-                : new RSMAGpioHalAdapter(gpio, pinBindings);
+            if (pinBindings.Count == 0)
+                hal = new RSMAGpioHalAdapter(gpio, RsmaBoardProfiles.Create(expectedBoardId));
+            else
+                hal = new RSMAGpioHalAdapter(gpio, pinBindings);
             uart = new VirtualUartBank();
             uart.Transmitted += OnUartTransmitted;
             virtualMachine = new VirtualMachine(package, hal, null, uart);

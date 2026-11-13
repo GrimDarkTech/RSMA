@@ -167,6 +167,7 @@ namespace RSMA.Microcontroller.Virtual
     public static class RsmaBoardProfiles
     {
         public const string Stm32F103BoardId = "RSMA-STM32F103";
+        public const string AvrAtmega328PBoardId = "RSMA-AVR-ATmega328P";
 
         public static VirtualBoardProfile CreateStm32F103()
         {
@@ -199,10 +200,22 @@ namespace RSMA.Microcontroller.Virtual
             });
         }
 
+        public static VirtualBoardProfile CreateAvrAtmega328P()
+        {
+            return new VirtualBoardProfile(AvrAtmega328PBoardId, new[]
+            {
+                new VirtualPinDefinition(11, "PB", "3"),
+                new VirtualPinDefinition(12, "PB", "4"),
+                new VirtualPinDefinition(13, "PB", "5")
+            });
+        }
+
         public static VirtualBoardProfile Create(string boardId)
         {
             if (string.Equals(boardId, Stm32F103BoardId, StringComparison.Ordinal))
                 return CreateStm32F103();
+            if (string.Equals(boardId, AvrAtmega328PBoardId, StringComparison.Ordinal))
+                return CreateAvrAtmega328P();
             throw new BoardProfileException("Unknown RSMA board profile '" + boardId + "'");
         }
     }

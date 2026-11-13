@@ -1554,6 +1554,29 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
+        public void AvrAtmega328PProfileMapsSpiPinsToPortB()
+        {
+            var profile = RsmaBoardProfiles.CreateAvrAtmega328P();
+
+            Assert.AreEqual(RsmaBoardProfiles.AvrAtmega328PBoardId, profile.BoardId);
+            Assert.AreEqual("PB", profile.GetPin(11).PortName);
+            Assert.AreEqual("3", profile.GetPin(11).PinName);
+            Assert.AreEqual("4", profile.GetPin(12).PinName);
+            Assert.AreEqual("5", profile.GetPin(13).PinName);
+            Assert.Throws<BoardProfileException>(() => profile.GetPin(10));
+        }
+
+        [Test]
+        public void BoardProfileRegistryRejectsUnknownBoardAndReturnsKnownProfiles()
+        {
+            Assert.AreEqual(RsmaBoardProfiles.Stm32F103BoardId,
+                RsmaBoardProfiles.Create(RsmaBoardProfiles.Stm32F103BoardId).BoardId);
+            Assert.AreEqual(RsmaBoardProfiles.AvrAtmega328PBoardId,
+                RsmaBoardProfiles.Create(RsmaBoardProfiles.AvrAtmega328PBoardId).BoardId);
+            Assert.Throws<BoardProfileException>(() => RsmaBoardProfiles.Create("RSMA-UNKNOWN"));
+        }
+
+        [Test]
         public void Stm32DefaultAdapterInitializesMappedMotorPins()
         {
             var host = new GameObject("STM32F103 default profile integration test");
