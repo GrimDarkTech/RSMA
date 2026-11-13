@@ -17,6 +17,107 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
+        public void HitlFrameRoundTripPreservesSequenceTimestampAndPayload()
+        {
+            var frame = new HitlFrame
+            {
+                Type = HitlMessageType.Data,
+                Flags = 3,
+                Sequence = 0x10203040,
+                TimestampMilliseconds = 1700000000123,
+                Payload = new byte[] { 1, 2, 3, 0xFF }
+            };
+
+            var decoded = HitlFrameCodec.Decode(HitlFrameCodec.Encode(frame));
+
+            Assert.AreEqual(1, decoded.Version);
+            Assert.AreEqual(frame.Type, decoded.Type);
+            Assert.AreEqual(frame.Flags, decoded.Flags);
+            Assert.AreEqual(frame.Sequence, decoded.Sequence);
+            Assert.AreEqual(frame.TimestampMilliseconds, decoded.TimestampMilliseconds);
+            CollectionAssert.AreEqual(frame.Payload, decoded.Payload);
+        }
+
+        [Test]
+        public void HitlFrameRejectsCorruptCrc()
+        {
+            var bytes = HitlFrameCodec.Encode(new HitlFrame
+            {
+                Type = HitlMessageType.Heartbeat,
+                Sequence = 4,
+                TimestampMilliseconds = 50
+            });
+            bytes[bytes.Length - 1] ^= 0x01;
+
+            Assert.Throws<HitlProtocolException>(() => HitlFrameCodec.Decode(bytes));
+        }
+
+        [Test]
+        public void HitlParserReassemblesNoiseAndFragmentedFrames()
+        {
+            var first = HitlFrameCodec.Encode(new HitlFrame
+            {
+                Type = HitlMessageType.Heartbeat,
+                Sequence = 1,
+                TimestampMilliseconds = 10
+            });
+            var second = HitlFrameCodec.Encode(new HitlFrame
+            {
+                Type = HitlMessageType.Data,
+                Sequence = 2,
+                TimestampMilliseconds = 20,
+                Payload = new byte[] { 9, 8, 7 }
+            });
+            var parser = new HitlFrameParser();
+
+            Assert.AreEqual(0, parser.Feed(new byte[] { 0x00, 0x7F, first[0] }).Count);
+            Assert.AreEqual(0, parser.Feed(SubArray(first, 1, 8)).Count);
+            var frames = parser.Feed(Concat(SubArray(first, 9, first.Length - 9), second));
+
+            Assert.AreEqual(2, frames.Count);
+            Assert.AreEqual(HitlMessageType.Heartbeat, frames[0].Type);
+            Assert.AreEqual(HitlMessageType.Data, frames[1].Type);
+            Assert.AreEqual(2u, frames[1].Sequence);
+            CollectionAssert.AreEqual(new byte[] { 9, 8, 7 }, frames[1].Payload);
+        }
+
+        [Test]
+        public void HitlSessionRejectsDuplicateSequenceAndEntersSafeStateAfterHeartbeatTimeout()
+        {
+            var safeStateApplications = 0;
+            var session = new HitlSession(100, () => safeStateApplications++);
+            session.Connect(1000);
+
+            var heartbeat = session.CreateHeartbeat(1010);
+            Assert.IsTrue(session.AcceptInbound(heartbeat, 1020));
+            Assert.IsFalse(session.AcceptInbound(heartbeat, 1030));
+            session.Tick(1119);
+            Assert.AreEqual(HitlConnectionState.Connected, session.State);
+            session.Tick(1120);
+
+            Assert.AreEqual(HitlConnectionState.SafeState, session.State);
+            Assert.AreEqual(1, safeStateApplications);
+            session.Tick(1200);
+            Assert.AreEqual(1, safeStateApplications);
+        }
+
+        [Test]
+        public void HitlSessionReconnectsAfterSafeStateAndRestartsSequence()
+        {
+            var safeStateApplications = 0;
+            var session = new HitlSession(10, () => safeStateApplications++);
+            session.Connect(0);
+            session.Tick(10);
+            session.Connect(20);
+
+            var heartbeat = session.CreateHeartbeat(21);
+
+            Assert.AreEqual(HitlConnectionState.Connected, session.State);
+            Assert.AreEqual(0u, heartbeat.Sequence);
+            Assert.AreEqual(1, safeStateApplications);
+        }
+
+        [Test]
         public void ReaderRejectsTruncatedHeader()
         {
             Assert.Throws<RsfwFormatException>(() => RsfwReader.Read(new byte[40]));
@@ -2166,6 +2267,21 @@ namespace RSMA.Microcontroller.Virtual.Tests
                     (byte)(bits >> 24)
                 }
             };
+        }
+
+        private static byte[] SubArray(byte[] source, int offset, int count)
+        {
+            var result = new byte[count];
+            System.Array.Copy(source, offset, result, 0, count);
+            return result;
+        }
+
+        private static byte[] Concat(byte[] first, byte[] second)
+        {
+            var result = new byte[first.Length + second.Length];
+            System.Array.Copy(first, 0, result, 0, first.Length);
+            System.Array.Copy(second, 0, result, first.Length, second.Length);
+            return result;
         }
 
         private static void ReadPackageThroughReader(RsfwPackage package)
