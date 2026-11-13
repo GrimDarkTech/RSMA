@@ -339,6 +339,8 @@ namespace RSMA.Microcontroller.Virtual
 
         public void Tick(long timestampMilliseconds)
         {
+            if (State == HitlConnectionState.SafeState)
+                return;
             EnsureConnected();
             ValidateTimestamp(timestampMilliseconds);
             if (timestampMilliseconds - lastHeartbeatTimestampMilliseconds >= heartbeatTimeoutMilliseconds)
