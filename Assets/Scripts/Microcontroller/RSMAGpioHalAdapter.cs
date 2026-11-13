@@ -13,7 +13,7 @@ public sealed class VirtualPinBinding
     public bool resetLatchLevel;
 }
 public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtualInputSource,
-    IVirtualButtonHost, IVirtualGpioEdgeSource
+    IVirtualButtonHost, IVirtualGpioEdgeSource, IVirtualAdcHal
 {
     private readonly RSMAGPIO gpio;
     private readonly VirtualBoardProfile profile;
@@ -128,6 +128,14 @@ public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtua
     public float ReadPinValue(byte pin)
     {
         return gpio.GetPin(Resolve(pin)).value;
+    }
+
+    public ushort AnalogRead(byte channel)
+    {
+        var connectedPin = Resolve(channel);
+        var normalized = gpio.GetPin(connectedPin).value;
+        var clamped = Math.Max(0f, Math.Min(1f, normalized));
+        return (ushort)Math.Round(clamped * 4095f, MidpointRounding.AwayFromZero);
     }
 
     public bool DigitalRead(byte pin)

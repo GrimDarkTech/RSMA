@@ -186,6 +186,7 @@ namespace RSMA.Microcontroller.Virtual.Tests
         [TestCase(8, 4, 0, "invalid UART port")]
         [TestCase(8, 0, 5, "invalid UART baud preset")]
         [TestCase(9, 0, 1, "nonzero UART reserved value")]
+        [TestCase(12, 0, 1, "nonzero ADC reserved value")]
         public void ReaderRejectsInvalidHalOperands(int service, int argument, int value, string caseName)
         {
             var package = MakeBlinkPackage();
@@ -1838,6 +1839,32 @@ namespace RSMA.Microcontroller.Virtual.Tests
 
             Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
             Assert.AreEqual(64f / 255f, gpio.GetOutputValue(7), 0.0001f);
+        }
+
+        [Test]
+        public void VirtualMachineAnalogReadReturnsConfiguredTwelveBitSample()
+        {
+            var package = MakeBlinkPackage();
+            package.Manifest.RequiredPeripherals.Add("ADC");
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 12, 0, 4, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            var gpio = new VirtualGpioBank();
+            gpio.SetAnalogInput(4, 2048);
+            var machine = new VirtualMachine(package, gpio);
+            machine.Advance(0);
+
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            Assert.AreEqual(1, machine.StackDepth);
         }
 
         [TestCase(0, 0f, false)]

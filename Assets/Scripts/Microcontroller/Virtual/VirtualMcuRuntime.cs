@@ -33,6 +33,11 @@ namespace RSMA.Microcontroller.Virtual
         void PwmWrite(byte pin, byte dutyCycle);
     }
 
+    public interface IVirtualAdcHal
+    {
+        ushort AnalogRead(byte channel);
+    }
+
     public interface IVirtualUartHal
     {
         void Begin(byte port, byte baudRatePreset);
@@ -120,13 +125,14 @@ namespace RSMA.Microcontroller.Virtual
     }
 
     public sealed class VirtualGpioBank : IVirtualMcuHal, IVirtualInputSource, IVirtualButtonHost,
-        IVirtualGpioEdgeSource, IVirtualPwmHal
+        IVirtualGpioEdgeSource, IVirtualPwmHal, IVirtualAdcHal
     {
         public const int MaxScheduledInputEvents = 4096;
 
         private readonly Dictionary<byte, VirtualPinMode> modes = new Dictionary<byte, VirtualPinMode>();
         private readonly Dictionary<byte, bool> values = new Dictionary<byte, bool>();
         private readonly Dictionary<byte, float> pwmValues = new Dictionary<byte, float>();
+        private readonly Dictionary<byte, ushort> analogValues = new Dictionary<byte, ushort>();
         private readonly Dictionary<byte, VirtualGpioPinState> states = new Dictionary<byte, VirtualGpioPinState>();
         private readonly List<ScheduledInput> scheduledInputs = new List<ScheduledInput>();
         private ulong nextInputSequence;
@@ -199,6 +205,18 @@ namespace RSMA.Microcontroller.Virtual
             if (!modes.ContainsKey(pin))
                 throw new InvalidOperationException("GPIO pin has not been configured");
             return pwmValues.TryGetValue(pin, out var value) ? value : (values[pin] ? 1f : 0f);
+        }
+
+        public void SetAnalogInput(byte channel, ushort value)
+        {
+            if (value > 4095)
+                throw new ArgumentOutOfRangeException(nameof(value), "ADC sample must be between 0 and 4095");
+            analogValues[channel] = value;
+        }
+
+        public ushort AnalogRead(byte channel)
+        {
+            return analogValues.TryGetValue(channel, out var value) ? value : (ushort)0;
         }
 
         public void PwmWrite(byte pin, byte dutyCycle)
@@ -681,6 +699,11 @@ namespace RSMA.Microcontroller.Virtual
                     RequireUart().Write(argument, (byte)transmittedValue);
                     break;
                 }
+                case RsmaHalService.AnalogRead:
+                    if (!(hal is IVirtualAdcHal adcHal))
+                        throw new VirtualMachineFaultException("Firmware requires ADC support");
+                    PushValue(adcHal.AnalogRead(argument));
+                    break;
                 default:
                     throw new VirtualMachineFaultException("Unsupported HAL service " + service);
             }
