@@ -39,6 +39,34 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
+        public void HitlCodecMatchesSharedGoldenFrameVector()
+        {
+            var expected = new byte[]
+            {
+                0x52, 0x53, 0x4D, 0x48, 0x01, 0x05, 0x03, 0x00,
+                0x40, 0x30, 0x20, 0x10, 0x7B, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x01, 0x02,
+                0x03, 0xFF, 0xE1, 0xE5, 0x78, 0xCE
+            };
+            var frame = new HitlFrame
+            {
+                Type = HitlMessageType.Data,
+                Flags = 3,
+                Sequence = 0x10203040,
+                TimestampMilliseconds = 123,
+                Payload = new byte[] { 1, 2, 3, 0xFF }
+            };
+
+            CollectionAssert.AreEqual(expected, HitlFrameCodec.Encode(frame));
+            var decoded = HitlFrameCodec.Decode(expected);
+            Assert.AreEqual(frame.Type, decoded.Type);
+            Assert.AreEqual(frame.Flags, decoded.Flags);
+            Assert.AreEqual(frame.Sequence, decoded.Sequence);
+            Assert.AreEqual(frame.TimestampMilliseconds, decoded.TimestampMilliseconds);
+            CollectionAssert.AreEqual(frame.Payload, decoded.Payload);
+        }
+
+        [Test]
         public void HitlFrameRejectsCorruptCrc()
         {
             var bytes = HitlFrameCodec.Encode(new HitlFrame
