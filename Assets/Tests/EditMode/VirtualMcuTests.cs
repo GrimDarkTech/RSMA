@@ -192,6 +192,8 @@ namespace RSMA.Microcontroller.Virtual.Tests
         [TestCase(14, 0, 1, "nonzero I2C reserved value")]
         [TestCase(15, 4, 0, "invalid DMA channel")]
         [TestCase(15, 0, 1, "nonzero DMA reserved value")]
+        [TestCase(16, 0, 1, "nonzero EEPROM read reserved value")]
+        [TestCase(17, 0, 1, "nonzero EEPROM write reserved value")]
         public void ReaderRejectsInvalidHalOperands(int service, int argument, int value, string caseName)
         {
             var package = MakeBlinkPackage();
@@ -1929,6 +1931,105 @@ namespace RSMA.Microcontroller.Virtual.Tests
             var exception = Assert.Throws<VirtualMachineFaultException>(() => machine.Advance(0));
 
             StringAssert.Contains("Firmware requires DMA support", exception.Message);
+            Assert.AreEqual(VirtualExecutionState.Faulted, machine.State);
+        }
+
+        [Test]
+        public void VirtualMachineEepromRoundTripPersistsAcrossResetUntilStorageIsCleared()
+        {
+            var package = MakeBlinkPackage();
+            package.Manifest.RequiredPeripherals.Add("EEPROM");
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { (byte)RsmaHalService.EepromRead, 0, 7, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            var gpio = new VirtualGpioBank();
+            gpio.EepromWrite(7, 0x3C);
+            var machine = new VirtualMachine(package, gpio);
+            machine.Advance(0);
+
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            Assert.AreEqual(0x3C, machine.StackTop);
+
+            machine.Reset();
+            machine.Advance(0);
+
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            Assert.AreEqual(0x3C, machine.StackTop);
+
+            gpio.ClearStorage();
+            Assert.AreEqual(0, gpio.EepromRead(7));
+        }
+
+        [Test]
+        public void VirtualMachineEepromWriteStoresByteOnBackend()
+        {
+            var package = MakeBlinkPackage();
+            package.Manifest.RequiredPeripherals.Add("EEPROM");
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(MakeConstI32(0xA5));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { (byte)RsmaHalService.EepromWrite, 0, 9, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            var gpio = new VirtualGpioBank();
+            var machine = new VirtualMachine(package, gpio);
+            machine.Advance(0);
+
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            Assert.AreEqual(0xA5, gpio.EepromRead(9));
+        }
+
+        [Test]
+        public void VirtualMachineFaultsWhenEepromIsRequiredButUnavailable()
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { (byte)RsmaHalService.EepromRead, 0, 0, 0 }
+            });
+
+            var machine = new VirtualMachine(package, new BasicVirtualHal());
+            var exception = Assert.Throws<VirtualMachineFaultException>(() => machine.Advance(0));
+
+            StringAssert.Contains("Firmware requires EEPROM support", exception.Message);
+            Assert.AreEqual(VirtualExecutionState.Faulted, machine.State);
+        }
+
+        [TestCase(-1)]
+        [TestCase(256)]
+        public void VirtualMachineRejectsEepromWriteValuesOutsideByteRange(int value)
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(MakeConstI32(value));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { (byte)RsmaHalService.EepromWrite, 0, 0, 0 }
+            });
+
+            var machine = new VirtualMachine(package, new VirtualGpioBank());
+            var exception = Assert.Throws<VirtualMachineFaultException>(() => machine.Advance(0));
+
+            StringAssert.Contains("EEPROM write value must be between 0 and 255", exception.Message);
             Assert.AreEqual(VirtualExecutionState.Faulted, machine.State);
         }
 

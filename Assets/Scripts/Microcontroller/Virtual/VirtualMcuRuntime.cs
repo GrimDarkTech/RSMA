@@ -53,6 +53,12 @@ namespace RSMA.Microcontroller.Virtual
         byte DmaTransfer(byte channel, byte value);
     }
 
+    public interface IVirtualEepromHal
+    {
+        byte EepromRead(byte address);
+        void EepromWrite(byte address, byte value);
+    }
+
     public interface IVirtualUartHal
     {
         void Begin(byte port, byte baudRatePreset);
@@ -140,9 +146,11 @@ namespace RSMA.Microcontroller.Virtual
     }
 
     public sealed class VirtualGpioBank : IVirtualMcuHal, IVirtualInputSource, IVirtualButtonHost,
-        IVirtualGpioEdgeSource, IVirtualPwmHal, IVirtualAdcHal, IVirtualSpiHal, IVirtualI2cHal, IVirtualDmaHal
+        IVirtualGpioEdgeSource, IVirtualPwmHal, IVirtualAdcHal, IVirtualSpiHal, IVirtualI2cHal,
+        IVirtualDmaHal, IVirtualEepromHal
     {
         public const int MaxScheduledInputEvents = 4096;
+        public const int EepromSize = 256;
 
         private readonly Dictionary<byte, VirtualPinMode> modes = new Dictionary<byte, VirtualPinMode>();
         private readonly Dictionary<byte, bool> values = new Dictionary<byte, bool>();
@@ -151,6 +159,7 @@ namespace RSMA.Microcontroller.Virtual
         private readonly Dictionary<byte, byte> spiResponses = new Dictionary<byte, byte>();
         private readonly Dictionary<byte, byte> i2cResponses = new Dictionary<byte, byte>();
         private readonly Dictionary<byte, byte> dmaResponses = new Dictionary<byte, byte>();
+        private readonly byte[] eeprom = new byte[EepromSize];
         private readonly Dictionary<byte, VirtualGpioPinState> states = new Dictionary<byte, VirtualGpioPinState>();
         private readonly List<ScheduledInput> scheduledInputs = new List<ScheduledInput>();
         private ulong nextInputSequence;
@@ -273,6 +282,21 @@ namespace RSMA.Microcontroller.Virtual
             if (channel > 3)
                 throw new InvalidOperationException("DMA channel must be between 0 and 3");
             return dmaResponses.TryGetValue(channel, out var response) ? response : (byte)0;
+        }
+
+        public byte EepromRead(byte address)
+        {
+            return eeprom[address];
+        }
+
+        public void EepromWrite(byte address, byte value)
+        {
+            eeprom[address] = value;
+        }
+
+        public void ClearStorage()
+        {
+            Array.Clear(eeprom, 0, eeprom.Length);
         }
 
         public void PwmWrite(byte pin, byte dutyCycle)
@@ -799,6 +823,27 @@ namespace RSMA.Microcontroller.Virtual
                     if (transmittedValue < byte.MinValue || transmittedValue > byte.MaxValue)
                         throw new VirtualMachineFaultException("DMA transfer value must be between 0 and 255");
                     PushValue(dmaHal.DmaTransfer(argument, (byte)transmittedValue));
+                    break;
+                }
+                case RsmaHalService.EepromRead:
+                {
+                    if (value != 0)
+                        throw new VirtualMachineFaultException("EEPROM read reserved value must be zero");
+                    if (!(hal is IVirtualEepromHal eepromHal))
+                        throw new VirtualMachineFaultException("Firmware requires EEPROM support");
+                    PushValue(eepromHal.EepromRead(argument));
+                    break;
+                }
+                case RsmaHalService.EepromWrite:
+                {
+                    if (value != 0)
+                        throw new VirtualMachineFaultException("EEPROM write reserved value must be zero");
+                    if (!(hal is IVirtualEepromHal eepromHal))
+                        throw new VirtualMachineFaultException("Firmware requires EEPROM support");
+                    var transmittedValue = PopValue();
+                    if (transmittedValue < byte.MinValue || transmittedValue > byte.MaxValue)
+                        throw new VirtualMachineFaultException("EEPROM write value must be between 0 and 255");
+                    eepromHal.EepromWrite(argument, (byte)transmittedValue);
                     break;
                 }
                 default:
