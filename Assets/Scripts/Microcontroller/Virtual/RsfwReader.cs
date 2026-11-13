@@ -326,7 +326,7 @@ namespace RSMA.Microcontroller.Virtual
         {
             var service = ReadU16(operands, 0);
             var value = operands[3];
-            if (service < (ushort)RsmaHalService.PinMode || service > (ushort)RsmaHalService.EepromWrite)
+            if (service < (ushort)RsmaHalService.PinMode || service > (ushort)RsmaHalService.DmaRelease)
                 throw new RsfwFormatException("HAL_CALL contains an unknown service ID");
             if (service == (ushort)RsmaHalService.PinMode && value > (byte)VirtualPinMode.Output)
                 throw new RsfwFormatException("HAL PinMode value must be Input(0) or Output(1)");
@@ -357,6 +357,17 @@ namespace RSMA.Microcontroller.Virtual
                 throw new RsfwFormatException("HAL I2C address must be 7-bit");
             if (service == (ushort)RsmaHalService.DmaTransfer && operands[2] > 3)
                 throw new RsfwFormatException("HAL DMA channel is outside the supported range");
+            if ((service == (ushort)RsmaHalService.DmaBufferWrite ||
+                service == (ushort)RsmaHalService.DmaBufferRead) && operands[2] >= VirtualGpioBank.DmaBufferCount)
+                throw new RsfwFormatException("HAL DMA buffer index is outside the supported range");
+            if (service == (ushort)RsmaHalService.DmaSubmit &&
+                (operands[2] > 3 || operands[3] >= VirtualGpioBank.DmaBufferCount))
+                throw new RsfwFormatException("HAL DMA submit channel or buffer is outside the supported range");
+            if ((service == (ushort)RsmaHalService.DmaStatus ||
+                service == (ushort)RsmaHalService.DmaRelease) && (operands[2] != 0 || value != 0))
+                throw new RsfwFormatException("HAL DMA ticket operation reserved bytes must be zero");
+            if (service == (ushort)RsmaHalService.DmaReadByte && value != 0)
+                throw new RsfwFormatException("HAL DMA read reserved value must be zero");
         }
 
         private static byte[] Slice(byte[] source, int offset, int count)

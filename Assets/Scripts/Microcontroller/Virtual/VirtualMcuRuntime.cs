@@ -53,6 +53,27 @@ namespace RSMA.Microcontroller.Virtual
         byte DmaTransfer(byte channel, byte value);
     }
 
+    public interface IVirtualAsyncDmaHal
+    {
+        void DmaBufferWrite(byte buffer, byte offset, byte value);
+        byte DmaBufferRead(byte buffer, byte offset);
+        int DmaSubmit(byte channel, byte buffer, int length);
+        int DmaStatus(int ticket);
+        byte DmaReadByte(int ticket, byte offset);
+        bool DmaRelease(int ticket);
+        void AdvanceDmaTo(double simulatedTimeMilliseconds);
+        double? NextDmaCompletionTimeMilliseconds { get; }
+        void ResetDma();
+    }
+
+    public enum VirtualDmaStatus
+    {
+        Invalid = -1,
+        Queued = 0,
+        Active = 1,
+        Complete = 2
+    }
+
     public interface IVirtualEepromHal
     {
         byte EepromRead(byte address);
@@ -147,10 +168,15 @@ namespace RSMA.Microcontroller.Virtual
 
     public sealed class VirtualGpioBank : IVirtualMcuHal, IVirtualInputSource, IVirtualButtonHost,
         IVirtualGpioEdgeSource, IVirtualPwmHal, IVirtualAdcHal, IVirtualSpiHal, IVirtualI2cHal,
-        IVirtualDmaHal, IVirtualEepromHal
+        IVirtualDmaHal, IVirtualAsyncDmaHal, IVirtualEepromHal
     {
         public const int MaxScheduledInputEvents = 4096;
         public const int EepromSize = 256;
+        public const int DmaBufferCount = 4;
+        public const int DmaBufferCapacity = 256;
+        public const int DmaQueueCapacity = 16;
+        public const int DmaMaximumTicket = int.MaxValue;
+        public const int DmaQueueFull = -2;
 
         private readonly Dictionary<byte, VirtualPinMode> modes = new Dictionary<byte, VirtualPinMode>();
         private readonly Dictionary<byte, bool> values = new Dictionary<byte, bool>();
@@ -159,10 +185,29 @@ namespace RSMA.Microcontroller.Virtual
         private readonly Dictionary<byte, byte> spiResponses = new Dictionary<byte, byte>();
         private readonly Dictionary<byte, byte> i2cResponses = new Dictionary<byte, byte>();
         private readonly Dictionary<byte, byte> dmaResponses = new Dictionary<byte, byte>();
+        private readonly byte[][] dmaBuffers =
+        {
+            new byte[DmaBufferCapacity], new byte[DmaBufferCapacity],
+            new byte[DmaBufferCapacity], new byte[DmaBufferCapacity]
+        };
+        private readonly List<VirtualDmaTransfer> dmaTransfers = new List<VirtualDmaTransfer>();
         private readonly byte[] eeprom = new byte[EepromSize];
         private readonly Dictionary<byte, VirtualGpioPinState> states = new Dictionary<byte, VirtualGpioPinState>();
         private readonly List<ScheduledInput> scheduledInputs = new List<ScheduledInput>();
         private ulong nextInputSequence;
+        private int nextDmaTicket = 1;
+        private double dmaTimeMilliseconds;
+
+        private sealed class VirtualDmaTransfer
+        {
+            public int Ticket;
+            public byte Channel;
+            public byte[] ReceiveData;
+            public VirtualDmaStatus Status;
+            public double CompletionTimeMilliseconds;
+        }
+
+        public double DmaByteTimeMilliseconds { get; set; } = 0.01;
 
         private sealed class ScheduledInput
         {
@@ -284,6 +329,180 @@ namespace RSMA.Microcontroller.Virtual
             return dmaResponses.TryGetValue(channel, out var response) ? response : (byte)0;
         }
 
+        public void DmaBufferWrite(byte buffer, byte offset, byte value)
+        {
+            GetDmaBuffer(buffer)[offset] = value;
+        }
+
+        public byte DmaBufferRead(byte buffer, byte offset)
+        {
+            return GetDmaBuffer(buffer)[offset];
+        }
+
+        public int DmaSubmit(byte channel, byte buffer, int length)
+        {
+            if (channel > 3)
+                throw new InvalidOperationException("DMA channel must be between 0 and 3");
+            if (length < 1 || length > DmaBufferCapacity)
+                throw new InvalidOperationException("DMA transfer length must be between 1 and 256 bytes");
+            if (double.IsNaN(DmaByteTimeMilliseconds) || double.IsInfinity(DmaByteTimeMilliseconds) ||
+                DmaByteTimeMilliseconds <= 0)
+                throw new InvalidOperationException("DMA byte time must be a finite positive value");
+
+            if (dmaTransfers.Count >= DmaQueueCapacity)
+                return DmaQueueFull;
+
+            var ticket = AllocateDmaTicket();
+            var transmitData = new byte[length];
+            Array.Copy(GetDmaBuffer(buffer), transmitData, length);
+            dmaTransfers.Add(new VirtualDmaTransfer
+            {
+                Ticket = ticket,
+                Channel = channel,
+                ReceiveData = transmitData,
+                Status = VirtualDmaStatus.Queued
+            });
+            StartNextDmaTransfer(channel, dmaTimeMilliseconds);
+            return ticket;
+        }
+
+        public int DmaStatus(int ticket)
+        {
+            var transfer = FindDmaTransfer(ticket);
+            return transfer == null ? (int)VirtualDmaStatus.Invalid : (int)transfer.Status;
+        }
+
+        public byte DmaReadByte(int ticket, byte offset)
+        {
+            var transfer = FindDmaTransfer(ticket);
+            if (transfer == null || transfer.Status != VirtualDmaStatus.Complete)
+                throw new InvalidOperationException("DMA result is not complete or ticket is invalid");
+            if (offset >= transfer.ReceiveData.Length)
+                throw new InvalidOperationException("DMA result offset is outside the transfer length");
+            return transfer.ReceiveData[offset];
+        }
+
+        public bool DmaRelease(int ticket)
+        {
+            var transfer = FindDmaTransfer(ticket);
+            if (transfer == null || transfer.Status != VirtualDmaStatus.Complete)
+                return false;
+            dmaTransfers.Remove(transfer);
+            return true;
+        }
+
+        public void AdvanceDmaTo(double simulatedTimeMilliseconds)
+        {
+            if (double.IsNaN(simulatedTimeMilliseconds) || double.IsInfinity(simulatedTimeMilliseconds))
+                throw new ArgumentOutOfRangeException(nameof(simulatedTimeMilliseconds));
+            if (simulatedTimeMilliseconds <= dmaTimeMilliseconds)
+                return;
+
+            while (true)
+            {
+                VirtualDmaTransfer nextCompletion = null;
+                for (var i = 0; i < dmaTransfers.Count; i++)
+                {
+                    var candidate = dmaTransfers[i];
+                    if (candidate.Status == VirtualDmaStatus.Active &&
+                        (nextCompletion == null || candidate.CompletionTimeMilliseconds < nextCompletion.CompletionTimeMilliseconds))
+                        nextCompletion = candidate;
+                }
+                if (nextCompletion == null || nextCompletion.CompletionTimeMilliseconds > simulatedTimeMilliseconds)
+                    break;
+
+                var completedAt = nextCompletion.CompletionTimeMilliseconds;
+                var completedChannel = nextCompletion.Channel;
+                dmaTimeMilliseconds = completedAt;
+                nextCompletion.Status = VirtualDmaStatus.Complete;
+                StartNextDmaTransfer(completedChannel, completedAt);
+            }
+
+            dmaTimeMilliseconds = simulatedTimeMilliseconds;
+            for (byte channel = 0; channel < 4; channel++)
+                StartNextDmaTransfer(channel, simulatedTimeMilliseconds);
+        }
+
+        public double? NextDmaCompletionTimeMilliseconds
+        {
+            get
+            {
+                double? next = null;
+                for (var i = 0; i < dmaTransfers.Count; i++)
+                {
+                    var transfer = dmaTransfers[i];
+                    if (transfer.Status != VirtualDmaStatus.Active)
+                        continue;
+                    if (!next.HasValue || transfer.CompletionTimeMilliseconds < next.Value)
+                        next = transfer.CompletionTimeMilliseconds;
+                }
+                return next;
+            }
+        }
+
+        public void ResetDma()
+        {
+            dmaTransfers.Clear();
+            dmaTimeMilliseconds = 0.0;
+            for (var i = 0; i < dmaBuffers.Length; i++)
+                Array.Clear(dmaBuffers[i], 0, dmaBuffers[i].Length);
+        }
+
+        private byte[] GetDmaBuffer(byte buffer)
+        {
+            if (buffer >= dmaBuffers.Length)
+                throw new InvalidOperationException("DMA buffer index must be between 0 and 3");
+            return dmaBuffers[buffer];
+        }
+
+        private int AllocateDmaTicket()
+        {
+            for (var attempt = 0; attempt < DmaQueueCapacity + 1; attempt++)
+            {
+                var candidate = nextDmaTicket;
+                nextDmaTicket = nextDmaTicket == int.MaxValue ? 1 : nextDmaTicket + 1;
+                if (FindDmaTransfer(candidate) == null)
+                    return candidate;
+            }
+            return -1;
+        }
+
+        private VirtualDmaTransfer FindDmaTransfer(int ticket)
+        {
+            for (var i = 0; i < dmaTransfers.Count; i++)
+            {
+                if (dmaTransfers[i].Ticket == ticket)
+                    return dmaTransfers[i];
+            }
+            return null;
+        }
+
+        private bool HasActiveDmaTransfer(byte channel)
+        {
+            for (var i = 0; i < dmaTransfers.Count; i++)
+            {
+                if (dmaTransfers[i].Status == VirtualDmaStatus.Active && dmaTransfers[i].Channel == channel)
+                    return true;
+            }
+            return false;
+        }
+
+        private void StartNextDmaTransfer(byte channel, double simulatedTimeMilliseconds)
+        {
+            if (HasActiveDmaTransfer(channel))
+                return;
+            for (var i = 0; i < dmaTransfers.Count; i++)
+            {
+                var transfer = dmaTransfers[i];
+                if (transfer.Status != VirtualDmaStatus.Queued || transfer.Channel != channel)
+                    continue;
+                transfer.Status = VirtualDmaStatus.Active;
+                transfer.CompletionTimeMilliseconds = simulatedTimeMilliseconds +
+                    transfer.ReceiveData.Length * DmaByteTimeMilliseconds;
+                return;
+            }
+        }
+
         public byte EepromRead(byte address)
         {
             return eeprom[address];
@@ -378,6 +597,45 @@ namespace RSMA.Microcontroller.Virtual
         public VirtualMachineFaultException(string message, Exception innerException) : base(message, innerException) { }
     }
 
+    public sealed class VirtualMachineProfiler
+    {
+        public long InstructionsExecuted { get; private set; }
+        public long HalCallsExecuted { get; private set; }
+        public int MaximumValueStackDepth { get; private set; }
+        public int MaximumCallStackDepth { get; private set; }
+        public int MaximumInterruptStackDepth { get; private set; }
+
+        public void Reset()
+        {
+            InstructionsExecuted = 0;
+            HalCallsExecuted = 0;
+            MaximumValueStackDepth = 0;
+            MaximumCallStackDepth = 0;
+            MaximumInterruptStackDepth = 0;
+        }
+
+        internal void RecordInstruction() => InstructionsExecuted++;
+        internal void RecordHalCall() => HalCallsExecuted++;
+
+        internal void RecordValueStackDepth(int depth)
+        {
+            if (depth > MaximumValueStackDepth)
+                MaximumValueStackDepth = depth;
+        }
+
+        internal void RecordCallStackDepth(int depth)
+        {
+            if (depth > MaximumCallStackDepth)
+                MaximumCallStackDepth = depth;
+        }
+
+        internal void RecordInterruptStackDepth(int depth)
+        {
+            if (depth > MaximumInterruptStackDepth)
+                MaximumInterruptStackDepth = depth;
+        }
+    }
+
     public sealed class VirtualMachine
     {
         private const int MaxInstructionsPerAdvance = 100000;
@@ -389,6 +647,7 @@ namespace RSMA.Microcontroller.Virtual
         private readonly IVirtualInputSource inputSource;
         private readonly IVirtualInterruptController interruptController;
         private readonly IVirtualUartHal uart;
+        private readonly VirtualMachineProfiler profiler;
         private readonly Stack<CallFrame> callStack = new Stack<CallFrame>();
         private readonly Stack<IrqReturnState> irqReturnStack = new Stack<IrqReturnState>();
         private readonly Stack<int> valueStack = new Stack<int>();
@@ -423,6 +682,13 @@ namespace RSMA.Microcontroller.Virtual
 
         public VirtualMachine(RsfwPackage package, IVirtualMcuHal hal,
             IVirtualInterruptController interruptController, IVirtualUartHal uart)
+            : this(package, hal, interruptController, uart, null)
+        {
+        }
+
+        public VirtualMachine(RsfwPackage package, IVirtualMcuHal hal,
+            IVirtualInterruptController interruptController, IVirtualUartHal uart,
+            VirtualMachineProfiler profiler)
         {
             this.package = package ?? throw new ArgumentNullException(nameof(package));
             this.hal = hal ?? throw new ArgumentNullException(nameof(hal));
@@ -430,6 +696,7 @@ namespace RSMA.Microcontroller.Virtual
             this.interruptController = interruptController ??
                 (hal is IVirtualGpioEdgeSource edgeSource ? new VirtualInterruptController(edgeSource) : null);
             this.uart = uart;
+            this.profiler = profiler;
             programCounter = package.Bytecode.EntryPoint;
             State = VirtualExecutionState.Ready;
         }
@@ -442,6 +709,7 @@ namespace RSMA.Microcontroller.Virtual
         public int StackTop => valueStack.Count == 0 ? throw new InvalidOperationException("VM value stack is empty") : valueStack.Peek();
         public double WakeTimeMilliseconds => wakeTimeMilliseconds;
         public int InterruptDepth => irqReturnStack.Count;
+        public VirtualMachineProfiler Profiler => profiler;
         public event Action<VirtualInterruptRequest> InterruptDispatched;
 
         public void Reset()
@@ -453,9 +721,10 @@ namespace RSMA.Microcontroller.Virtual
             Array.Clear(globals, 0, globals.Length);
             programCounter = package.Bytecode.EntryPoint;
             wakeTimeMilliseconds = 0.0;
-            SimulatedTimeMilliseconds = 0.0;
+            SetSimulatedTime(0.0);
             FaultMessage = null;
             State = VirtualExecutionState.Ready;
+            profiler?.Reset();
         }
 
         public bool Step()
@@ -515,6 +784,7 @@ namespace RSMA.Microcontroller.Virtual
                 State = VirtualExecutionState.Running;
 
             var targetTime = SimulatedTimeMilliseconds + deltaMilliseconds;
+            AdvanceDmaTo(SimulatedTimeMilliseconds);
             if (State == VirtualExecutionState.Ready)
                 State = VirtualExecutionState.Running;
 
@@ -529,19 +799,23 @@ namespace RSMA.Microcontroller.Virtual
                     if (State == VirtualExecutionState.Waiting)
                     {
                         var nextInput = inputSource?.NextInputTimestampMilliseconds;
-                        if (nextInput.HasValue && nextInput.Value <= wakeTimeMilliseconds && nextInput.Value <= targetTime)
+                        var nextDma = (hal as IVirtualAsyncDmaHal)?.NextDmaCompletionTimeMilliseconds;
+                        var nextEvent = nextInput;
+                        if (nextDma.HasValue && (!nextEvent.HasValue || nextDma.Value < nextEvent.Value))
+                            nextEvent = nextDma;
+                        if (nextEvent.HasValue && nextEvent.Value <= wakeTimeMilliseconds && nextEvent.Value <= targetTime)
                         {
-                            SimulatedTimeMilliseconds = nextInput.Value;
-                            inputSource.AdvanceInputTo(SimulatedTimeMilliseconds);
+                            SetSimulatedTime(nextEvent.Value);
+                            inputSource?.AdvanceInputTo(SimulatedTimeMilliseconds);
                             continue;
                         }
                         if (wakeTimeMilliseconds > targetTime)
                         {
-                            SimulatedTimeMilliseconds = targetTime;
+                            SetSimulatedTime(targetTime);
                             inputSource?.AdvanceInputTo(targetTime);
                             return;
                         }
-                        SimulatedTimeMilliseconds = wakeTimeMilliseconds;
+                        SetSimulatedTime(wakeTimeMilliseconds);
                         inputSource?.AdvanceInputTo(SimulatedTimeMilliseconds);
                         State = VirtualExecutionState.Running;
                     }
@@ -551,7 +825,7 @@ namespace RSMA.Microcontroller.Virtual
                         throw new VirtualMachineFaultException("Instruction budget exceeded; possible tight loop");
                     ExecuteInstruction(package.Bytecode.Instructions[(int)programCounter]);
                 }
-                SimulatedTimeMilliseconds = targetTime;
+                SetSimulatedTime(targetTime);
                 inputSource?.AdvanceInputTo(targetTime);
             }
             catch (Exception exception)
@@ -566,6 +840,7 @@ namespace RSMA.Microcontroller.Virtual
 
         private void ExecuteInstruction(RsfwInstruction instruction)
         {
+            profiler?.RecordInstruction();
             var next = programCounter + 1;
             switch (instruction.Opcode)
             {
@@ -649,6 +924,7 @@ namespace RSMA.Microcontroller.Virtual
                     var savedSlots = new int[slots.Length];
                     Array.Copy(slots, savedSlots, slots.Length);
                     callStack.Push(new CallFrame { ReturnProgramCounter = next, SavedSlots = savedSlots });
+                    profiler?.RecordCallStackDepth(callStack.Count);
                     next = ReadU32(instruction.Operands, 0);
                     break;
                 case RsfwOpcode.Return:
@@ -697,6 +973,18 @@ namespace RSMA.Microcontroller.Virtual
             programCounter = next;
         }
 
+        private void SetSimulatedTime(double timeMilliseconds)
+        {
+            SimulatedTimeMilliseconds = timeMilliseconds;
+            AdvanceDmaTo(timeMilliseconds);
+        }
+
+        private void AdvanceDmaTo(double timeMilliseconds)
+        {
+            if (hal is IVirtualAsyncDmaHal asyncDmaHal)
+                asyncDmaHal.AdvanceDmaTo(timeMilliseconds);
+        }
+
         private bool TryDispatchInterrupt()
         {
             if (interruptController == null || irqReturnStack.Count != 0 ||
@@ -708,6 +996,7 @@ namespace RSMA.Microcontroller.Virtual
                 WasWaiting = State == VirtualExecutionState.Waiting,
                 WakeTimeMilliseconds = wakeTimeMilliseconds
             });
+            profiler?.RecordInterruptStackDepth(irqReturnStack.Count);
             programCounter = request.TargetInstruction;
             State = VirtualExecutionState.Running;
             InterruptDispatched?.Invoke(request);
@@ -723,6 +1012,7 @@ namespace RSMA.Microcontroller.Virtual
 
         private void ExecuteHalCall(byte[] operands)
         {
+            profiler?.RecordHalCall();
             var service = (RsmaHalService)ReadU16(operands, 0);
             var argument = operands[2];
             var value = operands[3];
@@ -825,6 +1115,63 @@ namespace RSMA.Microcontroller.Virtual
                     PushValue(dmaHal.DmaTransfer(argument, (byte)transmittedValue));
                     break;
                 }
+                case RsmaHalService.DmaBufferWrite:
+                {
+                    if (!(hal is IVirtualAsyncDmaHal dmaHal))
+                        throw new VirtualMachineFaultException("Firmware requires asynchronous DMA support");
+                    var transmittedValue = PopValue();
+                    if (transmittedValue < byte.MinValue || transmittedValue > byte.MaxValue)
+                        throw new VirtualMachineFaultException("DMA buffer value must be between 0 and 255");
+                    dmaHal.DmaBufferWrite(argument, value, (byte)transmittedValue);
+                    break;
+                }
+                case RsmaHalService.DmaBufferRead:
+                {
+                    if (!(hal is IVirtualAsyncDmaHal dmaHal))
+                        throw new VirtualMachineFaultException("Firmware requires asynchronous DMA support");
+                    PushValue(dmaHal.DmaBufferRead(argument, value));
+                    break;
+                }
+                case RsmaHalService.DmaSubmit:
+                {
+                    if (!(hal is IVirtualAsyncDmaHal dmaHal))
+                        throw new VirtualMachineFaultException("Firmware requires asynchronous DMA support");
+                    var length = PopValue();
+                    if (length < 1 || length > VirtualGpioBank.DmaBufferCapacity)
+                        throw new VirtualMachineFaultException("DMA transfer length must be between 1 and 256 bytes");
+                    PushValue(dmaHal.DmaSubmit(argument, value, length));
+                    break;
+                }
+                case RsmaHalService.DmaStatus:
+                {
+                    if (!(hal is IVirtualAsyncDmaHal dmaHal))
+                        throw new VirtualMachineFaultException("Firmware requires asynchronous DMA support");
+                    var ticket = PopValue();
+                    PushValue(ticket < 1 || ticket > VirtualGpioBank.DmaMaximumTicket
+                        ? (int)VirtualDmaStatus.Invalid
+                        : dmaHal.DmaStatus(ticket));
+                    break;
+                }
+                case RsmaHalService.DmaReadByte:
+                {
+                    if (!(hal is IVirtualAsyncDmaHal dmaHal))
+                        throw new VirtualMachineFaultException("Firmware requires asynchronous DMA support");
+                    var ticket = PopValue();
+                    if (ticket < 1 || ticket > VirtualGpioBank.DmaMaximumTicket)
+                        throw new VirtualMachineFaultException("DMA ticket is invalid");
+                    PushValue(dmaHal.DmaReadByte(ticket, argument));
+                    break;
+                }
+                case RsmaHalService.DmaRelease:
+                {
+                    if (!(hal is IVirtualAsyncDmaHal dmaHal))
+                        throw new VirtualMachineFaultException("Firmware requires asynchronous DMA support");
+                    var ticket = PopValue();
+                    PushValue(ticket < 1 || ticket > VirtualGpioBank.DmaMaximumTicket
+                        ? 0
+                        : dmaHal.DmaRelease(ticket) ? 1 : 0);
+                    break;
+                }
                 case RsmaHalService.EepromRead:
                 {
                     if (value != 0)
@@ -870,6 +1217,7 @@ namespace RSMA.Microcontroller.Virtual
             if (valueStack.Count >= MaxValueStackDepth)
                 throw new VirtualMachineFaultException("VM value stack depth limit exceeded");
             valueStack.Push(value);
+            profiler?.RecordValueStackDepth(valueStack.Count);
         }
 
         private static ushort ReadU16(byte[] bytes, int offset)

@@ -72,7 +72,13 @@ namespace RSMA.Microcontroller.Virtual
         I2cTransfer = 14,
         DmaTransfer = 15,
         EepromRead = 16,
-        EepromWrite = 17
+        EepromWrite = 17,
+        DmaBufferWrite = 18,
+        DmaBufferRead = 19,
+        DmaSubmit = 20,
+        DmaStatus = 21,
+        DmaReadByte = 22,
+        DmaRelease = 23
     }
 
     public sealed class RsfwFormatException : Exception

@@ -1958,6 +1958,183 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
+        public void VirtualDmaCopiesTransmitBufferAndCompletesOnSimulatedTime()
+        {
+            var gpio = new VirtualGpioBank { DmaByteTimeMilliseconds = 0.01 };
+            gpio.DmaBufferWrite(0, 0, 0xA5);
+
+            var ticket = gpio.DmaSubmit(1, 0, 1);
+            gpio.DmaBufferWrite(0, 0, 0x11);
+
+            Assert.Greater(ticket, 0);
+            Assert.AreEqual((int)VirtualDmaStatus.Active, gpio.DmaStatus(ticket));
+            gpio.AdvanceDmaTo(0.009);
+            Assert.AreEqual((int)VirtualDmaStatus.Active, gpio.DmaStatus(ticket));
+            gpio.AdvanceDmaTo(0.01);
+            Assert.AreEqual((int)VirtualDmaStatus.Complete, gpio.DmaStatus(ticket));
+            Assert.AreEqual(0xA5, gpio.DmaReadByte(ticket, 0));
+            Assert.IsTrue(gpio.DmaRelease(ticket));
+            Assert.AreEqual((int)VirtualDmaStatus.Invalid, gpio.DmaStatus(ticket));
+        }
+
+        [Test]
+        public void VirtualDmaRunsChannelsInParallelAndBoundsOutstandingQueue()
+        {
+            var gpio = new VirtualGpioBank { DmaByteTimeMilliseconds = 0.01 };
+            var channelZeroTicket = gpio.DmaSubmit(0, 0, 1);
+            var channelOneTicket = gpio.DmaSubmit(1, 0, 1);
+            var queuedTickets = new int[VirtualGpioBank.DmaQueueCapacity - 2];
+            for (var i = 0; i < queuedTickets.Length; i++)
+                queuedTickets[i] = gpio.DmaSubmit(0, 0, 1);
+
+            Assert.AreEqual(VirtualDmaStatus.Active, (VirtualDmaStatus)gpio.DmaStatus(channelZeroTicket));
+            Assert.AreEqual(VirtualDmaStatus.Active, (VirtualDmaStatus)gpio.DmaStatus(channelOneTicket));
+            Assert.AreEqual(VirtualDmaStatus.Queued, (VirtualDmaStatus)gpio.DmaStatus(queuedTickets[0]));
+            Assert.AreEqual(VirtualGpioBank.DmaQueueFull, gpio.DmaSubmit(2, 0, 1));
+
+            gpio.AdvanceDmaTo(0.01);
+            Assert.AreEqual(VirtualDmaStatus.Complete, (VirtualDmaStatus)gpio.DmaStatus(channelZeroTicket));
+            Assert.AreEqual(VirtualDmaStatus.Complete, (VirtualDmaStatus)gpio.DmaStatus(channelOneTicket));
+            Assert.AreEqual(VirtualDmaStatus.Active, (VirtualDmaStatus)gpio.DmaStatus(queuedTickets[0]));
+
+            Assert.IsTrue(gpio.DmaRelease(channelZeroTicket));
+            Assert.Greater(gpio.DmaSubmit(2, 0, 1), 0);
+        }
+
+        [Test]
+        public void VirtualMachineExecutesAsyncDmaSubmitWaitAndStatus()
+        {
+            var package = MakeBlinkPackage();
+            package.Manifest.RequiredPeripherals.Add("DMA");
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(MakeConstI32(0x5A));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { (byte)RsmaHalService.DmaBufferWrite, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(MakeConstI32(1));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { (byte)RsmaHalService.DmaSubmit, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.GlobalStore,
+                Operands = new byte[] { 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Wait,
+                Operands = new byte[] { 1, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.GlobalLoad,
+                Operands = new byte[] { 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { (byte)RsmaHalService.DmaStatus, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Store,
+                Operands = new byte[] { 1, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.GlobalLoad,
+                Operands = new byte[] { 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { (byte)RsmaHalService.DmaReadByte, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Store,
+                Operands = new byte[] { 2, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.GlobalLoad,
+                Operands = new byte[] { 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { (byte)RsmaHalService.DmaRelease, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Store,
+                Operands = new byte[] { 3, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Load,
+                Operands = new byte[] { 2, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            var gpio = new VirtualGpioBank { DmaByteTimeMilliseconds = 0.01 };
+            var machine = new VirtualMachine(package, gpio);
+            machine.Advance(0);
+            Assert.AreEqual(VirtualExecutionState.Waiting, machine.State);
+
+            machine.Advance(1);
+
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            Assert.AreEqual(1, machine.StackDepth);
+            Assert.AreEqual(0x5A, machine.StackTop);
+            Assert.AreEqual((int)VirtualDmaStatus.Invalid, gpio.DmaStatus(1));
+        }
+
+        [Test]
+        public void VirtualDmaBackendResetCancelsOutstandingTransfers()
+        {
+            var gpio = new VirtualGpioBank();
+            var ticket = gpio.DmaSubmit(0, 0, 10);
+            gpio.ResetDma();
+
+            Assert.AreEqual((int)VirtualDmaStatus.Invalid, gpio.DmaStatus(ticket));
+        }
+
+        [Test]
+        public void VirtualDmaBackendCanAdvanceAfterVmHalt()
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+            var gpio = new VirtualGpioBank { DmaByteTimeMilliseconds = 0.01 };
+            var machine = new VirtualMachine(package, gpio);
+            var ticket = gpio.DmaSubmit(0, 0, 1);
+
+            machine.Advance(0);
+            machine.Advance(0.01);
+
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            Assert.AreEqual(0.0, machine.SimulatedTimeMilliseconds);
+            Assert.AreEqual((int)VirtualDmaStatus.Active, gpio.DmaStatus(ticket));
+
+            gpio.AdvanceDmaTo(0.01);
+
+            Assert.AreEqual((int)VirtualDmaStatus.Complete, gpio.DmaStatus(ticket));
+        }
+
+        [Test]
         public void VirtualMachineEepromRoundTripPersistsAcrossResetUntilStorageIsCleared()
         {
             var package = MakeBlinkPackage();
