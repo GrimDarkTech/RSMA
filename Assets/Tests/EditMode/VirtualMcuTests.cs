@@ -190,6 +190,8 @@ namespace RSMA.Microcontroller.Virtual.Tests
         [TestCase(13, 0, 1, "nonzero SPI reserved value")]
         [TestCase(14, 128, 0, "invalid I2C address")]
         [TestCase(14, 0, 1, "nonzero I2C reserved value")]
+        [TestCase(15, 4, 0, "invalid DMA channel")]
+        [TestCase(15, 0, 1, "nonzero DMA reserved value")]
         public void ReaderRejectsInvalidHalOperands(int service, int argument, int value, string caseName)
         {
             var package = MakeBlinkPackage();
@@ -1872,6 +1874,7 @@ namespace RSMA.Microcontroller.Virtual.Tests
 
         [TestCase(13, 2, 0xA5, 0x5A)]
         [TestCase(14, 0x42, 0xA5, 0xC3)]
+        [TestCase(15, 2, 0xA5, 0xD7)]
         public void VirtualMachineBusTransferReturnsBackendByteOnStack(
             int service, int busOrAddress, int transmitted, int expectedReceived)
         {
@@ -1893,14 +1896,40 @@ namespace RSMA.Microcontroller.Virtual.Tests
             var gpio = new VirtualGpioBank();
             if (service == (int)RsmaHalService.SpiTransfer)
                 gpio.SetSpiResponse((byte)busOrAddress, (byte)expectedReceived);
-            else
+            else if (service == (int)RsmaHalService.I2cTransfer)
                 gpio.SetI2cResponse((byte)busOrAddress, (byte)expectedReceived);
+            else
+                gpio.SetDmaResponse((byte)busOrAddress, (byte)expectedReceived);
             var machine = new VirtualMachine(package, gpio);
             machine.Advance(0);
 
             Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
             Assert.AreEqual(1, machine.StackDepth);
             Assert.AreEqual(expectedReceived, machine.StackTop);
+        }
+
+        [Test]
+        public void VirtualMachineFailsExplicitlyWhenDmaBackendIsMissing()
+        {
+            var package = MakeBlinkPackage();
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(MakeConstI32(0xA5));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { (byte)RsmaHalService.DmaTransfer, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            var machine = new VirtualMachine(package, new BasicVirtualHal());
+            var exception = Assert.Throws<VirtualMachineFaultException>(() => machine.Advance(0));
+
+            StringAssert.Contains("Firmware requires DMA support", exception.Message);
+            Assert.AreEqual(VirtualExecutionState.Faulted, machine.State);
         }
 
         [TestCase(0, 0f, false)]

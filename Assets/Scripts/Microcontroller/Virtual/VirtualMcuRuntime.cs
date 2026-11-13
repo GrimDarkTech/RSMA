@@ -48,6 +48,11 @@ namespace RSMA.Microcontroller.Virtual
         byte I2cTransfer(byte address, byte value);
     }
 
+    public interface IVirtualDmaHal
+    {
+        byte DmaTransfer(byte channel, byte value);
+    }
+
     public interface IVirtualUartHal
     {
         void Begin(byte port, byte baudRatePreset);
@@ -135,7 +140,7 @@ namespace RSMA.Microcontroller.Virtual
     }
 
     public sealed class VirtualGpioBank : IVirtualMcuHal, IVirtualInputSource, IVirtualButtonHost,
-        IVirtualGpioEdgeSource, IVirtualPwmHal, IVirtualAdcHal, IVirtualSpiHal, IVirtualI2cHal
+        IVirtualGpioEdgeSource, IVirtualPwmHal, IVirtualAdcHal, IVirtualSpiHal, IVirtualI2cHal, IVirtualDmaHal
     {
         public const int MaxScheduledInputEvents = 4096;
 
@@ -145,6 +150,7 @@ namespace RSMA.Microcontroller.Virtual
         private readonly Dictionary<byte, ushort> analogValues = new Dictionary<byte, ushort>();
         private readonly Dictionary<byte, byte> spiResponses = new Dictionary<byte, byte>();
         private readonly Dictionary<byte, byte> i2cResponses = new Dictionary<byte, byte>();
+        private readonly Dictionary<byte, byte> dmaResponses = new Dictionary<byte, byte>();
         private readonly Dictionary<byte, VirtualGpioPinState> states = new Dictionary<byte, VirtualGpioPinState>();
         private readonly List<ScheduledInput> scheduledInputs = new List<ScheduledInput>();
         private ulong nextInputSequence;
@@ -253,6 +259,20 @@ namespace RSMA.Microcontroller.Virtual
             if (address > 0x7F)
                 throw new InvalidOperationException("I2C address must be 7-bit");
             return i2cResponses.TryGetValue(address, out var response) ? response : (byte)0;
+        }
+
+        public void SetDmaResponse(byte channel, byte value)
+        {
+            if (channel > 3)
+                throw new ArgumentOutOfRangeException(nameof(channel), "DMA channel must be between 0 and 3");
+            dmaResponses[channel] = value;
+        }
+
+        public byte DmaTransfer(byte channel, byte value)
+        {
+            if (channel > 3)
+                throw new InvalidOperationException("DMA channel must be between 0 and 3");
+            return dmaResponses.TryGetValue(channel, out var response) ? response : (byte)0;
         }
 
         public void PwmWrite(byte pin, byte dutyCycle)
@@ -765,6 +785,20 @@ namespace RSMA.Microcontroller.Virtual
                     if (transmittedValue < byte.MinValue || transmittedValue > byte.MaxValue)
                         throw new VirtualMachineFaultException("I2C transfer value must be between 0 and 255");
                     PushValue(i2cHal.I2cTransfer(argument, (byte)transmittedValue));
+                    break;
+                }
+                case RsmaHalService.DmaTransfer:
+                {
+                    if (value != 0)
+                        throw new VirtualMachineFaultException("DMA transfer reserved value must be zero");
+                    if (argument > 3)
+                        throw new VirtualMachineFaultException("DMA channel must be between 0 and 3");
+                    if (!(hal is IVirtualDmaHal dmaHal))
+                        throw new VirtualMachineFaultException("Firmware requires DMA support");
+                    var transmittedValue = PopValue();
+                    if (transmittedValue < byte.MinValue || transmittedValue > byte.MaxValue)
+                        throw new VirtualMachineFaultException("DMA transfer value must be between 0 and 255");
+                    PushValue(dmaHal.DmaTransfer(argument, (byte)transmittedValue));
                     break;
                 }
                 default:
