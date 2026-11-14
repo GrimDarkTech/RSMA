@@ -269,6 +269,7 @@ namespace RSMA.Microcontroller.Virtual
                     case RsfwOpcode.DisableIrq:
                     case RsfwOpcode.ReturnIrq:
                     case RsfwOpcode.ReturnUartRx:
+                    case RsfwOpcode.ReturnUartPacketRx:
                     case RsfwOpcode.Yield:
                         RequireOperands(instruction, 0);
                         break;
@@ -285,6 +286,17 @@ namespace RSMA.Microcontroller.Virtual
                         if (instruction.Operands[0] >= VirtualUartBank.PortCount ||
                             ReadU32(instruction.Operands, 1) >= package.Bytecode.Instructions.Count)
                             throw new RsfwFormatException("ATTACH_UART_RX contains an invalid port or target");
+                        break;
+                    case RsfwOpcode.DetachUartPacketRx:
+                        RequireOperands(instruction, 1);
+                        if (instruction.Operands[0] >= VirtualUartBank.PortCount)
+                            throw new RsfwFormatException("DETACH_UART_PACKET_RX port is outside the supported range");
+                        break;
+                    case RsfwOpcode.AttachUartPacketRx:
+                        RequireOperands(instruction, 5);
+                        if (instruction.Operands[0] >= VirtualUartBank.PortCount ||
+                            ReadU32(instruction.Operands, 1) >= package.Bytecode.Instructions.Count)
+                            throw new RsfwFormatException("ATTACH_UART_PACKET_RX contains an invalid port or target");
                         break;
                     case RsfwOpcode.AttachIrq:
                         RequireOperands(instruction, 6);
@@ -341,7 +353,7 @@ namespace RSMA.Microcontroller.Virtual
         {
             var service = ReadU16(operands, 0);
             var value = operands[3];
-            if (service < (ushort)RsmaHalService.PinMode || service > (ushort)RsmaHalService.AnalogWrite)
+            if (service < (ushort)RsmaHalService.PinMode || service > (ushort)RsmaHalService.UartPacketType)
                 throw new RsfwFormatException("HAL_CALL contains an unknown service ID");
             if (service == (ushort)RsmaHalService.PinMode && value > (byte)VirtualPinMode.Output)
                 throw new RsfwFormatException("HAL PinMode value must be Input(0) or Output(1)");
@@ -358,6 +370,12 @@ namespace RSMA.Microcontroller.Virtual
                     throw new RsfwFormatException("HAL UART baud rate preset is unsupported");
                 if (service != (ushort)RsmaHalService.UartBegin && value != 0)
                     throw new RsfwFormatException("HAL UART reserved value must be zero");
+            }
+            if (service >= (ushort)RsmaHalService.UartPacketAvailable &&
+                service <= (ushort)RsmaHalService.UartPacketType)
+            {
+                if (operands[2] >= VirtualUartBank.PortCount || value != 0)
+                    throw new RsfwFormatException("HAL UART packet operation contains invalid operands");
             }
             if (service == (ushort)RsmaHalService.AnalogRead && value != 0)
                 throw new RsfwFormatException("HAL AnalogRead reserved value must be zero");

@@ -39,6 +39,7 @@ namespace RSMA.Microcontroller.Virtual
     public interface IVirtualUartInputSource : IVirtualInputSource
     {
         event Action<byte, byte> Received;
+        event Action<byte, HitlFrame> PacketReceived;
         void ScheduleReceived(byte port, double timestampMilliseconds, byte[] data);
     }
 

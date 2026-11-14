@@ -55,7 +55,10 @@ namespace RSMA.Microcontroller.Virtual
         DetachIrq = 0x1B,
         AttachUartRx = 0x1C,
         DetachUartRx = 0x1D,
-        ReturnUartRx = 0x1E
+        ReturnUartRx = 0x1E,
+        AttachUartPacketRx = 0x1F,
+        DetachUartPacketRx = 0x20,
+        ReturnUartPacketRx = 0x21
     }
 
     public enum RsmaHalService : ushort
@@ -83,7 +86,10 @@ namespace RSMA.Microcontroller.Virtual
         DmaStatus = 21,
         DmaReadByte = 22,
         DmaRelease = 23,
-        AnalogWrite = 24
+        AnalogWrite = 24,
+        UartPacketAvailable = 25,
+        UartPacketRead = 26,
+        UartPacketType = 27
     }
 
     public sealed class RsfwFormatException : Exception

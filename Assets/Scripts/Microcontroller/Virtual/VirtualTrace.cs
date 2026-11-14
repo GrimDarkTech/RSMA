@@ -13,6 +13,8 @@ namespace RSMA.Microcontroller.Virtual
         StateTransition,
         Interrupt,
         UartCallback,
+        UartPacketReceive,
+        UartPacketCallback,
         UartTransmit,
         UartReceive,
         RejectedMapping,

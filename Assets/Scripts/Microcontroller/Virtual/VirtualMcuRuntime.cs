@@ -96,6 +96,11 @@ namespace RSMA.Microcontroller.Virtual
         int Available(byte port);
         byte Read(byte port);
         void Write(byte port, byte value);
+        int PacketAvailable(byte port);
+        byte PacketRead(byte port);
+        byte PacketType(byte port);
+        bool HasPacket(byte port);
+        void CompletePacket(byte port);
     }
 
     public sealed class VirtualUartBank : IVirtualUartHal, IVirtualUartInputSource
@@ -104,6 +109,7 @@ namespace RSMA.Microcontroller.Virtual
         public const byte BaudRateCount = 5;
         public const int ReceiveBufferCapacity = 256;
         public const int MaxScheduledReceiveEvents = 4096;
+        public const int MaxPendingHitlPackets = 256;
 
         private static readonly int[] BaudRates = { 9600, 19200, 38400, 57600, 115200 };
         private readonly PortState[] ports = { new PortState(), new PortState(), new PortState(), new PortState() };
@@ -113,6 +119,8 @@ namespace RSMA.Microcontroller.Virtual
             public bool Initialized;
             public int BaudRate;
             public readonly Queue<byte> ReceiveBuffer = new Queue<byte>();
+            public readonly HitlFrameParser HitlParser = new HitlFrameParser();
+            public readonly Queue<HitlFrame> PendingHitlPackets = new Queue<HitlFrame>();
         }
 
         private sealed class ScheduledReceive
@@ -125,6 +133,7 @@ namespace RSMA.Microcontroller.Virtual
 
         public event Action<byte, byte> Transmitted;
         public event Action<byte, byte> Received;
+        public event Action<byte, HitlFrame> PacketReceived;
         private readonly List<ScheduledReceive> scheduledReceives = new List<ScheduledReceive>();
         private ulong nextReceiveSequence;
         public double? NextInputTimestampMilliseconds => scheduledReceives.Count == 0
@@ -156,6 +165,59 @@ namespace RSMA.Microcontroller.Virtual
         {
             GetInitializedPort(port);
             Transmitted?.Invoke(port, value);
+        }
+
+        public int PacketAvailable(byte port)
+        {
+            var packet = GetPendingPacket(port);
+            return packet.Payload.Length;
+        }
+
+        public byte PacketRead(byte port)
+        {
+            var state = GetInitializedPort(port);
+            var packet = GetPendingPacket(port);
+            if (packet.Payload.Length == 0)
+                throw new InvalidOperationException("HITL packet payload is empty");
+            var value = packet.Payload[0];
+            var remaining = new byte[packet.Payload.Length - 1];
+            Array.Copy(packet.Payload, 1, remaining, 0, remaining.Length);
+            packet.Payload = remaining;
+            if (remaining.Length == 0)
+                state.PendingHitlPackets.Dequeue();
+            return value;
+        }
+
+        public byte PacketType(byte port)
+        {
+            return (byte)GetPendingPacket(port).Type;
+        }
+
+        public bool HasPacket(byte port)
+        {
+            return GetInitializedPort(port).PendingHitlPackets.Count != 0;
+        }
+
+        public void CompletePacket(byte port)
+        {
+            var state = GetInitializedPort(port);
+            if (state.PendingHitlPackets.Count != 0)
+                state.PendingHitlPackets.Dequeue();
+        }
+
+        public void InjectHitlFrame(byte port, byte[] frameBytes)
+        {
+            if (frameBytes == null)
+                throw new ArgumentNullException(nameof(frameBytes));
+            var state = GetInitializedPort(port);
+            var frames = state.HitlParser.Feed(frameBytes);
+            foreach (var frame in frames)
+            {
+                if (state.PendingHitlPackets.Count >= MaxPendingHitlPackets)
+                    throw new InvalidOperationException("HITL packet queue capacity exceeded");
+                state.PendingHitlPackets.Enqueue(frame);
+                PacketReceived?.Invoke(port, frame);
+            }
         }
 
         public void InjectReceived(byte port, byte[] data)
@@ -225,6 +287,14 @@ namespace RSMA.Microcontroller.Virtual
             if (!state.Initialized)
                 throw new InvalidOperationException("UART port has not been initialized");
             return state;
+        }
+
+        private HitlFrame GetPendingPacket(byte port)
+        {
+            var packet = GetInitializedPort(port).PendingHitlPackets;
+            if (packet.Count == 0)
+                throw new InvalidOperationException("HITL packet queue is empty");
+            return packet.Peek();
         }
 
         private PortState GetPort(byte port)
@@ -787,6 +857,12 @@ namespace RSMA.Microcontroller.Virtual
         private readonly UartCallbackReturnState uartCallbackReturnState = new UartCallbackReturnState();
         private readonly uint[] uartCallbackTargets = { uint.MaxValue, uint.MaxValue, uint.MaxValue, uint.MaxValue };
         private readonly bool[] uartCallbackPending = new bool[4];
+        private readonly Queue<UartPacketCallbackRequest> pendingUartPacketCallbacks =
+            new Queue<UartPacketCallbackRequest>();
+        private readonly UartPacketCallbackReturnState uartPacketCallbackReturnState =
+            new UartPacketCallbackReturnState();
+        private readonly uint[] uartPacketCallbackTargets = { uint.MaxValue, uint.MaxValue, uint.MaxValue, uint.MaxValue };
+        private readonly bool[] uartPacketCallbackPending = new bool[4];
         private readonly Stack<int> valueStack = new Stack<int>();
         private readonly int[] slots = new int[256];
         private readonly int[] globals = new int[256];
@@ -814,6 +890,20 @@ namespace RSMA.Microcontroller.Virtual
         }
 
         private sealed class UartCallbackReturnState
+        {
+            public byte Port;
+            public uint ProgramCounter;
+            public bool WasWaiting;
+            public double WakeTimeMilliseconds;
+            public bool Active;
+        }
+
+        private sealed class UartPacketCallbackRequest
+        {
+            public byte Port;
+        }
+
+        private sealed class UartPacketCallbackReturnState
         {
             public byte Port;
             public uint ProgramCounter;
@@ -853,7 +943,10 @@ namespace RSMA.Microcontroller.Virtual
             this.profiler = profiler;
             Trace = new VirtualTraceBuffer();
             if (uartInputSource != null)
+            {
                 uartInputSource.Received += OnUartReceived;
+                uartInputSource.PacketReceived += OnUartPacketReceived;
+            }
             programCounter = package.Bytecode.EntryPoint;
             State = VirtualExecutionState.Ready;
         }
@@ -905,7 +998,11 @@ namespace RSMA.Microcontroller.Virtual
             {
                 uartCallbackTargets[port] = uint.MaxValue;
                 uartCallbackPending[port] = false;
+                uartPacketCallbackTargets[port] = uint.MaxValue;
+                uartPacketCallbackPending[port] = false;
             }
+            pendingUartPacketCallbacks.Clear();
+            uartPacketCallbackReturnState.Active = false;
             valueStack.Clear();
             Array.Clear(slots, 0, slots.Length);
             Array.Clear(globals, 0, globals.Length);
@@ -931,6 +1028,8 @@ namespace RSMA.Microcontroller.Virtual
                     State = VirtualExecutionState.Running;
 
                 if (TryDispatchUartCallback())
+                    return true;
+                if (TryDispatchUartPacketCallback())
                     return true;
                 TryDispatchInterrupt();
 
@@ -990,6 +1089,8 @@ namespace RSMA.Microcontroller.Virtual
                     AdvanceInputSourcesTo(SimulatedTimeMilliseconds);
                     if (TryDispatchUartCallback())
                         continue;
+                    if (TryDispatchUartPacketCallback())
+                        continue;
                     if (TryDispatchInterrupt())
                         continue;
                     if (State == VirtualExecutionState.Waiting)
@@ -1004,6 +1105,8 @@ namespace RSMA.Microcontroller.Virtual
                             SetSimulatedTime(nextEvent.Value);
                             AdvanceInputSourcesTo(SimulatedTimeMilliseconds);
                             if (TryDispatchUartCallback())
+                                continue;
+                            if (TryDispatchUartPacketCallback())
                                 continue;
                             continue;
                         }
@@ -1164,6 +1267,16 @@ namespace RSMA.Microcontroller.Virtual
                         throw new VirtualMachineFaultException("UART callback port is outside the supported range");
                     uartCallbackTargets[instruction.Operands[0]] = uint.MaxValue;
                     break;
+                case RsfwOpcode.AttachUartPacketRx:
+                    if (instruction.Operands[0] >= uartPacketCallbackTargets.Length)
+                        throw new VirtualMachineFaultException("UART packet callback port is outside the supported range");
+                    uartPacketCallbackTargets[instruction.Operands[0]] = ReadU32(instruction.Operands, 1);
+                    break;
+                case RsfwOpcode.DetachUartPacketRx:
+                    if (instruction.Operands[0] >= uartPacketCallbackTargets.Length)
+                        throw new VirtualMachineFaultException("UART packet callback port is outside the supported range");
+                    uartPacketCallbackTargets[instruction.Operands[0]] = uint.MaxValue;
+                    break;
                 case RsfwOpcode.EnableIrq:
                     RequireInterruptController().Enable();
                     break;
@@ -1198,6 +1311,26 @@ namespace RSMA.Microcontroller.Virtual
                         });
                     }
                     uartCallbackReturnState.Active = false;
+                    break;
+                case RsfwOpcode.ReturnUartPacketRx:
+                    if (!uartPacketCallbackReturnState.Active)
+                        throw new VirtualMachineFaultException("RETURN_UART_PACKET_RX executed outside a packet callback");
+                    wakeTimeMilliseconds = uartPacketCallbackReturnState.WakeTimeMilliseconds;
+                    State = uartPacketCallbackReturnState.WasWaiting && wakeTimeMilliseconds > SimulatedTimeMilliseconds
+                        ? VirtualExecutionState.Waiting : VirtualExecutionState.Running;
+                    next = uartPacketCallbackReturnState.ProgramCounter;
+                    uartPacketCallbackReturnState.Active = false;
+                    RequireUart().CompletePacket(uartPacketCallbackReturnState.Port);
+                    if (RequireUart().HasPacket(uartPacketCallbackReturnState.Port) &&
+                        uartPacketCallbackTargets[uartPacketCallbackReturnState.Port] != uint.MaxValue &&
+                        !uartPacketCallbackPending[uartPacketCallbackReturnState.Port])
+                    {
+                        uartPacketCallbackPending[uartPacketCallbackReturnState.Port] = true;
+                        pendingUartPacketCallbacks.Enqueue(new UartPacketCallbackRequest
+                        {
+                            Port = uartPacketCallbackReturnState.Port
+                        });
+                    }
                     break;
                 default:
                     throw new VirtualMachineFaultException("Unsupported opcode " + instruction.Opcode);
@@ -1255,6 +1388,18 @@ namespace RSMA.Microcontroller.Virtual
             }
         }
 
+        private void OnUartPacketReceived(byte port, HitlFrame frame)
+        {
+            RecordTrace(VirtualTraceEventKind.UartPacketReceive, port, frame.Payload.Length,
+                (int)frame.Type);
+            if (port < uartPacketCallbackTargets.Length && uartPacketCallbackTargets[port] != uint.MaxValue &&
+                !uartPacketCallbackPending[port])
+            {
+                uartPacketCallbackPending[port] = true;
+                pendingUartPacketCallbacks.Enqueue(new UartPacketCallbackRequest { Port = port });
+            }
+        }
+
         private bool TryDispatchUartCallback()
         {
             if (uartCallbackReturnState.Active || pendingUartCallbacks.Count == 0)
@@ -1278,6 +1423,26 @@ namespace RSMA.Microcontroller.Virtual
             State = VirtualExecutionState.Running;
             RecordTrace(VirtualTraceEventKind.UartCallback, request.Port, 0,
                 unchecked((int)request.Sequence));
+            return true;
+        }
+
+        private bool TryDispatchUartPacketCallback()
+        {
+            if (uartPacketCallbackReturnState.Active || pendingUartPacketCallbacks.Count == 0)
+                return false;
+            var request = pendingUartPacketCallbacks.Dequeue();
+            var target = uartPacketCallbackTargets[request.Port];
+            uartPacketCallbackPending[request.Port] = false;
+            if (target == uint.MaxValue || !RequireUart().HasPacket(request.Port))
+                return false;
+            uartPacketCallbackReturnState.Port = request.Port;
+            uartPacketCallbackReturnState.ProgramCounter = programCounter;
+            uartPacketCallbackReturnState.WasWaiting = State == VirtualExecutionState.Waiting;
+            uartPacketCallbackReturnState.WakeTimeMilliseconds = wakeTimeMilliseconds;
+            uartPacketCallbackReturnState.Active = true;
+            programCounter = target;
+            State = VirtualExecutionState.Running;
+            RecordTrace(VirtualTraceEventKind.UartPacketCallback, request.Port, 0);
             return true;
         }
 
@@ -1402,6 +1567,15 @@ namespace RSMA.Microcontroller.Virtual
                     RecordTrace(VirtualTraceEventKind.UartTransmit, argument, transmittedValue);
                     break;
                 }
+                case RsmaHalService.UartPacketAvailable:
+                    PushValue(RequireUart().PacketAvailable(argument));
+                    break;
+                case RsmaHalService.UartPacketRead:
+                    PushValue(RequireUart().PacketRead(argument));
+                    break;
+                case RsmaHalService.UartPacketType:
+                    PushValue(RequireUart().PacketType(argument));
+                    break;
                 case RsmaHalService.AnalogRead:
                 {
                     if (!(hal is IVirtualAdcHal adcHal))
