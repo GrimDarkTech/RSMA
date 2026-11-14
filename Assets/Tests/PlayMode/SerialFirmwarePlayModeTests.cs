@@ -181,7 +181,11 @@ namespace RSMA.Microcontroller.Virtual.PlayMode.Tests
             invalid[invalid.Length - 1] ^= 0x01;
             uart.InjectHitlFrame(1, invalid);
             Assert.AreEqual(0, transmitted.Count);
-            uart.InjectHitlFrame(1, frame);
+            var split = frame.Length / 2;
+            uart.InjectHitlFrame(1, SubArray(frame, 0, split));
+            machine.Advance(1);
+            Assert.AreEqual(0, transmitted.Count);
+            uart.InjectHitlFrame(1, SubArray(frame, split, frame.Length - split));
             machine.Advance(1);
 
             CollectionAssert.AreEqual(new byte[] { 0x6B }, transmitted);
@@ -193,6 +197,78 @@ namespace RSMA.Microcontroller.Virtual.PlayMode.Tests
                 item.Channel == 1));
 
             yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator SerialPacketCallbackAcceptsValidZeroLengthPayload()
+        {
+            var firmware = LoadFirmware("serial_packet_callback");
+            Assert.IsNotNull(firmware, "Serial packet callback RSFW TextAsset was not loaded from Resources");
+
+            var package = RsfwReader.Read(firmware.bytes);
+            var uart = new VirtualUartBank();
+            var transmitted = new List<byte>();
+            uart.Transmitted += (_, value) => transmitted.Add(value);
+            var machine = new VirtualMachine(package, new VirtualGpioBank(), null, uart);
+
+            machine.Advance(0);
+            uart.InjectHitlFrame(1, HitlFrameCodec.Encode(new HitlFrame
+            {
+                Type = HitlMessageType.Data,
+                Sequence = 8,
+                Payload = System.Array.Empty<byte>()
+            }));
+            machine.Advance(1);
+
+            Assert.IsEmpty(transmitted);
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            Assert.IsNotNull(machine.GetTraceSnapshot().Find(item =>
+                item.Kind == VirtualTraceEventKind.UartPacketCallback && item.Channel == 1));
+
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator SerialPacketCallbackCanRunAgainAfterVirtualMachineReset()
+        {
+            var firmware = LoadFirmware("serial_packet_callback");
+            Assert.IsNotNull(firmware, "Serial packet callback RSFW TextAsset was not loaded from Resources");
+
+            var package = RsfwReader.Read(firmware.bytes);
+            var uart = new VirtualUartBank();
+            var transmitted = new List<byte>();
+            uart.Transmitted += (_, value) => transmitted.Add(value);
+            var machine = new VirtualMachine(package, new VirtualGpioBank(), null, uart);
+            var frame = HitlFrameCodec.Encode(new HitlFrame
+            {
+                Type = HitlMessageType.Data,
+                Sequence = 9,
+                Payload = new byte[] { 0x31 }
+            });
+
+            machine.Advance(0);
+            uart.InjectHitlFrame(1, frame);
+            machine.Advance(1);
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+
+            machine.Reset();
+            machine.Advance(0);
+            uart.InjectHitlFrame(1, frame);
+            machine.Advance(1);
+
+            CollectionAssert.AreEqual(new byte[] { 0x31, 0x31 }, transmitted);
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            Assert.GreaterOrEqual(machine.GetTraceSnapshot().FindAll(item =>
+                item.Kind == VirtualTraceEventKind.UartPacketCallback && item.Channel == 1).Count, 1);
+
+            yield return null;
+        }
+
+        private static byte[] SubArray(byte[] source, int offset, int count)
+        {
+            var result = new byte[count];
+            System.Array.Copy(source, offset, result, 0, count);
+            return result;
         }
 
         private static UnityEngine.TextAsset LoadFirmware(string assetName)

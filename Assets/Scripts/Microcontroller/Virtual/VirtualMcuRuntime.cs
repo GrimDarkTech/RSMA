@@ -183,8 +183,6 @@ namespace RSMA.Microcontroller.Virtual
             var remaining = new byte[packet.Payload.Length - 1];
             Array.Copy(packet.Payload, 1, remaining, 0, remaining.Length);
             packet.Payload = remaining;
-            if (remaining.Length == 0)
-                state.PendingHitlPackets.Dequeue();
             return value;
         }
 
@@ -211,10 +209,10 @@ namespace RSMA.Microcontroller.Virtual
                 throw new ArgumentNullException(nameof(frameBytes));
             var state = GetInitializedPort(port);
             var frames = state.HitlParser.Feed(frameBytes);
+            if (frames.Count > MaxPendingHitlPackets - state.PendingHitlPackets.Count)
+                throw new InvalidOperationException("HITL packet queue capacity exceeded");
             foreach (var frame in frames)
             {
-                if (state.PendingHitlPackets.Count >= MaxPendingHitlPackets)
-                    throw new InvalidOperationException("HITL packet queue capacity exceeded");
                 state.PendingHitlPackets.Enqueue(frame);
                 PacketReceived?.Invoke(port, frame);
             }

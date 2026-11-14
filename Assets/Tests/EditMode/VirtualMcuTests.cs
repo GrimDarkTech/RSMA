@@ -141,6 +141,72 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
+        public void VirtualUartPacketQueuePreservesFrameFifoAndPayloadReadOwnership()
+        {
+            var uart = new VirtualUartBank();
+            uart.Begin(0, 0);
+            var received = 0;
+            uart.PacketReceived += (_, __) => received++;
+            var first = HitlFrameCodec.Encode(new HitlFrame
+            {
+                Type = HitlMessageType.Data,
+                Sequence = 1,
+                Payload = new byte[] { 0x11, 0x12 }
+            });
+            var second = HitlFrameCodec.Encode(new HitlFrame
+            {
+                Type = HitlMessageType.SafeState,
+                Sequence = 2,
+                Payload = new byte[] { 0x21 }
+            });
+
+            uart.InjectHitlFrame(0, Concat(first, second));
+
+            Assert.AreEqual(2, received);
+            Assert.IsTrue(uart.HasPacket(0));
+            Assert.AreEqual((byte)HitlMessageType.Data, uart.PacketType(0));
+            Assert.AreEqual(2, uart.PacketAvailable(0));
+            Assert.AreEqual(0x11, uart.PacketRead(0));
+            Assert.AreEqual(1, uart.PacketAvailable(0));
+            uart.CompletePacket(0);
+            Assert.AreEqual((byte)HitlMessageType.SafeState, uart.PacketType(0));
+            Assert.AreEqual(0x21, uart.PacketRead(0));
+            uart.CompletePacket(0);
+            Assert.IsFalse(uart.HasPacket(0));
+        }
+
+        [Test]
+        public void VirtualUartPacketQueueDeliversEmptyPayloadAndRejectsAtomicOverflow()
+        {
+            var uart = new VirtualUartBank();
+            uart.Begin(0, 0);
+            var empty = HitlFrameCodec.Encode(new HitlFrame
+            {
+                Type = HitlMessageType.Heartbeat,
+                Sequence = 1
+            });
+            uart.InjectHitlFrame(0, empty);
+            Assert.IsTrue(uart.HasPacket(0));
+            Assert.AreEqual(0, uart.PacketAvailable(0));
+            uart.CompletePacket(0);
+            Assert.IsFalse(uart.HasPacket(0));
+
+            var batch = new List<byte>();
+            for (var index = 0; index < VirtualUartBank.MaxPendingHitlPackets + 1; index++)
+            {
+                batch.AddRange(HitlFrameCodec.Encode(new HitlFrame
+                {
+                    Type = HitlMessageType.Data,
+                    Sequence = (uint)(index + 2),
+                    Payload = new byte[] { (byte)index }
+                }));
+            }
+
+            Assert.Throws<InvalidOperationException>(() => uart.InjectHitlFrame(0, batch.ToArray()));
+            Assert.IsFalse(uart.HasPacket(0));
+        }
+
+        [Test]
         public void HitlSessionRejectsDuplicateSequenceAndEntersSafeStateAfterHeartbeatTimeout()
         {
             var safeStateApplications = 0;
@@ -225,6 +291,10 @@ namespace RSMA.Microcontroller.Virtual.Tests
         [TestCase(15, 0, 1, "nonzero DMA reserved value")]
         [TestCase(16, 0, 1, "nonzero EEPROM read reserved value")]
         [TestCase(17, 0, 1, "nonzero EEPROM write reserved value")]
+        [TestCase(25, 0, 1, "nonzero UART packet available reserved value")]
+        [TestCase(26, 0, 1, "nonzero UART packet read reserved value")]
+        [TestCase(27, 0, 1, "nonzero UART packet type reserved value")]
+        [TestCase(25, 4, 0, "invalid UART packet available port")]
         public void ReaderRejectsInvalidHalOperands(int service, int argument, int value, string caseName)
         {
             var package = MakeBlinkPackage();
