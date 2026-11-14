@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
 using UnityEditor;
@@ -107,6 +108,36 @@ namespace RSMA.Microcontroller.Virtual.Tests
             Assert.AreEqual(HitlMessageType.Data, frames[1].Type);
             Assert.AreEqual(2u, frames[1].Sequence);
             CollectionAssert.AreEqual(new byte[] { 9, 8, 7 }, frames[1].Payload);
+        }
+
+        [Test]
+        public void HitlParserRejectsCorruptFrameAndRecoversToFollowingFrame()
+        {
+            var corrupt = HitlFrameCodec.Encode(new HitlFrame
+            {
+                Type = HitlMessageType.Heartbeat,
+                Sequence = 1,
+                TimestampMilliseconds = 10
+            });
+            corrupt[corrupt.Length - 1] ^= 0x01;
+            var valid = HitlFrameCodec.Encode(new HitlFrame
+            {
+                Type = HitlMessageType.Data,
+                Sequence = 2,
+                TimestampMilliseconds = 20,
+                Payload = new byte[] { 9, 8, 7 }
+            });
+            var rejected = new List<string>();
+            var parser = new HitlFrameParser();
+            parser.FrameRejected += rejected.Add;
+
+            var frames = parser.Feed(Concat(corrupt, valid));
+
+            Assert.AreEqual(1, parser.RejectedFrameCount);
+            CollectionAssert.AreEqual(new[] { "HITL frame CRC mismatch" }, rejected);
+            Assert.AreEqual(1, frames.Count);
+            Assert.AreEqual(2u, frames[0].Sequence);
+            CollectionAssert.AreEqual(new byte[] { 9, 8, 7 }, frames[0].Payload);
         }
 
         [Test]

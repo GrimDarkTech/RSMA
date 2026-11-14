@@ -189,7 +189,11 @@ namespace RSMA.Microcontroller.Virtual
     {
         private const int HeaderSize = 22;
         private const int ChecksumSize = 4;
+        private const int MaxFrameSize = HeaderSize + ushort.MaxValue + ChecksumSize;
         private readonly List<byte> buffer = new List<byte>();
+
+        public event Action<string> FrameRejected;
+        public int RejectedFrameCount { get; private set; }
 
         public IList<HitlFrame> Feed(byte[] bytes)
         {
@@ -217,9 +221,20 @@ namespace RSMA.Microcontroller.Virtual
                     break;
 
                 var frameBytes = buffer.GetRange(0, frameLength).ToArray();
-                buffer.RemoveRange(0, frameLength);
-                frames.Add(HitlFrameCodec.Decode(frameBytes));
+                try
+                {
+                    frames.Add(HitlFrameCodec.Decode(frameBytes));
+                    buffer.RemoveRange(0, frameLength);
+                }
+                catch (HitlProtocolException exception)
+                {
+                    RejectedFrameCount++;
+                    FrameRejected?.Invoke(exception.Message);
+                    buffer.RemoveAt(0);
+                }
             }
+            if (buffer.Count > MaxFrameSize)
+                buffer.RemoveRange(0, buffer.Count - MaxFrameSize);
             return frames;
         }
 
