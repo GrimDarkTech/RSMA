@@ -13,6 +13,7 @@ namespace RSMA.Microcontroller.Virtual
         StateTransition,
         Interrupt,
         UartTransmit,
+        UartReceive,
         RejectedMapping,
         Fault
     }

@@ -36,6 +36,12 @@ namespace RSMA.Microcontroller.Virtual
         void AdvanceInputTo(double timestampMilliseconds);
     }
 
+    public interface IVirtualUartInputSource : IVirtualInputSource
+    {
+        event Action<byte, byte> Received;
+        void ScheduleReceived(byte port, double timestampMilliseconds, byte[] data);
+    }
+
     public interface IVirtualGpioEdgeSource
     {
         event Action<VirtualGpioInputEvent> InputEdge;

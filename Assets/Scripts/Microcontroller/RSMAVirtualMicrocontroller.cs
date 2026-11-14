@@ -90,6 +90,13 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
         uart.InjectReceived(port, data);
     }
 
+    public void ScheduleUartReceive(byte port, double timestampMilliseconds, byte[] data)
+    {
+        if (uart == null)
+            throw new InvalidOperationException("Virtual MCU UART is not initialized");
+        uart.ScheduleReceived(port, timestampMilliseconds, data);
+    }
+
     public void Reset()
     {
         if (virtualMachine == null)

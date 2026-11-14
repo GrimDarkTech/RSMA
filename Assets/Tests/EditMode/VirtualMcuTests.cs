@@ -2535,6 +2535,85 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
+        public void VirtualUartBankSchedulesReceiveEventsByTimestampAndInsertionOrder()
+        {
+            var uart = new VirtualUartBank();
+            uart.Begin(0, 0);
+            var received = new System.Collections.Generic.List<byte>();
+            uart.Received += (_, value) => received.Add(value);
+
+            uart.ScheduleReceived(0, 20, new byte[] { 0x20 });
+            uart.ScheduleReceived(0, 10, new byte[] { 0x10, 0x11 });
+            uart.ScheduleReceived(0, 10, new byte[] { 0x12 });
+
+            Assert.AreEqual(10.0, uart.NextInputTimestampMilliseconds);
+            uart.AdvanceInputTo(9);
+            Assert.AreEqual(0, uart.Available(0));
+            uart.AdvanceInputTo(10);
+            CollectionAssert.AreEqual(new byte[] { 0x10, 0x11, 0x12 }, received);
+            CollectionAssert.AreEqual(new byte[] { 0x10, 0x11, 0x12 },
+                new byte[] { uart.Read(0), uart.Read(0), uart.Read(0) });
+            uart.AdvanceInputTo(20);
+            Assert.AreEqual(0x20, uart.Read(0));
+            Assert.IsFalse(uart.NextInputTimestampMilliseconds.HasValue);
+        }
+
+        [Test]
+        public void VirtualUartBankRejectsInvalidScheduledReceiveArguments()
+        {
+            var uart = new VirtualUartBank();
+            uart.Begin(0, 0);
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => uart.ScheduleReceived(0, -1, new byte[] { 1 }));
+            Assert.Throws<ArgumentNullException>(() => uart.ScheduleReceived(0, 0, null));
+            Assert.Throws<ArgumentException>(() => uart.ScheduleReceived(0, 0, new byte[0]));
+            Assert.Throws<InvalidOperationException>(() => uart.ScheduleReceived(
+                0, 0, new byte[VirtualUartBank.ReceiveBufferCapacity + 1]));
+            Assert.Throws<InvalidOperationException>(() => uart.ScheduleReceived(1, 0, new byte[] { 1 }));
+        }
+
+        [Test]
+        public void VirtualMachineAdvancesToScheduledUartInputWhileWaiting()
+        {
+            var package = MakeBlinkPackage();
+            package.Manifest.RequiredPeripherals.Add("UART");
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 8, 0, 0, 4 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Wait,
+                Operands = new byte[] { 100, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { 9, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            var uart = new VirtualUartBank();
+            var machine = new VirtualMachine(package, new VirtualGpioBank(), null, uart);
+            machine.Advance(0);
+            uart.ScheduleReceived(0, 25, new byte[] { 0x55 });
+            machine.Advance(100);
+
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            Assert.AreEqual(100.0, machine.SimulatedTimeMilliseconds);
+            Assert.AreEqual(1, machine.StackTop);
+            Assert.IsNotNull(machine.GetTraceSnapshot().Find(trace =>
+                trace.Kind == VirtualTraceEventKind.UartReceive &&
+                trace.TimestampMilliseconds == 25.0 && trace.Value == 0x55));
+        }
+
+        [Test]
         public void VirtualMachineFaultsWhenReadingEmptyUartBuffer()
         {
             var package = MakeBlinkPackage();
