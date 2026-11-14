@@ -207,7 +207,19 @@ namespace RSMA.Microcontroller.Virtual
             public double CompletionTimeMilliseconds;
         }
 
-        public double DmaByteTimeMilliseconds { get; set; } = 0.01;
+        private double dmaByteTimeMilliseconds = 0.01;
+
+        public double DmaByteTimeMilliseconds
+        {
+            get { return dmaByteTimeMilliseconds; }
+            set
+            {
+                if (double.IsNaN(value) || double.IsInfinity(value) || value <= 0)
+                    throw new ArgumentOutOfRangeException(nameof(value),
+                        "DMA byte time must be a finite positive value");
+                dmaByteTimeMilliseconds = value;
+            }
+        }
 
         private sealed class ScheduledInput
         {
@@ -398,7 +410,12 @@ namespace RSMA.Microcontroller.Virtual
             if (simulatedTimeMilliseconds <= dmaTimeMilliseconds)
                 return;
 
-            while (true)
+            // A transfer completion can start at most one already queued transfer.
+            // Therefore one AdvanceDmaTo call can process no more completions than
+            // there are transfers at its start. Keep the bound so corrupted timing
+            // state cannot turn this scheduler into an unbounded loop.
+            var completionBudget = dmaTransfers.Count;
+            while (completionBudget-- > 0)
             {
                 VirtualDmaTransfer nextCompletion = null;
                 for (var i = 0; i < dmaTransfers.Count; i++)
@@ -416,6 +433,14 @@ namespace RSMA.Microcontroller.Virtual
                 dmaTimeMilliseconds = completedAt;
                 nextCompletion.Status = VirtualDmaStatus.Complete;
                 StartNextDmaTransfer(completedChannel, completedAt);
+            }
+
+            for (var i = 0; i < dmaTransfers.Count; i++)
+            {
+                var transfer = dmaTransfers[i];
+                if (transfer.Status == VirtualDmaStatus.Active &&
+                    transfer.CompletionTimeMilliseconds <= simulatedTimeMilliseconds)
+                    throw new InvalidOperationException("DMA completion scheduler made no progress");
             }
 
             dmaTimeMilliseconds = simulatedTimeMilliseconds;

@@ -52,28 +52,29 @@ namespace RSMA.Microcontroller.Virtual.Tests
         [Test, Performance]
         public void VmComputeAdvanceWithoutProfiling()
         {
-            MeasureWorkload(CreateComputePackage(), false);
+            MeasureWorkload(CreateComputePackage(), false, OperationsPerWorkload * 2 + 1, 0);
         }
 
         [Test, Performance]
         public void VmComputeAdvanceWithProfiling()
         {
-            MeasureWorkload(CreateComputePackage(), true);
+            MeasureWorkload(CreateComputePackage(), true, OperationsPerWorkload * 2 + 1, 0);
         }
 
         [Test, Performance]
         public void VmHalDispatchAdvanceWithoutProfiling()
         {
-            MeasureWorkload(CreateHalPackage(), false);
+            MeasureWorkload(CreateHalPackage(), false, OperationsPerWorkload + 1, OperationsPerWorkload);
         }
 
         [Test, Performance]
         public void VmHalDispatchAdvanceWithProfiling()
         {
-            MeasureWorkload(CreateHalPackage(), true);
+            MeasureWorkload(CreateHalPackage(), true, OperationsPerWorkload + 1, OperationsPerWorkload);
         }
 
-        private static void MeasureWorkload(RsfwPackage package, bool enableProfiling)
+        private static void MeasureWorkload(RsfwPackage package, bool enableProfiling,
+            int expectedInstructionCount, int expectedHalCallCount)
         {
             var profiler = enableProfiling ? new VirtualMachineProfiler() : null;
             var machine = new VirtualMachine(package, new CountingHal(), null, null, profiler);
@@ -99,6 +100,10 @@ namespace RSMA.Microcontroller.Virtual.Tests
                 profiler.MaximumCallStackDepth);
             Measure.Custom(new SampleGroup("MaxInterruptStackDepth", SampleUnit.Undefined),
                 profiler.MaximumInterruptStackDepth);
+
+            Assert.IsNotNull(profiler);
+            Assert.AreEqual(expectedInstructionCount, profiler.InstructionsExecuted);
+            Assert.AreEqual(expectedHalCallCount, profiler.HalCallsExecuted);
         }
 
         private static RsfwPackage CreateComputePackage()
@@ -122,7 +127,6 @@ namespace RSMA.Microcontroller.Virtual.Tests
             var package = CreatePackage();
             for (var i = 0; i < OperationsPerWorkload; i++)
             {
-                package.Bytecode.Instructions.Add(ConstI32(i & 1));
                 package.Bytecode.Instructions.Add(DigitalWrite());
             }
             AddHalt(package);

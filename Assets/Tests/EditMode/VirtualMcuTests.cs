@@ -1996,6 +1996,7 @@ namespace RSMA.Microcontroller.Virtual.Tests
             Assert.AreEqual(VirtualDmaStatus.Complete, (VirtualDmaStatus)gpio.DmaStatus(channelZeroTicket));
             Assert.AreEqual(VirtualDmaStatus.Complete, (VirtualDmaStatus)gpio.DmaStatus(channelOneTicket));
             Assert.AreEqual(VirtualDmaStatus.Active, (VirtualDmaStatus)gpio.DmaStatus(queuedTickets[0]));
+            Assert.AreEqual(VirtualGpioBank.DmaQueueFull, gpio.DmaSubmit(2, 0, 1));
 
             Assert.IsTrue(gpio.DmaRelease(channelZeroTicket));
             Assert.Greater(gpio.DmaSubmit(2, 0, 1), 0);
@@ -2102,10 +2103,17 @@ namespace RSMA.Microcontroller.Virtual.Tests
         public void VirtualDmaBackendResetCancelsOutstandingTransfers()
         {
             var gpio = new VirtualGpioBank();
-            var ticket = gpio.DmaSubmit(0, 0, 10);
+            gpio.DmaBufferWrite(0, 0, 0xA5);
+            var activeTicket = gpio.DmaSubmit(0, 0, 1);
+            var queuedTicket = gpio.DmaSubmit(0, 0, 1);
+            var pendingTicket = gpio.DmaSubmit(0, 0, 1);
+            gpio.AdvanceDmaTo(0.01);
             gpio.ResetDma();
 
-            Assert.AreEqual((int)VirtualDmaStatus.Invalid, gpio.DmaStatus(ticket));
+            Assert.AreEqual((int)VirtualDmaStatus.Invalid, gpio.DmaStatus(activeTicket));
+            Assert.AreEqual((int)VirtualDmaStatus.Invalid, gpio.DmaStatus(queuedTicket));
+            Assert.AreEqual((int)VirtualDmaStatus.Invalid, gpio.DmaStatus(pendingTicket));
+            Assert.AreEqual(0, gpio.DmaBufferRead(0, 0));
         }
 
         [Test]
