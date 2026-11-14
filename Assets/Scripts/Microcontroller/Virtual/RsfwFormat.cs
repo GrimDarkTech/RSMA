@@ -78,7 +78,8 @@ namespace RSMA.Microcontroller.Virtual
         DmaSubmit = 20,
         DmaStatus = 21,
         DmaReadByte = 22,
-        DmaRelease = 23
+        DmaRelease = 23,
+        AnalogWrite = 24
     }
 
     public sealed class RsfwFormatException : Exception

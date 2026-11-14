@@ -2726,6 +2726,40 @@ namespace RSMA.Microcontroller.Virtual.Tests
             }
         }
 
+        [Test]
+        public void GpioAdapterRejectsVirtualAnalogSensorOnUnmappedChannel()
+        {
+            var host = new GameObject("RSMAGPIO ADC mapping negative test");
+            try
+            {
+                var gpioType = Type.GetType("RSMAGPIO, Assembly-CSharp", true);
+                var portType = Type.GetType("GPIOPort, Assembly-CSharp", true);
+                var pinType = Type.GetType("GPIOPin, Assembly-CSharp", true);
+                var adapterType = Type.GetType("RSMAGpioHalAdapter, Assembly-CSharp", true);
+                var gpio = host.AddComponent(gpioType);
+                var ports = (IList)gpioType.GetMethod("GetPortList").Invoke(gpio, null);
+                var port = Activator.CreateInstance(portType);
+                portType.GetField("name").SetValue(port, "PC");
+                var pins = (IList)portType.GetField("pins").GetValue(port);
+                pins.Add(CreateLegacyPin(pinType, "10", 0f));
+                pins.Add(CreateLegacyPin(pinType, "11", 0f));
+                pins.Add(CreateLegacyPin(pinType, "13", 0f));
+                ports.Add(port);
+
+                var adapter = adapterType.GetMethod("CreateStm32F103Default")
+                    .Invoke(null, new[] { gpio });
+                var analog = (IVirtualAnalogInputSource)adapter;
+
+                Assert.IsFalse(analog.SupportsAnalogChannel(42));
+                Assert.Throws<InvalidOperationException>(() =>
+                    analog.RegisterAnalogSensor(42, _ => 2048));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(host);
+            }
+        }
+
 
         private static object CreateLegacyPin(Type pinType, string name, float value)
         {

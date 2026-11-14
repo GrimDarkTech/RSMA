@@ -1120,6 +1120,14 @@ namespace RSMA.Microcontroller.Virtual
                         throw new VirtualMachineFaultException("Firmware requires PWM support");
                     pwmHal.PwmWrite(argument, value);
                     break;
+                case RsmaHalService.AnalogWrite:
+                    if (!(hal is IVirtualPwmHal dynamicPwmHal))
+                        throw new VirtualMachineFaultException("Firmware requires PWM support");
+                    var dynamicDutyCycle = PopValue();
+                    if (dynamicDutyCycle < byte.MinValue || dynamicDutyCycle > byte.MaxValue)
+                        throw new VirtualMachineFaultException("PWM duty must be between 0 and 255");
+                    dynamicPwmHal.PwmWrite(argument, (byte)dynamicDutyCycle);
+                    break;
                 case RsmaHalService.DigitalWrite:
                     hal.DigitalWrite(argument, value != 0);
                     break;
