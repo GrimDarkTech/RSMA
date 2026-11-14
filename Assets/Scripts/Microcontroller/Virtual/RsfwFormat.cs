@@ -52,7 +52,10 @@ namespace RSMA.Microcontroller.Virtual
         GlobalLoad = 0x18,
         GlobalStore = 0x19,
         Yield = 0x1A,
-        DetachIrq = 0x1B
+        DetachIrq = 0x1B,
+        AttachUartRx = 0x1C,
+        DetachUartRx = 0x1D,
+        ReturnUartRx = 0x1E
     }
 
     public enum RsmaHalService : ushort

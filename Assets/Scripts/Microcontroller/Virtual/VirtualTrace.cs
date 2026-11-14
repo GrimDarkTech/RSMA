@@ -12,6 +12,7 @@ namespace RSMA.Microcontroller.Virtual
         HalCall,
         StateTransition,
         Interrupt,
+        UartCallback,
         UartTransmit,
         UartReceive,
         RejectedMapping,

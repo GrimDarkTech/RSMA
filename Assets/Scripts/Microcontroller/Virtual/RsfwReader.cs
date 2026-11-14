@@ -268,11 +268,23 @@ namespace RSMA.Microcontroller.Virtual
                     case RsfwOpcode.EnableIrq:
                     case RsfwOpcode.DisableIrq:
                     case RsfwOpcode.ReturnIrq:
+                    case RsfwOpcode.ReturnUartRx:
                     case RsfwOpcode.Yield:
                         RequireOperands(instruction, 0);
                         break;
                     case RsfwOpcode.DetachIrq:
                         RequireOperands(instruction, 1);
+                        break;
+                    case RsfwOpcode.DetachUartRx:
+                        RequireOperands(instruction, 1);
+                        if (instruction.Operands[0] >= VirtualUartBank.PortCount)
+                            throw new RsfwFormatException("DETACH_UART_RX port is outside the supported range");
+                        break;
+                    case RsfwOpcode.AttachUartRx:
+                        RequireOperands(instruction, 5);
+                        if (instruction.Operands[0] >= VirtualUartBank.PortCount ||
+                            ReadU32(instruction.Operands, 1) >= package.Bytecode.Instructions.Count)
+                            throw new RsfwFormatException("ATTACH_UART_RX contains an invalid port or target");
                         break;
                     case RsfwOpcode.AttachIrq:
                         RequireOperands(instruction, 6);

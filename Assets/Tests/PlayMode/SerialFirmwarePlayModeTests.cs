@@ -120,6 +120,42 @@ namespace RSMA.Microcontroller.Virtual.PlayMode.Tests
             yield return null;
         }
 
+        [UnityTest]
+        public IEnumerator SerialReceiveCallbackRunsAfterScheduledRxAndCanEchoTheByte()
+        {
+            var firmware = LoadFirmware("serial_callback");
+            Assert.IsNotNull(firmware, "Serial callback RSFW TextAsset was not loaded from Resources");
+
+            var package = RsfwReader.Read(firmware.bytes);
+            var uart = new VirtualUartBank();
+            var transmitted = new List<byte>();
+            uart.Transmitted += (_, value) => transmitted.Add(value);
+            var machine = new VirtualMachine(package, new VirtualGpioBank(), null, uart);
+
+            machine.Advance(0);
+            Assert.AreEqual(VirtualExecutionState.Waiting, machine.State);
+            uart.ScheduleReceived(1, 12, new byte[] { 0x44 });
+            machine.Advance(20);
+
+            CollectionAssert.AreEqual(new byte[] { 0x44 }, transmitted);
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            var trace = machine.GetTraceSnapshot();
+            var received = trace.Find(item => item.Kind == VirtualTraceEventKind.UartReceive &&
+                item.Channel == 1 && item.Value == 0x44);
+            var callback = trace.Find(item => item.Kind == VirtualTraceEventKind.UartCallback &&
+                item.Channel == 1);
+            var transmittedTrace = trace.Find(item => item.Kind == VirtualTraceEventKind.UartTransmit &&
+                item.Channel == 1 && item.Value == 0x44);
+            Assert.IsNotNull(received);
+            Assert.IsNotNull(callback);
+            Assert.IsNotNull(transmittedTrace);
+            Assert.AreEqual(12.0, callback.TimestampMilliseconds);
+            Assert.Less(received.Sequence, callback.Sequence);
+            Assert.Less(callback.Sequence, transmittedTrace.Sequence);
+
+            yield return null;
+        }
+
         private static UnityEngine.TextAsset LoadFirmware(string assetName)
         {
             var assets = UnityEngine.Resources.LoadAll<UnityEngine.TextAsset>("RSMA/Firmware");

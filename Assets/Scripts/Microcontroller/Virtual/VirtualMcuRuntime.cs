@@ -783,6 +783,10 @@ namespace RSMA.Microcontroller.Virtual
         private readonly VirtualMachineProfiler profiler;
         private readonly Stack<CallFrame> callStack = new Stack<CallFrame>();
         private readonly Stack<IrqReturnState> irqReturnStack = new Stack<IrqReturnState>();
+        private readonly Queue<UartCallbackRequest> pendingUartCallbacks = new Queue<UartCallbackRequest>();
+        private readonly UartCallbackReturnState uartCallbackReturnState = new UartCallbackReturnState();
+        private readonly uint[] uartCallbackTargets = { uint.MaxValue, uint.MaxValue, uint.MaxValue, uint.MaxValue };
+        private readonly bool[] uartCallbackPending = new bool[4];
         private readonly Stack<int> valueStack = new Stack<int>();
         private readonly int[] slots = new int[256];
         private readonly int[] globals = new int[256];
@@ -801,6 +805,21 @@ namespace RSMA.Microcontroller.Virtual
             public uint ProgramCounter;
             public bool WasWaiting;
             public double WakeTimeMilliseconds;
+        }
+
+        private sealed class UartCallbackRequest
+        {
+            public byte Port;
+            public ulong Sequence;
+        }
+
+        private sealed class UartCallbackReturnState
+        {
+            public byte Port;
+            public uint ProgramCounter;
+            public bool WasWaiting;
+            public double WakeTimeMilliseconds;
+            public bool Active;
         }
 
         public VirtualMachine(RsfwPackage package, IVirtualMcuHal hal)
@@ -880,6 +899,13 @@ namespace RSMA.Microcontroller.Virtual
             Trace.Clear();
             callStack.Clear();
             irqReturnStack.Clear();
+            pendingUartCallbacks.Clear();
+            uartCallbackReturnState.Active = false;
+            for (var port = 0; port < uartCallbackTargets.Length; port++)
+            {
+                uartCallbackTargets[port] = uint.MaxValue;
+                uartCallbackPending[port] = false;
+            }
             valueStack.Clear();
             Array.Clear(slots, 0, slots.Length);
             Array.Clear(globals, 0, globals.Length);
@@ -904,6 +930,8 @@ namespace RSMA.Microcontroller.Virtual
                 if (State == VirtualExecutionState.Yielded)
                     State = VirtualExecutionState.Running;
 
+                if (TryDispatchUartCallback())
+                    return true;
                 TryDispatchInterrupt();
 
                 if (State == VirtualExecutionState.Waiting)
@@ -960,6 +988,8 @@ namespace RSMA.Microcontroller.Virtual
                 while (State != VirtualExecutionState.Halted && State != VirtualExecutionState.Faulted)
                 {
                     AdvanceInputSourcesTo(SimulatedTimeMilliseconds);
+                    if (TryDispatchUartCallback())
+                        continue;
                     if (TryDispatchInterrupt())
                         continue;
                     if (State == VirtualExecutionState.Waiting)
@@ -973,6 +1003,8 @@ namespace RSMA.Microcontroller.Virtual
                         {
                             SetSimulatedTime(nextEvent.Value);
                             AdvanceInputSourcesTo(SimulatedTimeMilliseconds);
+                            if (TryDispatchUartCallback())
+                                continue;
                             continue;
                         }
                         if (wakeTimeMilliseconds > targetTime)
@@ -1122,6 +1154,16 @@ namespace RSMA.Microcontroller.Virtual
                 case RsfwOpcode.DetachIrq:
                     RequireInterruptController().Detach(instruction.Operands[0]);
                     break;
+                case RsfwOpcode.AttachUartRx:
+                    if (instruction.Operands[0] >= uartCallbackTargets.Length)
+                        throw new VirtualMachineFaultException("UART callback port is outside the supported range");
+                    uartCallbackTargets[instruction.Operands[0]] = ReadU32(instruction.Operands, 1);
+                    break;
+                case RsfwOpcode.DetachUartRx:
+                    if (instruction.Operands[0] >= uartCallbackTargets.Length)
+                        throw new VirtualMachineFaultException("UART callback port is outside the supported range");
+                    uartCallbackTargets[instruction.Operands[0]] = uint.MaxValue;
+                    break;
                 case RsfwOpcode.EnableIrq:
                     RequireInterruptController().Enable();
                     break;
@@ -1136,6 +1178,26 @@ namespace RSMA.Microcontroller.Virtual
                     State = returnState.WasWaiting && wakeTimeMilliseconds > SimulatedTimeMilliseconds
                         ? VirtualExecutionState.Waiting : VirtualExecutionState.Running;
                     next = returnState.ProgramCounter;
+                    break;
+                case RsfwOpcode.ReturnUartRx:
+                    if (!uartCallbackReturnState.Active)
+                        throw new VirtualMachineFaultException("RETURN_UART_RX executed outside a UART callback");
+                    wakeTimeMilliseconds = uartCallbackReturnState.WakeTimeMilliseconds;
+                    State = uartCallbackReturnState.WasWaiting && wakeTimeMilliseconds > SimulatedTimeMilliseconds
+                        ? VirtualExecutionState.Waiting : VirtualExecutionState.Running;
+                    next = uartCallbackReturnState.ProgramCounter;
+                    if (RequireUart().Available(uartCallbackReturnState.Port) != 0 &&
+                        uartCallbackTargets[uartCallbackReturnState.Port] != uint.MaxValue &&
+                        !uartCallbackPending[uartCallbackReturnState.Port])
+                    {
+                        uartCallbackPending[uartCallbackReturnState.Port] = true;
+                        pendingUartCallbacks.Enqueue(new UartCallbackRequest
+                        {
+                            Port = uartCallbackReturnState.Port,
+                            Sequence = Trace.Count == 0 ? 0 : Trace[Trace.Count - 1].Sequence
+                        });
+                    }
+                    uartCallbackReturnState.Active = false;
                     break;
                 default:
                     throw new VirtualMachineFaultException("Unsupported opcode " + instruction.Opcode);
@@ -1179,6 +1241,44 @@ namespace RSMA.Microcontroller.Virtual
         private void OnUartReceived(byte port, byte value)
         {
             RecordTrace(VirtualTraceEventKind.UartReceive, port, value);
+            if (port < uartCallbackTargets.Length && uartCallbackTargets[port] != uint.MaxValue)
+            {
+                if (!uartCallbackPending[port])
+                {
+                    uartCallbackPending[port] = true;
+                    pendingUartCallbacks.Enqueue(new UartCallbackRequest
+                    {
+                        Port = port,
+                        Sequence = Trace.Count == 0 ? 0 : Trace[Trace.Count - 1].Sequence
+                    });
+                }
+            }
+        }
+
+        private bool TryDispatchUartCallback()
+        {
+            if (uartCallbackReturnState.Active || pendingUartCallbacks.Count == 0)
+                return false;
+            var request = pendingUartCallbacks.Dequeue();
+            var target = uartCallbackTargets[request.Port];
+            if (target == uint.MaxValue)
+            {
+                uartCallbackPending[request.Port] = false;
+                return false;
+            }
+            uartCallbackPending[request.Port] = false;
+            if (RequireUart().Available(request.Port) == 0)
+                return false;
+            uartCallbackReturnState.ProgramCounter = programCounter;
+            uartCallbackReturnState.Port = request.Port;
+            uartCallbackReturnState.WasWaiting = State == VirtualExecutionState.Waiting;
+            uartCallbackReturnState.WakeTimeMilliseconds = wakeTimeMilliseconds;
+            uartCallbackReturnState.Active = true;
+            programCounter = target;
+            State = VirtualExecutionState.Running;
+            RecordTrace(VirtualTraceEventKind.UartCallback, request.Port, 0,
+                unchecked((int)request.Sequence));
+            return true;
         }
 
         private void RecordRejectedMappingIfNeeded(Exception exception)
