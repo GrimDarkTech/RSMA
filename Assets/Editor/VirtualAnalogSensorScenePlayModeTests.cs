@@ -35,6 +35,7 @@ public sealed class VirtualAnalogSensorScenePlayModeTests
 
             var mcu = mcuObject.AddComponent<RSMAVirtualMicrocontroller>();
             var sensor = mcuObject.AddComponent<VirtualAnalogSensor>();
+            var trace = new List<VirtualTraceEvent>();
             SetPrivateField(mcu, "firmware", LoadFirmware("analog_threshold_pwm"));
             SetPrivateField(mcu, "gpio", gpio);
             SetPrivateField(mcu, "runAutomatically", false);
@@ -49,6 +50,7 @@ public sealed class VirtualAnalogSensorScenePlayModeTests
             SetPrivateField(sensor, "calibrationMaximum", 1f);
 
             mcuObject.SetActive(true);
+            mcu.TraceRecorded += trace.Add;
 
             mcu.AdvanceSimulation(0);
             Assert.AreEqual(VirtualExecutionState.Waiting, mcu.ExecutionState);
@@ -62,6 +64,22 @@ public sealed class VirtualAnalogSensorScenePlayModeTests
             mcu.AdvanceSimulation(10);
             Assert.AreEqual(0, sensor.CurrentSample);
             Assert.AreEqual(0f, gpio.GetPin("PC", "13").value, 0.0001f);
+            var sampleIndex = FindTraceIndex(trace, VirtualTraceEventKind.AnalogSample, 2048);
+            var pwmIndex = FindTraceIndex(trace, VirtualTraceEventKind.PwmOutput, 255);
+            var timeIndex = FindTraceIndex(trace, VirtualTraceEventKind.TimeAdvanced, 0);
+            Assert.GreaterOrEqual(sampleIndex, 0);
+            Assert.GreaterOrEqual(pwmIndex, 0);
+            Assert.GreaterOrEqual(timeIndex, 0);
+            Assert.Less(timeIndex, sampleIndex);
+            Assert.Less(sampleIndex, pwmIndex);
+            Assert.AreEqual(10.0, trace[sampleIndex].TimestampMilliseconds);
+            Assert.AreEqual(10.0, trace[pwmIndex].TimestampMilliseconds);
+            for (var i = 1; i < trace.Count; i++)
+            {
+                Assert.Greater(trace[i].Sequence, trace[i - 1].Sequence);
+                Assert.GreaterOrEqual(trace[i].TimestampMilliseconds,
+                    trace[i - 1].TimestampMilliseconds);
+            }
         }
         finally
         {
@@ -70,6 +88,17 @@ public sealed class VirtualAnalogSensorScenePlayModeTests
         }
 
         yield return null;
+    }
+
+    private static int FindTraceIndex(List<VirtualTraceEvent> trace,
+        VirtualTraceEventKind kind, int value)
+    {
+        for (var i = 0; i < trace.Count; i++)
+        {
+            if (trace[i].Kind == kind && trace[i].Value == value)
+                return i;
+        }
+        return -1;
     }
 
     [UnityTest]

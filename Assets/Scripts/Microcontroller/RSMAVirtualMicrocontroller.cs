@@ -28,6 +28,19 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
     public int LastIrqVirtualPin => lastIrqVirtualPin;
     public string LastIrqEdge => lastIrqEdge;
     public event Action<byte, byte> UartTransmitted;
+    public event Action<VirtualTraceEvent> TraceRecorded;
+
+    public List<VirtualTraceEvent> GetTraceSnapshot()
+    {
+        return virtualMachine == null
+            ? new List<VirtualTraceEvent>()
+            : virtualMachine.GetTraceSnapshot();
+    }
+
+    public void ClearTrace()
+    {
+        virtualMachine?.ClearTrace();
+    }
 
     public void RegisterAnalogSensor(VirtualAnalogSensor sensor)
     {
@@ -134,6 +147,7 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
             uart = new VirtualUartBank();
             uart.Transmitted += OnUartTransmitted;
             virtualMachine = new VirtualMachine(package, hal, null, uart);
+            virtualMachine.TraceRecorded += OnTraceRecorded;
             for (var i = 0; i < analogSensors.Count; i++)
                 TryRegisterAnalogSensor(analogSensors[i]);
             irqDispatchCount = 0;
@@ -172,7 +186,10 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
     private void OnDisable()
     {
         if (virtualMachine != null)
+        {
             virtualMachine.InterruptDispatched -= OnInterruptDispatched;
+            virtualMachine.TraceRecorded -= OnTraceRecorded;
+        }
         if (stopOutputsOnDisable)
             hal?.ApplySafeState();
         if (uart != null)
@@ -194,6 +211,11 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
     private void OnUartTransmitted(byte port, byte value)
     {
         UartTransmitted?.Invoke(port, value);
+    }
+
+    private void OnTraceRecorded(VirtualTraceEvent traceEvent)
+    {
+        TraceRecorded?.Invoke(traceEvent);
     }
 
     private void TryRegisterAnalogSensor(VirtualAnalogSensor sensor)

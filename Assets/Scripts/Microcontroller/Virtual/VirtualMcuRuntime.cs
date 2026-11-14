@@ -728,6 +728,7 @@ namespace RSMA.Microcontroller.Virtual
         private readonly int[] globals = new int[256];
         private uint programCounter;
         private double wakeTimeMilliseconds;
+        private VirtualExecutionState state;
 
         private sealed class CallFrame
         {
@@ -770,11 +771,25 @@ namespace RSMA.Microcontroller.Virtual
                 (hal is IVirtualGpioEdgeSource edgeSource ? new VirtualInterruptController(edgeSource) : null);
             this.uart = uart;
             this.profiler = profiler;
+            Trace = new VirtualTraceBuffer();
             programCounter = package.Bytecode.EntryPoint;
             State = VirtualExecutionState.Ready;
         }
 
-        public VirtualExecutionState State { get; private set; }
+        public VirtualExecutionState State
+        {
+            get { return state; }
+            private set
+            {
+                if (state == value)
+                    return;
+                var previous = state;
+                state = value;
+                if (Trace != null)
+                    RecordTrace(VirtualTraceEventKind.StateTransition, -1,
+                        (int)previous, (int)value);
+            }
+        }
         public uint ProgramCounter => programCounter;
         public double SimulatedTimeMilliseconds { get; private set; }
         public string FaultMessage { get; private set; }
@@ -783,10 +798,23 @@ namespace RSMA.Microcontroller.Virtual
         public double WakeTimeMilliseconds => wakeTimeMilliseconds;
         public int InterruptDepth => irqReturnStack.Count;
         public VirtualMachineProfiler Profiler => profiler;
+        public VirtualTraceBuffer Trace { get; }
+        public event Action<VirtualTraceEvent> TraceRecorded;
         public event Action<VirtualInterruptRequest> InterruptDispatched;
+
+        public List<VirtualTraceEvent> GetTraceSnapshot()
+        {
+            return Trace.Snapshot();
+        }
+
+        public void ClearTrace()
+        {
+            Trace.Clear();
+        }
 
         public void Reset()
         {
+            Trace.Clear();
             callStack.Clear();
             irqReturnStack.Clear();
             valueStack.Clear();
@@ -834,6 +862,8 @@ namespace RSMA.Microcontroller.Virtual
             {
                 State = VirtualExecutionState.Faulted;
                 FaultMessage = exception.Message;
+                RecordRejectedMappingIfNeeded(exception);
+                RecordTrace(VirtualTraceEventKind.Fault, -1, 0, 0, exception.Message);
                 if (exception is VirtualMachineFaultException)
                     throw;
                 throw new VirtualMachineFaultException(
@@ -905,6 +935,8 @@ namespace RSMA.Microcontroller.Virtual
             {
                 State = VirtualExecutionState.Faulted;
                 FaultMessage = exception.Message;
+                RecordRejectedMappingIfNeeded(exception);
+                RecordTrace(VirtualTraceEventKind.Fault, -1, 0, 0, exception.Message);
                 if (exception is VirtualMachineFaultException)
                     throw;
                 throw new VirtualMachineFaultException("Virtual MCU execution failed at instruction " + programCounter, exception);
@@ -1049,8 +1081,25 @@ namespace RSMA.Microcontroller.Virtual
         private void SetSimulatedTime(double timeMilliseconds)
         {
             SimulatedTimeMilliseconds = timeMilliseconds;
+            RecordTrace(VirtualTraceEventKind.TimeAdvanced, -1, 0);
             AdvanceAnalogTo(timeMilliseconds);
             AdvanceDmaTo(timeMilliseconds);
+        }
+
+        private void RecordTrace(VirtualTraceEventKind kind, int channel, int value,
+            int auxiliaryValue = 0, string message = null)
+        {
+            var traceEvent = Trace.Record(kind, SimulatedTimeMilliseconds, channel, value,
+                auxiliaryValue, message);
+            TraceRecorded?.Invoke(traceEvent);
+        }
+
+        private void RecordRejectedMappingIfNeeded(Exception exception)
+        {
+            var message = exception.Message ?? string.Empty;
+            if (message.IndexOf("not mapped", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                message.IndexOf("outside the supported range", StringComparison.OrdinalIgnoreCase) >= 0)
+                RecordTrace(VirtualTraceEventKind.RejectedMapping, -1, 0, 0, message);
         }
 
         private void AdvanceAnalogTo(double timeMilliseconds)
@@ -1079,6 +1128,8 @@ namespace RSMA.Microcontroller.Virtual
             profiler?.RecordInterruptStackDepth(irqReturnStack.Count);
             programCounter = request.TargetInstruction;
             State = VirtualExecutionState.Running;
+            RecordTrace(VirtualTraceEventKind.Interrupt, request.VirtualPin,
+                (int)request.Edge, unchecked((int)request.Sequence));
             InterruptDispatched?.Invoke(request);
             return true;
         }
@@ -1096,6 +1147,8 @@ namespace RSMA.Microcontroller.Virtual
             var service = (RsmaHalService)ReadU16(operands, 0);
             var argument = operands[2];
             var value = operands[3];
+            RecordTrace(VirtualTraceEventKind.HalCall, argument, value, (int)service,
+                service.ToString());
             switch (service)
             {
                 case RsmaHalService.PinMode:
@@ -1119,6 +1172,7 @@ namespace RSMA.Microcontroller.Virtual
                     if (!(hal is IVirtualPwmHal pwmHal))
                         throw new VirtualMachineFaultException("Firmware requires PWM support");
                     pwmHal.PwmWrite(argument, value);
+                    RecordTrace(VirtualTraceEventKind.PwmOutput, argument, value);
                     break;
                 case RsmaHalService.AnalogWrite:
                     if (!(hal is IVirtualPwmHal dynamicPwmHal))
@@ -1127,9 +1181,11 @@ namespace RSMA.Microcontroller.Virtual
                     if (dynamicDutyCycle < byte.MinValue || dynamicDutyCycle > byte.MaxValue)
                         throw new VirtualMachineFaultException("PWM duty must be between 0 and 255");
                     dynamicPwmHal.PwmWrite(argument, (byte)dynamicDutyCycle);
+                    RecordTrace(VirtualTraceEventKind.PwmOutput, argument, dynamicDutyCycle);
                     break;
                 case RsmaHalService.DigitalWrite:
                     hal.DigitalWrite(argument, value != 0);
+                    RecordTrace(VirtualTraceEventKind.DigitalOutput, argument, value != 0 ? 1 : 0);
                     break;
                 case RsmaHalService.DigitalRead:
                     PushValue(hal.DigitalRead(argument) ? 1 : 0);
@@ -1156,13 +1212,18 @@ namespace RSMA.Microcontroller.Virtual
                     if (transmittedValue < byte.MinValue || transmittedValue > byte.MaxValue)
                         throw new VirtualMachineFaultException("UART write value must be between 0 and 255");
                     RequireUart().Write(argument, (byte)transmittedValue);
+                    RecordTrace(VirtualTraceEventKind.UartTransmit, argument, transmittedValue);
                     break;
                 }
                 case RsmaHalService.AnalogRead:
+                {
                     if (!(hal is IVirtualAdcHal adcHal))
                         throw new VirtualMachineFaultException("Firmware requires ADC support");
-                    PushValue(adcHal.AnalogRead(argument));
+                    var sample = adcHal.AnalogRead(argument);
+                    PushValue(sample);
+                    RecordTrace(VirtualTraceEventKind.AnalogSample, argument, sample);
                     break;
+                }
                 case RsmaHalService.SpiTransfer:
                 {
                     if (value != 0)
