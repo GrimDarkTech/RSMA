@@ -51,7 +51,8 @@ namespace RSMA.Microcontroller.Virtual
         CmpGeI32 = 0x17,
         GlobalLoad = 0x18,
         GlobalStore = 0x19,
-        Yield = 0x1A
+        Yield = 0x1A,
+        DetachIrq = 0x1B
     }
 
     public enum RsmaHalService : ushort

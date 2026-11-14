@@ -1056,6 +1056,9 @@ namespace RSMA.Microcontroller.Virtual
                     RequireInterruptController().Attach(instruction.Operands[0], instruction.Operands[1],
                         ReadU32(instruction.Operands, 2));
                     break;
+                case RsfwOpcode.DetachIrq:
+                    RequireInterruptController().Detach(instruction.Operands[0]);
+                    break;
                 case RsfwOpcode.EnableIrq:
                     RequireInterruptController().Enable();
                     break;

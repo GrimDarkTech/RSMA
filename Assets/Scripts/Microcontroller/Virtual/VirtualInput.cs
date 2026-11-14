@@ -52,6 +52,7 @@ namespace RSMA.Microcontroller.Virtual
         bool HasPendingInterrupt { get; }
         bool TryDequeue(out VirtualInterruptRequest request);
         void Attach(byte pin, byte edgeMask, uint targetInstruction);
+        void Detach(byte pin);
         void Enable();
         void Disable();
     }
@@ -93,6 +94,11 @@ namespace RSMA.Microcontroller.Virtual
             if ((edgeMask & 0x03) == 0 || (edgeMask & 0xFC) != 0)
                 throw new ArgumentOutOfRangeException(nameof(edgeMask));
             bindings[pin] = new Binding { EdgeMask = edgeMask, TargetInstruction = targetInstruction };
+        }
+
+        public void Detach(byte pin)
+        {
+            bindings.Remove(pin);
         }
 
         public void Enable() { Enabled = true; }

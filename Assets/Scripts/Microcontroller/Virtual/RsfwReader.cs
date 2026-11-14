@@ -271,6 +271,9 @@ namespace RSMA.Microcontroller.Virtual
                     case RsfwOpcode.Yield:
                         RequireOperands(instruction, 0);
                         break;
+                    case RsfwOpcode.DetachIrq:
+                        RequireOperands(instruction, 1);
+                        break;
                     case RsfwOpcode.AttachIrq:
                         RequireOperands(instruction, 6);
                         if ((instruction.Operands[1] & 0x03) == 0 || (instruction.Operands[1] & 0xFC) != 0 ||
