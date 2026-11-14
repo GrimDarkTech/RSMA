@@ -18,6 +18,7 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
     private RSMAGpioHalAdapter hal;
     private VirtualMachine virtualMachine;
     private VirtualUartBank uart;
+    private readonly List<VirtualAnalogSensor> analogSensors = new List<VirtualAnalogSensor>();
 
     public VirtualExecutionState ExecutionState => virtualMachine?.State ?? VirtualExecutionState.Ready;
     public string FaultMessage => virtualMachine?.FaultMessage;
@@ -26,6 +27,24 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
     public int LastIrqVirtualPin => lastIrqVirtualPin;
     public string LastIrqEdge => lastIrqEdge;
     public event Action<byte, byte> UartTransmitted;
+
+    public void RegisterAnalogSensor(VirtualAnalogSensor sensor)
+    {
+        if (sensor == null)
+            throw new ArgumentNullException(nameof(sensor));
+        if (analogSensors.Contains(sensor))
+            return;
+        TryRegisterAnalogSensor(sensor);
+        analogSensors.Add(sensor);
+    }
+
+    public void UnregisterAnalogSensor(VirtualAnalogSensor sensor)
+    {
+        if (sensor == null)
+            return;
+        UnregisterAnalogSensorFromHal(sensor);
+        analogSensors.Remove(sensor);
+    }
 
     public float GetPinValue(byte virtualPin)
     {
@@ -105,6 +124,8 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
             uart = new VirtualUartBank();
             uart.Transmitted += OnUartTransmitted;
             virtualMachine = new VirtualMachine(package, hal, null, uart);
+            for (var i = 0; i < analogSensors.Count; i++)
+                TryRegisterAnalogSensor(analogSensors[i]);
             irqDispatchCount = 0;
             lastIrqVirtualPin = -1;
             lastIrqEdge = "None";
@@ -147,6 +168,8 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
         if (uart != null)
             uart.Transmitted -= OnUartTransmitted;
         uart = null;
+        for (var i = 0; i < analogSensors.Count; i++)
+            UnregisterAnalogSensorFromHal(analogSensors[i]);
         virtualMachine = null;
         hal = null;
     }
@@ -161,5 +184,21 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
     private void OnUartTransmitted(byte port, byte value)
     {
         UartTransmitted?.Invoke(port, value);
+    }
+
+    private void TryRegisterAnalogSensor(VirtualAnalogSensor sensor)
+    {
+        if (hal == null)
+            return;
+        var analogHal = hal as IVirtualAnalogInputSource;
+        if (analogHal == null)
+            throw new InvalidOperationException("Configured MCU backend does not support virtual analog sensors");
+        analogHal.RegisterAnalogSensor(sensor.AdcChannel, sensor.Sample);
+    }
+
+    private void UnregisterAnalogSensorFromHal(VirtualAnalogSensor sensor)
+    {
+        var analogHal = hal as IVirtualAnalogInputSource;
+        analogHal?.UnregisterAnalogSensor(sensor.AdcChannel, sensor.Sample);
     }
 }

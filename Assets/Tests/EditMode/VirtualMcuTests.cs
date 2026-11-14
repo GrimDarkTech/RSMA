@@ -1897,6 +1897,125 @@ namespace RSMA.Microcontroller.Virtual.Tests
             Assert.AreEqual(1, machine.StackDepth);
         }
 
+        [Test]
+        public void VirtualAnalogSensorModelEvaluatesRampAndSampleAndHold()
+        {
+            var model = new VirtualAnalogSensorModel(
+                VirtualAnalogWaveform.Ramp,
+                rampStart: 0.0,
+                rampEnd: 1.0,
+                periodMilliseconds: 1000.0,
+                samplePeriodMilliseconds: 100.0);
+
+            Assert.AreEqual(0, model.Sample(99));
+            Assert.AreEqual(410, model.Sample(149));
+            Assert.AreEqual(410, model.Sample(199));
+            Assert.AreEqual(819, model.Sample(299));
+        }
+
+        [Test]
+        public void VirtualAnalogSensorModelIsDeterministicAndAppliesCalibration()
+        {
+            var first = new VirtualAnalogSensorModel(
+                VirtualAnalogWaveform.Constant,
+                constantValue: 0.5,
+                noiseAmplitude: 0.1,
+                noiseSeed: 42,
+                calibrationOffset: 0.1,
+                calibrationGain: 2.0,
+                calibrationMinimum: 0.0,
+                calibrationMaximum: 2.0,
+                physicalMinimum: -10.0,
+                physicalMaximum: 50.0);
+            var second = new VirtualAnalogSensorModel(
+                VirtualAnalogWaveform.Constant,
+                constantValue: 0.5,
+                noiseAmplitude: 0.1,
+                noiseSeed: 42,
+                calibrationOffset: 0.1,
+                calibrationGain: 2.0,
+                calibrationMinimum: 0.0,
+                calibrationMaximum: 2.0,
+                physicalMinimum: -10.0,
+                physicalMaximum: 50.0);
+
+            Assert.AreEqual(first.Sample(25), second.Sample(25));
+            Assert.AreEqual(first.Sample(125), second.Sample(125));
+            Assert.AreNotEqual(first.Sample(25), first.Sample(125));
+            Assert.LessOrEqual(first.Sample(25), VirtualAnalogSensorModel.AdcMaximum);
+            Assert.GreaterOrEqual(first.PhysicalValue(25), -10.0);
+            Assert.LessOrEqual(first.PhysicalValue(25), 50.0);
+        }
+
+        [Test]
+        public void VirtualAnalogSensorModelClampsAndSupportsCustomCurve()
+        {
+            var model = new VirtualAnalogSensorModel(
+                VirtualAnalogWaveform.Curve,
+                periodMilliseconds: 1000.0,
+                calibrationMinimum: 0.0,
+                calibrationMaximum: 1.0,
+                curve: phase => phase > 0.5 ? 2.0 : -1.0);
+
+            Assert.AreEqual(0, model.Sample(0));
+            Assert.AreEqual(VirtualAnalogSensorModel.AdcMaximum, model.Sample(600));
+        }
+
+        [Test]
+        public void VirtualGpioBankAdvancesRegisteredAnalogSensorAndRejectsDuplicateChannel()
+        {
+            var gpio = new VirtualGpioBank();
+            Func<double, ushort> sampler = time => (ushort)Math.Min(4095.0, time * 10.0);
+            gpio.RegisterAnalogSensor(4, sampler);
+
+            Assert.Throws<InvalidOperationException>(() => gpio.RegisterAnalogSensor(4, sampler));
+            gpio.AdvanceAnalogTo(100);
+            Assert.AreEqual(1000, gpio.AnalogRead(4));
+
+            gpio.UnregisterAnalogSensor(4, sampler);
+            gpio.AdvanceAnalogTo(200);
+            Assert.AreEqual(1000, gpio.AnalogRead(4));
+        }
+
+        [Test]
+        public void VirtualMachineReadsAnalogSensorAtSimulatedTime()
+        {
+            var package = MakeBlinkPackage();
+            package.Manifest.RequiredPeripherals.Add("ADC");
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { (byte)RsmaHalService.AnalogRead, 0, 4, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Wait,
+                Operands = new byte[] { 100, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            var gpio = new VirtualGpioBank();
+            var model = new VirtualAnalogSensorModel(
+                VirtualAnalogWaveform.Ramp,
+                rampStart: 0.0,
+                rampEnd: 1.0,
+                periodMilliseconds: 1000.0);
+            Func<double, ushort> sampler = model.Sample;
+            gpio.RegisterAnalogSensor(4, sampler);
+            var machine = new VirtualMachine(package, gpio);
+
+            machine.Advance(0);
+            Assert.AreEqual(0, machine.StackTop);
+            machine.Advance(100);
+
+            Assert.AreEqual(410, gpio.AnalogRead(4));
+        }
+
         [TestCase(13, 2, 0xA5, 0x5A)]
         [TestCase(14, 0x42, 0xA5, 0xC3)]
         [TestCase(15, 2, 0xA5, 0xD7)]

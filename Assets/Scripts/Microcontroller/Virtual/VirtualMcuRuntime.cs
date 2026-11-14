@@ -38,6 +38,16 @@ namespace RSMA.Microcontroller.Virtual
         ushort AnalogRead(byte channel);
     }
 
+    public interface IVirtualAnalogInputSource : IVirtualAdcHal
+    {
+        bool SupportsAnalogChannel(byte channel);
+        void SetAnalogInput(byte channel, ushort value);
+        void ClearAnalogInput(byte channel);
+        void RegisterAnalogSensor(byte channel, Func<double, ushort> sampler);
+        void UnregisterAnalogSensor(byte channel, Func<double, ushort> sampler);
+        void AdvanceAnalogTo(double simulatedTimeMilliseconds);
+    }
+
     public interface IVirtualSpiHal
     {
         byte SpiTransfer(byte bus, byte value);
@@ -168,7 +178,7 @@ namespace RSMA.Microcontroller.Virtual
 
     public sealed class VirtualGpioBank : IVirtualMcuHal, IVirtualInputSource, IVirtualButtonHost,
         IVirtualGpioEdgeSource, IVirtualPwmHal, IVirtualAdcHal, IVirtualSpiHal, IVirtualI2cHal,
-        IVirtualDmaHal, IVirtualAsyncDmaHal, IVirtualEepromHal
+        IVirtualDmaHal, IVirtualAsyncDmaHal, IVirtualEepromHal, IVirtualAnalogInputSource
     {
         public const int MaxScheduledInputEvents = 4096;
         public const int EepromSize = 256;
@@ -182,6 +192,8 @@ namespace RSMA.Microcontroller.Virtual
         private readonly Dictionary<byte, bool> values = new Dictionary<byte, bool>();
         private readonly Dictionary<byte, float> pwmValues = new Dictionary<byte, float>();
         private readonly Dictionary<byte, ushort> analogValues = new Dictionary<byte, ushort>();
+        private readonly Dictionary<byte, Func<double, ushort>> analogSensors =
+            new Dictionary<byte, Func<double, ushort>>();
         private readonly Dictionary<byte, byte> spiResponses = new Dictionary<byte, byte>();
         private readonly Dictionary<byte, byte> i2cResponses = new Dictionary<byte, byte>();
         private readonly Dictionary<byte, byte> dmaResponses = new Dictionary<byte, byte>();
@@ -296,6 +308,42 @@ namespace RSMA.Microcontroller.Virtual
             if (value > 4095)
                 throw new ArgumentOutOfRangeException(nameof(value), "ADC sample must be between 0 and 4095");
             analogValues[channel] = value;
+        }
+
+        public bool SupportsAnalogChannel(byte channel)
+        {
+            return true;
+        }
+
+        public void ClearAnalogInput(byte channel)
+        {
+            analogValues.Remove(channel);
+        }
+
+        public void RegisterAnalogSensor(byte channel, Func<double, ushort> sampler)
+        {
+            if (sampler == null)
+                throw new ArgumentNullException(nameof(sampler));
+            if (!SupportsAnalogChannel(channel))
+                throw new InvalidOperationException("ADC channel is not supported");
+            if (analogSensors.ContainsKey(channel))
+                throw new InvalidOperationException("ADC channel already has a virtual sensor");
+            analogSensors.Add(channel, sampler);
+        }
+
+        public void UnregisterAnalogSensor(byte channel, Func<double, ushort> sampler)
+        {
+            if (analogSensors.TryGetValue(channel, out var registered) && registered == sampler)
+                analogSensors.Remove(channel);
+        }
+
+        public void AdvanceAnalogTo(double simulatedTimeMilliseconds)
+        {
+            if (double.IsNaN(simulatedTimeMilliseconds) || double.IsInfinity(simulatedTimeMilliseconds) ||
+                simulatedTimeMilliseconds < 0)
+                throw new ArgumentOutOfRangeException(nameof(simulatedTimeMilliseconds));
+            foreach (var sensor in analogSensors)
+                analogValues[sensor.Key] = sensor.Value(simulatedTimeMilliseconds);
         }
 
         public ushort AnalogRead(byte channel)
@@ -1001,7 +1049,14 @@ namespace RSMA.Microcontroller.Virtual
         private void SetSimulatedTime(double timeMilliseconds)
         {
             SimulatedTimeMilliseconds = timeMilliseconds;
+            AdvanceAnalogTo(timeMilliseconds);
             AdvanceDmaTo(timeMilliseconds);
+        }
+
+        private void AdvanceAnalogTo(double timeMilliseconds)
+        {
+            if (hal is IVirtualAnalogInputSource analogInput)
+                analogInput.AdvanceAnalogTo(timeMilliseconds);
         }
 
         private void AdvanceDmaTo(double timeMilliseconds)

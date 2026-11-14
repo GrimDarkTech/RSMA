@@ -13,12 +13,14 @@ public sealed class VirtualPinBinding
     public bool resetLatchLevel;
 }
 public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtualInputSource,
-    IVirtualButtonHost, IVirtualGpioEdgeSource, IVirtualAdcHal
+    IVirtualButtonHost, IVirtualGpioEdgeSource, IVirtualAnalogInputSource
 {
     private readonly RSMAGPIO gpio;
     private readonly VirtualBoardProfile profile;
     private readonly Dictionary<byte, ConnectedPin> bindings = new Dictionary<byte, ConnectedPin>();
     private readonly Dictionary<byte, VirtualGpioPinState> states = new Dictionary<byte, VirtualGpioPinState>();
+    private readonly Dictionary<byte, Func<double, ushort>> analogSensors =
+        new Dictionary<byte, Func<double, ushort>>();
     private readonly List<ScheduledInput> scheduledInputs = new List<ScheduledInput>();
     private ulong nextInputSequence;
 
@@ -136,6 +138,52 @@ public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtua
         var normalized = gpio.GetPin(connectedPin).value;
         var clamped = Math.Max(0f, Math.Min(1f, normalized));
         return (ushort)Math.Round(clamped * 4095f, MidpointRounding.AwayFromZero);
+    }
+
+    public bool SupportsAnalogChannel(byte channel)
+    {
+        return bindings.ContainsKey(channel);
+    }
+
+    public void SetAnalogInput(byte channel, ushort value)
+    {
+        if (value > 4095)
+            throw new ArgumentOutOfRangeException(nameof(value), "ADC sample must be between 0 and 4095");
+        var pin = gpio.GetPin(Resolve(channel));
+        pin.value = value / 4095f;
+    }
+
+    public void ClearAnalogInput(byte channel)
+    {
+        if (!SupportsAnalogChannel(channel))
+            throw new InvalidOperationException("ADC channel is not mapped: " + channel);
+        gpio.GetPin(Resolve(channel)).value = 0f;
+    }
+
+    public void RegisterAnalogSensor(byte channel, Func<double, ushort> sampler)
+    {
+        if (sampler == null)
+            throw new ArgumentNullException(nameof(sampler));
+        if (!SupportsAnalogChannel(channel))
+            throw new InvalidOperationException("ADC channel is not mapped: " + channel);
+        if (analogSensors.ContainsKey(channel))
+            throw new InvalidOperationException("ADC channel already has a virtual sensor");
+        analogSensors.Add(channel, sampler);
+    }
+
+    public void UnregisterAnalogSensor(byte channel, Func<double, ushort> sampler)
+    {
+        if (analogSensors.TryGetValue(channel, out var registered) && registered == sampler)
+            analogSensors.Remove(channel);
+    }
+
+    public void AdvanceAnalogTo(double simulatedTimeMilliseconds)
+    {
+        if (double.IsNaN(simulatedTimeMilliseconds) || double.IsInfinity(simulatedTimeMilliseconds) ||
+            simulatedTimeMilliseconds < 0)
+            throw new ArgumentOutOfRangeException(nameof(simulatedTimeMilliseconds));
+        foreach (var sensor in analogSensors)
+            SetAnalogInput(sensor.Key, sensor.Value(simulatedTimeMilliseconds));
     }
 
     public bool DigitalRead(byte pin)
