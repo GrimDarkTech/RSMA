@@ -90,6 +90,36 @@ namespace RSMA.Microcontroller.Virtual.PlayMode.Tests
             yield return null;
         }
 
+        [UnityTest]
+        public IEnumerator Serial1AndSerial2UseIndependentUartPorts()
+        {
+            var firmware = LoadFirmware("serial_ports");
+            Assert.IsNotNull(firmware, "Multi-port Serial RSFW TextAsset was not loaded from Resources");
+
+            var package = RsfwReader.Read(firmware.bytes);
+            var uart = new VirtualUartBank();
+            var transmitted = new List<string>();
+            uart.Transmitted += (port, value) => transmitted.Add(port + ":" + value);
+            var machine = new VirtualMachine(package, new VirtualGpioBank(), null, uart);
+
+            machine.Advance(0);
+            Assert.AreEqual(9600, uart.GetBaudRate(1));
+            Assert.AreEqual(19200, uart.GetBaudRate(2));
+            uart.ScheduleReceived(2, 10, new byte[] { 0x22 });
+            uart.ScheduleReceived(1, 20, new byte[] { 0x11 });
+            machine.Advance(30);
+
+            CollectionAssert.AreEqual(new[] { "1:17", "2:34" }, transmitted);
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            var trace = machine.GetTraceSnapshot();
+            Assert.IsNotNull(trace.Find(item => item.Kind == VirtualTraceEventKind.UartReceive &&
+                item.Channel == 1 && item.Value == 0x11 && item.TimestampMilliseconds == 20.0));
+            Assert.IsNotNull(trace.Find(item => item.Kind == VirtualTraceEventKind.UartReceive &&
+                item.Channel == 2 && item.Value == 0x22 && item.TimestampMilliseconds == 10.0));
+
+            yield return null;
+        }
+
         private static UnityEngine.TextAsset LoadFirmware(string assetName)
         {
             var assets = UnityEngine.Resources.LoadAll<UnityEngine.TextAsset>("RSMA/Firmware");
