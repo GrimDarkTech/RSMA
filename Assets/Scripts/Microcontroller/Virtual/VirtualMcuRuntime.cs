@@ -196,6 +196,16 @@ namespace RSMA.Microcontroller.Virtual
             return GetInitializedPort(port).PendingHitlPackets.Count != 0;
         }
 
+        public int GetHitlRejectedFrameCount(byte port)
+        {
+            return GetInitializedPort(port).HitlParser.RejectedFrameCount;
+        }
+
+        public int GetPendingHitlPacketCount(byte port)
+        {
+            return GetInitializedPort(port).PendingHitlPackets.Count;
+        }
+
         public void CompletePacket(byte port)
         {
             var state = GetInitializedPort(port);
@@ -203,12 +213,14 @@ namespace RSMA.Microcontroller.Virtual
                 state.PendingHitlPackets.Dequeue();
         }
 
-        public void InjectHitlFrame(byte port, byte[] frameBytes)
+        // Host/backend transport ingress. The input is a raw byte chunk and
+        // may contain a fragment, one frame, or concatenated frames.
+        public void InjectTransportBytes(byte port, byte[] transportBytes)
         {
-            if (frameBytes == null)
-                throw new ArgumentNullException(nameof(frameBytes));
+            if (transportBytes == null)
+                throw new ArgumentNullException(nameof(transportBytes));
             var state = GetInitializedPort(port);
-            var frames = state.HitlParser.Feed(frameBytes);
+            var frames = state.HitlParser.Feed(transportBytes);
             if (frames.Count > MaxPendingHitlPackets - state.PendingHitlPackets.Count)
                 throw new InvalidOperationException("HITL packet queue capacity exceeded");
             foreach (var frame in frames)
@@ -216,6 +228,12 @@ namespace RSMA.Microcontroller.Virtual
                 state.PendingHitlPackets.Enqueue(frame);
                 PacketReceived?.Invoke(port, frame);
             }
+        }
+
+        // Compatibility name for callers that already provide transport bytes.
+        public void InjectHitlFrame(byte port, byte[] frameBytes)
+        {
+            InjectTransportBytes(port, frameBytes);
         }
 
         public void InjectReceived(byte port, byte[] data)

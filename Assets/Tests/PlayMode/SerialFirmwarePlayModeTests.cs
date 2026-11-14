@@ -179,13 +179,13 @@ namespace RSMA.Microcontroller.Virtual.PlayMode.Tests
             });
             var invalid = (byte[])frame.Clone();
             invalid[invalid.Length - 1] ^= 0x01;
-            uart.InjectHitlFrame(1, invalid);
+            uart.InjectTransportBytes(1, invalid);
             Assert.AreEqual(0, transmitted.Count);
             var split = frame.Length / 2;
-            uart.InjectHitlFrame(1, SubArray(frame, 0, split));
+            uart.InjectTransportBytes(1, SubArray(frame, 0, split));
             machine.Advance(1);
             Assert.AreEqual(0, transmitted.Count);
-            uart.InjectHitlFrame(1, SubArray(frame, split, frame.Length - split));
+            uart.InjectTransportBytes(1, SubArray(frame, split, frame.Length - split));
             machine.Advance(1);
 
             CollectionAssert.AreEqual(new byte[] { 0x6B }, transmitted);
@@ -212,7 +212,7 @@ namespace RSMA.Microcontroller.Virtual.PlayMode.Tests
             var machine = new VirtualMachine(package, new VirtualGpioBank(), null, uart);
 
             machine.Advance(0);
-            uart.InjectHitlFrame(1, HitlFrameCodec.Encode(new HitlFrame
+            uart.InjectTransportBytes(1, HitlFrameCodec.Encode(new HitlFrame
             {
                 Type = HitlMessageType.Data,
                 Sequence = 8,
@@ -247,13 +247,13 @@ namespace RSMA.Microcontroller.Virtual.PlayMode.Tests
             });
 
             machine.Advance(0);
-            uart.InjectHitlFrame(1, frame);
+            uart.InjectTransportBytes(1, frame);
             machine.Advance(1);
             Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
 
             machine.Reset();
             machine.Advance(0);
-            uart.InjectHitlFrame(1, frame);
+            uart.InjectTransportBytes(1, frame);
             machine.Advance(1);
 
             CollectionAssert.AreEqual(new byte[] { 0x31, 0x31 }, transmitted);

@@ -160,7 +160,7 @@ namespace RSMA.Microcontroller.Virtual.Tests
                 Payload = new byte[] { 0x21 }
             });
 
-            uart.InjectHitlFrame(0, Concat(first, second));
+            uart.InjectTransportBytes(0, Concat(first, second));
 
             Assert.AreEqual(2, received);
             Assert.IsTrue(uart.HasPacket(0));
@@ -185,7 +185,7 @@ namespace RSMA.Microcontroller.Virtual.Tests
                 Type = HitlMessageType.Heartbeat,
                 Sequence = 1
             });
-            uart.InjectHitlFrame(0, empty);
+            uart.InjectTransportBytes(0, empty);
             Assert.IsTrue(uart.HasPacket(0));
             Assert.AreEqual(0, uart.PacketAvailable(0));
             uart.CompletePacket(0);
@@ -202,7 +202,7 @@ namespace RSMA.Microcontroller.Virtual.Tests
                 }));
             }
 
-            Assert.Throws<InvalidOperationException>(() => uart.InjectHitlFrame(0, batch.ToArray()));
+            Assert.Throws<InvalidOperationException>(() => uart.InjectTransportBytes(0, batch.ToArray()));
             Assert.IsFalse(uart.HasPacket(0));
         }
 
