@@ -11,6 +11,7 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
     [SerializeField] private List<VirtualPinBinding> pinBindings = new List<VirtualPinBinding>();
     [SerializeField] private string expectedBoardId = "RSMA-STM32F103";
     [SerializeField] private bool stopOutputsOnDisable = true;
+    [SerializeField] private bool runAutomatically = true;
     [SerializeField] private int irqDispatchCount;
     [SerializeField] private int lastIrqVirtualPin = -1;
     [SerializeField] private string lastIrqEdge = "None";
@@ -86,6 +87,15 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
         lastIrqEdge = "None";
     }
 
+    public void AdvanceSimulation(double deltaMilliseconds)
+    {
+        if (virtualMachine == null)
+            throw new InvalidOperationException("Virtual MCU is not initialized");
+        if (double.IsNaN(deltaMilliseconds) || double.IsInfinity(deltaMilliseconds) || deltaMilliseconds < 0)
+            throw new ArgumentOutOfRangeException(nameof(deltaMilliseconds));
+        virtualMachine.Advance(deltaMilliseconds);
+    }
+
     public bool Step()
     {
         if (virtualMachine == null)
@@ -145,12 +155,12 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
 
     private void Update()
     {
-        if (virtualMachine == null)
+        if (virtualMachine == null || !runAutomatically)
             return;
 
         try
         {
-            virtualMachine.Advance(Time.deltaTime * 1000.0);
+            AdvanceSimulation(Time.deltaTime * 1000.0);
         }
         catch (VirtualMachineFaultException exception)
         {
