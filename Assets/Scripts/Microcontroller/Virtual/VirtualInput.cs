@@ -43,6 +43,17 @@ namespace RSMA.Microcontroller.Virtual
         void ScheduleReceived(byte port, double timestampMilliseconds, byte[] data);
     }
 
+    public interface IVirtualUartOutputSource
+    {
+        event Action<byte, byte> Transmitted;
+    }
+
+    public interface IVirtualUartTransportInput
+    {
+        void InjectReceived(byte port, byte[] data);
+        void InjectTransportBytes(byte port, byte[] data);
+    }
+
     public interface IVirtualGpioEdgeSource
     {
         event Action<VirtualGpioInputEvent> InputEdge;

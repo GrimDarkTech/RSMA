@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using RSMA.Microcontroller.Virtual;
 
 [Serializable]
@@ -13,7 +14,8 @@ public sealed class VirtualPinBinding
     public bool resetLatchLevel;
 }
 public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtualInputSource,
-    IVirtualButtonHost, IVirtualGpioEdgeSource, IVirtualAnalogInputSource
+    IVirtualPinValueSource, IVirtualButtonHost, IVirtualGpioEdgeSource, IVirtualAnalogInputSource,
+    IVirtualPeripheralLifecycle, IVirtualBoardCapabilitySource
 {
     private readonly RSMAGPIO gpio;
     private readonly VirtualBoardProfile profile;
@@ -33,6 +35,20 @@ public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtua
     }
 
     public event Action<VirtualGpioInputEvent> InputEdge;
+    public IEnumerable<byte> SupportedPins => profile.PinDefinitions.Select(definition => definition.VirtualPin);
+    public IEnumerable<byte> SupportedAnalogChannels => profile.PinDefinitions
+        .Where(definition => analogSensors.ContainsKey(definition.VirtualPin) ||
+            ((IVirtualAnalogInputSource)this).SupportsAnalogChannel(definition.VirtualPin))
+        .Select(definition => definition.VirtualPin);
+    public IEnumerable<byte> SupportedSpiBuses => Array.Empty<byte>();
+    public IEnumerable<byte> SupportedI2cAddresses => Array.Empty<byte>();
+    public IEnumerable<byte> SupportedDmaChannels => Array.Empty<byte>();
+    public IEnumerable<byte> SupportedUartPorts => Array.Empty<byte>();
+    public IEnumerable<string> Constraints => new[]
+    {
+        "GPIO pin capabilities are limited to the configured scene bindings",
+        "SPI, I2C, DMA and EEPROM are not provided by the scene GPIO adapter"
+    };
     public double? NextInputTimestampMilliseconds => scheduledInputs.Count == 0
         ? (double?)null : scheduledInputs[0].Timestamp;
 
@@ -243,6 +259,11 @@ public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtua
             if (state.Mode == VirtualPinMode.Output)
                 WriteLine(pin, false);
         }
+    }
+
+    public void ResetPeripheralState()
+    {
+        ApplyResetState();
     }
 
     public void ApplyResetState()

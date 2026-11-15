@@ -17,8 +17,10 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
     [SerializeField] private string lastIrqEdge = "None";
 
     private RSMAGpioHalAdapter hal;
+    private VirtualMcuBackend backend;
     private VirtualMachine virtualMachine;
     private VirtualUartBank uart;
+    private VirtualGpioBank peripheralBank;
     private readonly List<VirtualAnalogSensor> analogSensors = new List<VirtualAnalogSensor>();
 
     public VirtualExecutionState ExecutionState => virtualMachine?.State ?? VirtualExecutionState.Ready;
@@ -64,14 +66,14 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
     {
         if (hal == null)
             return 0f;
-        return hal.ReadPinValue(virtualPin);
+        return backend.ReadPinValue(virtualPin);
     }
 
     public void PwmWrite(byte virtualPin, byte dutyCycle)
     {
         if (hal == null)
             throw new InvalidOperationException("Virtual MCU is not initialized");
-        ((IVirtualPwmHal)hal).PwmWrite(virtualPin, dutyCycle);
+        backend.PwmWrite(virtualPin, dutyCycle);
     }
 
     public bool SetButtonPressed(byte virtualPin, bool pressed)
@@ -79,7 +81,7 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
         if (virtualMachine == null || hal == null)
             return false;
 
-        hal.ScheduleInputLevel(virtualPin, virtualMachine.SimulatedTimeMilliseconds, !pressed);
+        backend.ScheduleInputLevel(virtualPin, virtualMachine.SimulatedTimeMilliseconds, !pressed);
         return true;
     }
 
@@ -87,14 +89,14 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
     {
         if (uart == null)
             throw new InvalidOperationException("Virtual MCU UART is not initialized");
-        uart.InjectReceived(port, data);
+        backend.InjectReceived(port, data);
     }
 
     public void ScheduleUartReceive(byte port, double timestampMilliseconds, byte[] data)
     {
         if (uart == null)
             throw new InvalidOperationException("Virtual MCU UART is not initialized");
-        uart.ScheduleReceived(port, timestampMilliseconds, data);
+        backend.ScheduleReceived(port, timestampMilliseconds, data);
     }
 
     public void Reset()
@@ -148,12 +150,14 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
                     "' does not match configured board '" + expectedBoardId + "'");
 
             if (pinBindings.Count == 0)
-                hal = new RSMAGpioHalAdapter(gpio, RsmaBoardProfiles.Create(expectedBoardId));
+                hal = new RSMAGpioHalAdapter(gpio, RsmaBoardProfiles.Create(package.Manifest.BoardId));
             else
                 hal = new RSMAGpioHalAdapter(gpio, pinBindings);
             uart = new VirtualUartBank();
-            uart.Transmitted += OnUartTransmitted;
-            virtualMachine = new VirtualMachine(package, hal, null, uart);
+            peripheralBank = new VirtualGpioBank();
+            backend = new VirtualMcuBackend(package.Manifest.BoardId, hal, uart, peripheralBank);
+            backend.Transmitted += OnUartTransmitted;
+            virtualMachine = VirtualMachine.CreateWithBackend(package, backend);
             virtualMachine.TraceRecorded += OnTraceRecorded;
             for (var i = 0; i < analogSensors.Count; i++)
                 TryRegisterAnalogSensor(analogSensors[i]);
@@ -166,10 +170,12 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
         {
             Debug.LogError("Virtual MCU failed to load firmware: " + exception.Message, this);
             virtualMachine = null;
+            if (backend != null)
+                backend.Transmitted -= OnUartTransmitted;
+            backend = null;
             hal = null;
-            if (uart != null)
-                uart.Transmitted -= OnUartTransmitted;
             uart = null;
+            peripheralBank = null;
             enabled = false;
         }
     }
@@ -198,13 +204,20 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
             virtualMachine.TraceRecorded -= OnTraceRecorded;
         }
         if (stopOutputsOnDisable)
-            hal?.ApplySafeState();
-        if (uart != null)
-            uart.Transmitted -= OnUartTransmitted;
+        {
+            if (backend != null)
+                backend.SafeState();
+            else
+                hal?.ApplySafeState();
+        }
+        if (backend != null)
+            backend.Transmitted -= OnUartTransmitted;
         uart = null;
+        peripheralBank = null;
         for (var i = 0; i < analogSensors.Count; i++)
             UnregisterAnalogSensorFromHal(analogSensors[i]);
         virtualMachine = null;
+        backend = null;
         hal = null;
     }
 
@@ -229,7 +242,7 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
     {
         if (hal == null)
             return;
-        var analogHal = hal as IVirtualAnalogInputSource;
+        var analogHal = backend as IVirtualAnalogInputSource;
         if (analogHal == null)
             throw new InvalidOperationException("Configured MCU backend does not support virtual analog sensors");
         analogHal.RegisterAnalogSensor(sensor.AdcChannel, sensor.Sample);
@@ -237,7 +250,7 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
 
     private void UnregisterAnalogSensorFromHal(VirtualAnalogSensor sensor)
     {
-        var analogHal = hal as IVirtualAnalogInputSource;
+        var analogHal = backend as IVirtualAnalogInputSource;
         analogHal?.UnregisterAnalogSensor(sensor.AdcChannel, sensor.Sample);
     }
 }

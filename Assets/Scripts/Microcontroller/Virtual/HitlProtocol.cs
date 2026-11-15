@@ -195,6 +195,11 @@ namespace RSMA.Microcontroller.Virtual
         public event Action<string> FrameRejected;
         public int RejectedFrameCount { get; private set; }
 
+        public void ClearBufferedData()
+        {
+            buffer.Clear();
+        }
+
         public IList<HitlFrame> Feed(byte[] bytes)
         {
             if (bytes == null)

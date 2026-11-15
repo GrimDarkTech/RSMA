@@ -12,6 +12,76 @@ namespace RSMA.Microcontroller.Virtual.Tests
     public sealed class VirtualMcuTests
     {
         [Test]
+        public void VirtualBackendDiscoversComposedCapabilitiesAndPreflightsBeforeRun()
+        {
+            var gpio = new VirtualGpioBank();
+            var uart = new VirtualUartBank();
+            var backend = new VirtualMcuBackend(RsmaBoardProfiles.CreateStm32F103(), gpio, uart);
+
+            backend.Configure(MakeBlinkPackage());
+
+            Assert.AreEqual(VirtualBackendLifecycleState.Configured, backend.State);
+            Assert.IsTrue(backend.Capabilities.SupportsPeripheral("GPIO"));
+            Assert.IsTrue(backend.Capabilities.SupportsPeripheral("SYSTICK"));
+            Assert.IsTrue(backend.Capabilities.SupportsPeripheral("PWM"));
+            Assert.IsTrue(backend.Capabilities.SupportsPeripheral("TIM"));
+            Assert.IsTrue(backend.Capabilities.SupportsPeripheral("ADC"));
+            Assert.IsTrue(backend.Capabilities.SupportsPeripheral("SPI"));
+            Assert.IsTrue(backend.Capabilities.SupportsPeripheral("I2C"));
+            Assert.IsTrue(backend.Capabilities.SupportsPeripheral("DMA"));
+            Assert.IsTrue(backend.Capabilities.SupportsPeripheral("EEPROM"));
+            Assert.IsTrue(backend.Capabilities.SupportsPeripheral("UART"));
+            Assert.IsTrue(backend.Capabilities.SupportsPeripheral("IRQ"));
+            CollectionAssert.AreEqual(new byte[] { 10, 11, 13 }, backend.Capabilities.Pins);
+        }
+
+        [Test]
+        public void VirtualBackendRejectsMissingPeripheralBeforeFirstVmTick()
+        {
+            var backend = new VirtualMcuBackend("RSMA-STM32F103", new BasicVirtualHal());
+            var package = MakeBlinkPackage();
+            package.Manifest.RequiredPeripherals.Add("SPI");
+
+            Assert.Throws<VirtualBackendConfigurationException>(() => backend.Configure(package));
+            Assert.AreEqual(VirtualBackendLifecycleState.Created, backend.State);
+            Assert.IsNull(backend.ConfiguredPackage);
+        }
+
+        [Test]
+        public void VirtualBackendResetAndSafeStateApplyPeripheralPolicies()
+        {
+            var gpio = new VirtualGpioBank();
+            var uart = new VirtualUartBank();
+            var backend = new VirtualMcuBackend("RSMA-STM32F103", gpio, uart);
+            backend.Configure(MakeBlinkPackage());
+            var machine = VirtualMachine.CreateWithBackend(MakeBlinkPackage(), backend);
+
+            machine.Advance(0);
+            Assert.IsTrue(gpio.DigitalRead(13));
+            backend.SafeState();
+            Assert.AreEqual(VirtualBackendLifecycleState.SafeState, backend.State);
+            Assert.IsFalse(gpio.DigitalRead(13));
+
+            backend.Reset();
+            Assert.AreEqual(VirtualBackendLifecycleState.Configured, backend.State);
+            Assert.AreEqual(VirtualPinMode.Input, gpio.GetMode(13));
+        }
+
+        [Test]
+        public void VirtualMachineCanBeConstructedThroughUnifiedBackend()
+        {
+            var gpio = new VirtualGpioBank();
+            var backend = new VirtualMcuBackend("RSMA-STM32F103", gpio, new VirtualUartBank());
+
+            var machine = VirtualMachine.CreateWithBackend(MakeBlinkPackage(), backend);
+            machine.Advance(0);
+
+            Assert.AreEqual(VirtualExecutionState.Waiting, machine.State);
+            Assert.AreEqual(VirtualBackendLifecycleState.Running, backend.State);
+            Assert.IsTrue(gpio.DigitalRead(13));
+        }
+
+        [Test]
         public void ReaderRejectsBadMagic()
         {
             Assert.Throws<RsfwFormatException>(() => RsfwReader.Read(new byte[] { 0, 1, 2, 3 }));

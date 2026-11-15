@@ -28,6 +28,11 @@ namespace RSMA.Microcontroller.Virtual
         bool DigitalRead(byte pin);
     }
 
+    public interface IVirtualPinValueSource
+    {
+        float ReadPinValue(byte pin);
+    }
+
     public interface IVirtualPwmHal
     {
         void PwmWrite(byte pin, byte dutyCycle);
@@ -103,7 +108,15 @@ namespace RSMA.Microcontroller.Virtual
         void CompletePacket(byte port);
     }
 
-    public sealed class VirtualUartBank : IVirtualUartHal, IVirtualUartInputSource
+    public interface IVirtualPeripheralLifecycle
+    {
+        void ResetPeripheralState();
+        void ApplySafeState();
+    }
+
+    public sealed class VirtualUartBank : IVirtualUartHal, IVirtualUartInputSource,
+        IVirtualUartOutputSource, IVirtualUartTransportInput,
+        IVirtualPeripheralLifecycle
     {
         public const byte PortCount = 4;
         public const byte BaudRateCount = 5;
@@ -204,6 +217,22 @@ namespace RSMA.Microcontroller.Virtual
         public int GetPendingHitlPacketCount(byte port)
         {
             return GetInitializedPort(port).PendingHitlPackets.Count;
+        }
+
+        public void ResetPeripheralState()
+        {
+            foreach (var port in ports)
+            {
+                port.Initialized = false;
+                port.BaudRate = 0;
+                port.ReceiveBuffer.Clear();
+                port.HitlParser.ClearBufferedData();
+                port.PendingHitlPackets.Clear();
+            }
+        }
+
+        public void ApplySafeState()
+        {
         }
 
         public void CompletePacket(byte port)
@@ -321,9 +350,10 @@ namespace RSMA.Microcontroller.Virtual
         }
     }
 
-    public sealed class VirtualGpioBank : IVirtualMcuHal, IVirtualInputSource, IVirtualButtonHost,
+    public sealed class VirtualGpioBank : IVirtualMcuHal, IVirtualPinValueSource, IVirtualInputSource, IVirtualButtonHost,
         IVirtualGpioEdgeSource, IVirtualPwmHal, IVirtualAdcHal, IVirtualSpiHal, IVirtualI2cHal,
-        IVirtualDmaHal, IVirtualAsyncDmaHal, IVirtualEepromHal, IVirtualAnalogInputSource
+        IVirtualDmaHal, IVirtualAsyncDmaHal, IVirtualEepromHal, IVirtualAnalogInputSource,
+        IVirtualPeripheralLifecycle
     {
         public const int MaxScheduledInputEvents = 4096;
         public const int EepromSize = 256;
@@ -446,6 +476,11 @@ namespace RSMA.Microcontroller.Virtual
             if (!modes.ContainsKey(pin))
                 throw new InvalidOperationException("GPIO pin has not been configured");
             return pwmValues.TryGetValue(pin, out var value) ? value : (values[pin] ? 1f : 0f);
+        }
+
+        public float ReadPinValue(byte pin)
+        {
+            return GetOutputValue(pin);
         }
 
         public void SetAnalogInput(byte channel, ushort value)
@@ -736,6 +771,38 @@ namespace RSMA.Microcontroller.Virtual
             Array.Clear(eeprom, 0, eeprom.Length);
         }
 
+        public void ResetPeripheralState()
+        {
+            var configuredPins = new List<byte>(states.Keys);
+            foreach (var pin in configuredPins)
+            {
+                var state = states[pin];
+                var wasOutput = modes[pin] == VirtualPinMode.Output;
+                if (wasOutput && values[pin])
+                    OutputChanged?.Invoke(pin, false);
+                modes[pin] = VirtualPinMode.Input;
+                if (wasOutput)
+                    values[pin] = false;
+                state.Mode = VirtualPinMode.Input;
+                state.PullMode = VirtualPinPullMode.None;
+                state.OutputType = VirtualPinOutputType.PushPull;
+                state.LatchLevel = false;
+                state.LineLevel = values[pin];
+                pwmValues[pin] = 0f;
+            }
+            ResetDma();
+        }
+
+        public void ApplySafeState()
+        {
+            var configuredPins = new List<byte>(modes.Keys);
+            foreach (var pin in configuredPins)
+            {
+                if (modes[pin] == VirtualPinMode.Output)
+                    DigitalWrite(pin, false);
+            }
+        }
+
         public void PwmWrite(byte pin, byte dutyCycle)
         {
             if (!modes.TryGetValue(pin, out var mode))
@@ -867,6 +934,7 @@ namespace RSMA.Microcontroller.Virtual
         private readonly IVirtualInterruptController interruptController;
         private readonly IVirtualUartHal uart;
         private readonly VirtualMachineProfiler profiler;
+        private readonly VirtualMcuBackend backend;
         private readonly Stack<CallFrame> callStack = new Stack<CallFrame>();
         private readonly Stack<IrqReturnState> irqReturnStack = new Stack<IrqReturnState>();
         private readonly Queue<UartCallbackRequest> pendingUartCallbacks = new Queue<UartCallbackRequest>();
@@ -933,6 +1001,42 @@ namespace RSMA.Microcontroller.Virtual
         {
         }
 
+        public static VirtualMachine CreateWithBackend(RsfwPackage package,
+            VirtualMcuBackend backend, VirtualMachineProfiler profiler = null)
+        {
+            if (backend == null)
+                throw new ArgumentNullException(nameof(backend));
+            return new VirtualMachine(package, backend, profiler);
+        }
+
+        public VirtualMachine(RsfwPackage package, VirtualMcuBackend backend)
+            : this(package, backend, null)
+        {
+        }
+
+        private VirtualMachine(RsfwPackage package, VirtualMcuBackend backend,
+            VirtualMachineProfiler profiler)
+        {
+            this.package = package ?? throw new ArgumentNullException(nameof(package));
+            this.hal = backend;
+            this.backend = backend;
+            backend.Configure(package);
+            backend.Reset();
+            inputSource = backend;
+            uartInputSource = backend;
+            interruptController = new VirtualInterruptController(backend);
+            uart = backend;
+            this.profiler = profiler;
+            Trace = new VirtualTraceBuffer();
+            if (uartInputSource != null)
+            {
+                uartInputSource.Received += OnUartReceived;
+                uartInputSource.PacketReceived += OnUartPacketReceived;
+            }
+            programCounter = package.Bytecode.EntryPoint;
+            State = VirtualExecutionState.Ready;
+        }
+
         public VirtualMachine(RsfwPackage package, IVirtualMcuHal hal,
             IVirtualInterruptController interruptController)
             : this(package, hal, interruptController, null)
@@ -976,6 +1080,13 @@ namespace RSMA.Microcontroller.Virtual
                     return;
                 var previous = state;
                 state = value;
+                if (backend != null)
+                {
+                    if (value == VirtualExecutionState.Running)
+                        backend.Start();
+                    else if (value == VirtualExecutionState.Halted)
+                        backend.Stop();
+                }
                 if (Trace != null)
                     RecordTrace(VirtualTraceEventKind.StateTransition, -1,
                         (int)previous, (int)value);
@@ -1005,6 +1116,7 @@ namespace RSMA.Microcontroller.Virtual
 
         public void Reset()
         {
+            backend?.Reset();
             Trace.Clear();
             callStack.Clear();
             irqReturnStack.Clear();
@@ -1028,6 +1140,18 @@ namespace RSMA.Microcontroller.Virtual
             FaultMessage = null;
             State = VirtualExecutionState.Ready;
             profiler?.Reset();
+        }
+
+        public void Stop()
+        {
+            if (State == VirtualExecutionState.Faulted)
+                return;
+            State = VirtualExecutionState.Halted;
+        }
+
+        public void SafeState()
+        {
+            backend?.SafeState();
         }
 
         public bool Step()
@@ -1068,6 +1192,7 @@ namespace RSMA.Microcontroller.Virtual
             {
                 State = VirtualExecutionState.Faulted;
                 FaultMessage = exception.Message;
+                backend?.MarkFaulted(exception.Message);
                 RecordRejectedMappingIfNeeded(exception);
                 RecordTrace(VirtualTraceEventKind.Fault, -1, 0, 0, exception.Message);
                 if (exception is VirtualMachineFaultException)
@@ -1149,6 +1274,7 @@ namespace RSMA.Microcontroller.Virtual
             {
                 State = VirtualExecutionState.Faulted;
                 FaultMessage = exception.Message;
+                backend?.MarkFaulted(exception.Message);
                 RecordRejectedMappingIfNeeded(exception);
                 RecordTrace(VirtualTraceEventKind.Fault, -1, 0, 0, exception.Message);
                 if (exception is VirtualMachineFaultException)
