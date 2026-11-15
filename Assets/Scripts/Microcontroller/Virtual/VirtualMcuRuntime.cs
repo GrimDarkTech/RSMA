@@ -38,6 +38,11 @@ namespace RSMA.Microcontroller.Virtual
         void PwmWrite(byte pin, byte dutyCycle);
     }
 
+    public interface IVirtualPwmFrequencyHal
+    {
+        void PwmWriteFrequency(byte pin, byte dutyCycle, int frequencyHz);
+    }
+
     public interface IVirtualAdcHal
     {
         ushort AnalogRead(byte channel);
@@ -353,7 +358,8 @@ namespace RSMA.Microcontroller.Virtual
     public sealed class VirtualGpioBank : IVirtualMcuHal, IVirtualPinValueSource, IVirtualInputSource, IVirtualButtonHost,
         IVirtualGpioEdgeSource, IVirtualPwmHal, IVirtualAdcHal, IVirtualSpiHal, IVirtualI2cHal,
         IVirtualDmaHal, IVirtualAsyncDmaHal, IVirtualEepromHal, IVirtualAnalogInputSource,
-        IVirtualPeripheralLifecycle, IVirtualElectricalModel, IVirtualBoardProfileConsumer
+        IVirtualPeripheralLifecycle, IVirtualElectricalModel, IVirtualBoardProfileConsumer,
+        IVirtualPwmFrequencyHal
     {
         public const int MaxScheduledInputEvents = 4096;
         public const int EepromSize = 256;
@@ -366,6 +372,7 @@ namespace RSMA.Microcontroller.Virtual
         private readonly Dictionary<byte, VirtualPinMode> modes = new Dictionary<byte, VirtualPinMode>();
         private readonly Dictionary<byte, bool> values = new Dictionary<byte, bool>();
         private readonly Dictionary<byte, float> pwmValues = new Dictionary<byte, float>();
+        private readonly Dictionary<byte, int> pwmFrequencies = new Dictionary<byte, int>();
         private readonly Dictionary<byte, ushort> analogValues = new Dictionary<byte, ushort>();
         private readonly Dictionary<byte, Func<double, ushort>> analogSensors =
             new Dictionary<byte, Func<double, ushort>>();
@@ -875,6 +882,19 @@ namespace RSMA.Microcontroller.Virtual
             RecomputeElectricalState(pin);
             if (previous != values[pin])
                 OutputChanged?.Invoke(pin, values[pin]);
+        }
+
+        public void PwmWriteFrequency(byte pin, byte dutyCycle, int frequencyHz)
+        {
+            if (frequencyHz < 1 || frequencyHz > 1000000)
+                throw new InvalidOperationException("PWM frequency must be between 1 and 1000000 Hz");
+            PwmWrite(pin, dutyCycle);
+            pwmFrequencies[pin] = frequencyHz;
+        }
+
+        public int GetPwmFrequency(byte pin)
+        {
+            return pwmFrequencies.TryGetValue(pin, out var frequency) ? frequency : 0;
         }
 
         private void EnsureConfiguredPin(byte pin)
@@ -1796,6 +1816,20 @@ namespace RSMA.Microcontroller.Virtual
                     dynamicPwmHal.PwmWrite(argument, (byte)dynamicDutyCycle);
                     RecordTrace(VirtualTraceEventKind.PwmOutput, argument, dynamicDutyCycle);
                     break;
+                case RsmaHalService.PwmWriteFrequency:
+                {
+                    if (!(hal is IVirtualPwmFrequencyHal frequencyPwmHal))
+                        throw new VirtualMachineFaultException("Firmware requires PWM frequency support");
+                    var frequency = PopValue();
+                    var frequencyDuty = PopValue();
+                    if (frequencyDuty < byte.MinValue || frequencyDuty > byte.MaxValue)
+                        throw new VirtualMachineFaultException("PWM duty must be between 0 and 255");
+                    if (frequency < 1 || frequency > 1000000)
+                        throw new VirtualMachineFaultException("PWM frequency must be between 1 and 1000000 Hz");
+                    frequencyPwmHal.PwmWriteFrequency(argument, (byte)frequencyDuty, frequency);
+                    RecordTrace(VirtualTraceEventKind.PwmOutput, argument, frequencyDuty, frequency);
+                    break;
+                }
                 case RsmaHalService.DigitalWrite:
                     hal.DigitalWrite(argument, value != 0);
                     RecordTrace(VirtualTraceEventKind.DigitalOutput, argument, value != 0 ? 1 : 0);
@@ -1809,6 +1843,9 @@ namespace RSMA.Microcontroller.Virtual
                     break;
                 case RsmaHalService.Millis:
                     PushValue(unchecked((int)SimulatedTimeMilliseconds));
+                    break;
+                case RsmaHalService.Micros:
+                    PushValue(unchecked((int)(long)(SimulatedTimeMilliseconds * 1000.0)));
                     break;
                 case RsmaHalService.UartBegin:
                     RequireUart().Begin(argument, value);

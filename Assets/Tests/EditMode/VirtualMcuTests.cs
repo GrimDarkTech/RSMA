@@ -558,6 +558,75 @@ namespace RSMA.Microcontroller.Virtual.Tests
             CollectionAssert.AreEqual(new byte[] { 25 }, transmissions);
         }
 
+        [Test]
+        public void VirtualMachineExecutesPwmFrequencyAndMicrosHalServices()
+        {
+            var package = MakeBlinkPackage();
+            package.Manifest.RequiredPeripherals.Add("PWM");
+            package.Manifest.RequiredPeripherals.Add("SYSTICK");
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { (byte)RsmaHalService.PinMode, 0, 6, 1 }
+            });
+            package.Bytecode.Instructions.Add(MakeConstI32(127));
+            package.Bytecode.Instructions.Add(MakeConstI32(20000));
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { (byte)RsmaHalService.PwmWriteFrequency, 0, 6, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { (byte)RsmaHalService.Micros, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            var gpio = new VirtualGpioBank();
+            var machine = new VirtualMachine(package, gpio);
+            machine.Advance(0);
+
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            Assert.AreEqual(127f / 255f, gpio.GetOutputValue(6), 0.0001f);
+            Assert.AreEqual(20000, gpio.GetPwmFrequency(6));
+            Assert.AreEqual(0, machine.StackTop);
+        }
+
+        [Test]
+        public void VirtualMachineMicrosUsesSimulatedMicrosecondClock()
+        {
+            var package = MakeBlinkPackage();
+            package.Manifest.RequiredPeripherals.Add("SYSTICK");
+            package.Bytecode.Instructions.Clear();
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Wait,
+                Operands = new byte[] { 250, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.HalCall,
+                Operands = new byte[] { (byte)RsmaHalService.Micros, 0, 0, 0 }
+            });
+            package.Bytecode.Instructions.Add(new RsfwInstruction
+            {
+                Opcode = RsfwOpcode.Halt,
+                Operands = Array.Empty<byte>()
+            });
+
+            var machine = new VirtualMachine(package, new VirtualGpioBank());
+            machine.Advance(250);
+
+            Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            Assert.AreEqual(250000, machine.StackTop);
+        }
+
         [TestCase(-1.0)]
         [TestCase(double.NaN)]
         [TestCase(double.PositiveInfinity)]

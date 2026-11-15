@@ -89,7 +89,9 @@ namespace RSMA.Microcontroller.Virtual
         AnalogWrite = 24,
         UartPacketAvailable = 25,
         UartPacketRead = 26,
-        UartPacketType = 27
+        UartPacketType = 27,
+        PwmWriteFrequency = 28,
+        Micros = 29
     }
 
     public sealed class RsfwFormatException : Exception

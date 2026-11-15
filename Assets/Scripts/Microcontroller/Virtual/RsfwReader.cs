@@ -361,7 +361,7 @@ namespace RSMA.Microcontroller.Virtual
         {
             var service = ReadU16(operands, 0);
             var value = operands[3];
-            if (service < (ushort)RsmaHalService.PinMode || service > (ushort)RsmaHalService.UartPacketType)
+            if (service < (ushort)RsmaHalService.PinMode || service > (ushort)RsmaHalService.Micros)
                 throw new RsfwFormatException("HAL_CALL contains an unknown service ID");
             if (service == (ushort)RsmaHalService.PinMode && value > (byte)VirtualPinMode.Output)
                 throw new RsfwFormatException("HAL PinMode value must be Input(0) or Output(1)");
@@ -387,6 +387,11 @@ namespace RSMA.Microcontroller.Virtual
             }
             if (service == (ushort)RsmaHalService.AnalogRead && value != 0)
                 throw new RsfwFormatException("HAL AnalogRead reserved value must be zero");
+            if ((service == (ushort)RsmaHalService.Millis || service == (ushort)RsmaHalService.Micros) &&
+                (operands[2] != 0 || value != 0))
+                throw new RsfwFormatException("HAL time service operands must be zero");
+            if (service == (ushort)RsmaHalService.PwmWriteFrequency && value != 0)
+                throw new RsfwFormatException("HAL PWM frequency reserved value must be zero");
             if ((service == (ushort)RsmaHalService.SpiTransfer ||
                 service == (ushort)RsmaHalService.I2cTransfer ||
                 service == (ushort)RsmaHalService.DmaTransfer) && value != 0)

@@ -101,6 +101,7 @@ namespace RSMA.Microcontroller.Virtual
     public sealed class VirtualMcuBackend : IMcuIoBackend, IVirtualBackendDiagnostics,
         IVirtualMcuHal, IVirtualPinValueSource, IVirtualInputSource,
         IVirtualGpioEdgeSource, IVirtualButtonHost, IVirtualUartInputSource, IVirtualPwmHal,
+        IVirtualPwmFrequencyHal,
         IVirtualAdcHal, IVirtualAnalogInputSource, IVirtualSpiHal, IVirtualI2cHal,
         IVirtualDmaHal, IVirtualAsyncDmaHal, IVirtualEepromHal, IVirtualUartHal,
         IVirtualUartOutputSource, IVirtualUartTransportInput, IVirtualElectricalModel
@@ -293,6 +294,10 @@ namespace RSMA.Microcontroller.Virtual
         public void DigitalWrite(byte pin, bool value) { Require<IVirtualMcuHal>().DigitalWrite(pin, value); }
         public bool DigitalRead(byte pin) { return Require<IVirtualMcuHal>().DigitalRead(pin); }
         public void PwmWrite(byte pin, byte dutyCycle) { Require<IVirtualPwmHal>().PwmWrite(pin, dutyCycle); }
+        public void PwmWriteFrequency(byte pin, byte dutyCycle, int frequencyHz)
+        {
+            Require<IVirtualPwmFrequencyHal>().PwmWriteFrequency(pin, dutyCycle, frequencyHz);
+        }
         public ushort AnalogRead(byte channel) { return Require<IVirtualAdcHal>().AnalogRead(channel); }
         public bool SupportsAnalogChannel(byte channel) { return Require<IVirtualAnalogInputSource>().SupportsAnalogChannel(channel); }
         public void SetAnalogInput(byte channel, ushort value) { Require<IVirtualAnalogInputSource>().SetAnalogInput(channel, value); }
@@ -540,6 +545,7 @@ namespace RSMA.Microcontroller.Virtual
                         required.Add("GPIO");
                         break;
                     case RsmaHalService.PwmWrite:
+                    case RsmaHalService.PwmWriteFrequency:
                     case RsmaHalService.AnalogWrite:
                         required.Add("PWM");
                         break;
@@ -603,6 +609,19 @@ namespace RSMA.Microcontroller.Virtual
                 var service = (RsmaHalService)(instruction.Operands[0] | instruction.Operands[1] << 8);
                 var pin = instruction.Operands[2];
                 var value = instruction.Operands[3];
+                var pinService = service == RsmaHalService.PinMode ||
+                    service == RsmaHalService.DigitalWrite || service == RsmaHalService.DigitalRead ||
+                    service == RsmaHalService.ConfigurePin || service == RsmaHalService.PwmWrite ||
+                    service == RsmaHalService.PwmWriteFrequency || service == RsmaHalService.AnalogWrite ||
+                    service == RsmaHalService.AnalogRead;
+                if (!pinService)
+                {
+                    if (service == RsmaHalService.SpiTransfer)
+                        RequireBoardAlternate("SPI");
+                    else if (service == RsmaHalService.I2cTransfer)
+                        RequireBoardAlternate("I2C");
+                    continue;
+                }
                 EnsureMappedPin(pin);
                 var definition = boardProfile.GetPin(pin);
                 switch (service)
@@ -640,12 +659,6 @@ namespace RSMA.Microcontroller.Virtual
                     case RsmaHalService.AnalogRead:
                         RequirePinCapability(definition, VirtualPinCapabilities.Analog, "ADC");
                         RequireAlternate(definition, "ADC");
-                        break;
-                    case RsmaHalService.SpiTransfer:
-                        RequireBoardAlternate("SPI");
-                        break;
-                    case RsmaHalService.I2cTransfer:
-                        RequireBoardAlternate("I2C");
                         break;
                 }
             }
