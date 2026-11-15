@@ -1727,6 +1727,47 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
+        public void BoardProfileExposesCapabilitiesAndAlternateFunctions()
+        {
+            var profile = RsmaBoardProfiles.CreateStm32F103();
+
+            Assert.IsTrue(profile.GetPin(10).Supports(VirtualPinCapabilities.Analog));
+            Assert.IsTrue(profile.GetPin(13).Supports(VirtualPinCapabilities.Pwm));
+            Assert.IsTrue(profile.GetPin(13).SupportsAlternateFunction("PWM", "TIM1_CH1"));
+            Assert.IsFalse(profile.GetPin(13).SupportsAlternateFunction("ADC"));
+            Assert.Throws<BoardProfileException>(() =>
+                profile.GetPinWithCapability(10, VirtualPinCapabilities.Pwm));
+        }
+
+        [Test]
+        public void BoardProfileRejectsDuplicateAlternateFunctions()
+        {
+            Assert.Throws<BoardProfileException>(() => new VirtualBoardProfile("duplicate-route", new[]
+            {
+                new VirtualPinDefinition(1, "PA", "1", VirtualPinMode.Input,
+                    VirtualPinPullMode.None, VirtualPinOutputType.PushPull, false,
+                    VirtualPinCapabilities.BasicGpio,
+                    new[]
+                    {
+                        new VirtualPinAlternateFunction("UART", "USART1_TX"),
+                        new VirtualPinAlternateFunction("UART", "USART1_TX")
+                    })
+            }));
+
+            Assert.Throws<BoardProfileException>(() => new VirtualBoardProfile("conflicting-route", new[]
+            {
+                new VirtualPinDefinition(1, "PA", "1", VirtualPinMode.Input,
+                    VirtualPinPullMode.None, VirtualPinOutputType.PushPull, false,
+                    VirtualPinCapabilities.BasicGpio,
+                    new[] { new VirtualPinAlternateFunction("UART", "USART1_TX") }),
+                new VirtualPinDefinition(2, "PA", "2", VirtualPinMode.Input,
+                    VirtualPinPullMode.None, VirtualPinOutputType.PushPull, false,
+                    VirtualPinCapabilities.BasicGpio,
+                    new[] { new VirtualPinAlternateFunction("UART", "USART1_TX") })
+            }));
+        }
+
+        [Test]
         public void Stm32DefaultProfileMapsPwmMotorPinsToPc10Pc11AndPc13()
         {
             var profile = RsmaBoardProfiles.CreateStm32F103();

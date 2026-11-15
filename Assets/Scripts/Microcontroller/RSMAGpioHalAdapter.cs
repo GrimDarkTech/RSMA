@@ -98,6 +98,17 @@ public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtua
     public void ConfigurePin(byte pin, VirtualPinMode mode, VirtualPinPullMode pullMode,
         VirtualPinOutputType outputType)
     {
+        var definition = profile.GetPin(pin);
+        if (mode == VirtualPinMode.Input && !definition.Supports(VirtualPinCapabilities.DigitalInput))
+            throw new InvalidOperationException("Pin " + pin + " does not support digital input");
+        if (mode == VirtualPinMode.Output && !definition.Supports(VirtualPinCapabilities.DigitalOutput))
+            throw new InvalidOperationException("Pin " + pin + " does not support digital output");
+        if (pullMode == VirtualPinPullMode.PullUp && !definition.Supports(VirtualPinCapabilities.PullUp))
+            throw new InvalidOperationException("Pin " + pin + " does not support pull-up");
+        if (pullMode == VirtualPinPullMode.PullDown && !definition.Supports(VirtualPinCapabilities.PullDown))
+            throw new InvalidOperationException("Pin " + pin + " does not support pull-down");
+        if (outputType == VirtualPinOutputType.OpenDrain && !definition.Supports(VirtualPinCapabilities.OpenDrain))
+            throw new InvalidOperationException("Pin " + pin + " does not support open-drain output");
         var connectedPin = Resolve(pin);
         var gpioPin = gpio.GetPin(connectedPin);
         gpioPin.pinMode = mode == VirtualPinMode.Output ? PinModes.Output : PinModes.Input;
@@ -132,6 +143,7 @@ public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtua
 
     public void PwmWrite(byte pin, byte dutyCycle)
     {
+        profile.GetPinWithCapability(pin, VirtualPinCapabilities.Pwm);
         var connectedPin = Resolve(pin);
         var state = GetState(pin);
         if (state.Mode != VirtualPinMode.Output)
@@ -150,6 +162,7 @@ public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtua
 
     public ushort AnalogRead(byte channel)
     {
+        profile.GetPinWithCapability(channel, VirtualPinCapabilities.Analog);
         var connectedPin = Resolve(channel);
         var normalized = gpio.GetPin(connectedPin).value;
         var clamped = Math.Max(0f, Math.Min(1f, normalized));
@@ -158,7 +171,8 @@ public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtua
 
     public bool SupportsAnalogChannel(byte channel)
     {
-        return bindings.ContainsKey(channel);
+        return profile.TryGetPin(channel, out var definition) &&
+            definition.Supports(VirtualPinCapabilities.Analog);
     }
 
     public void SetAnalogInput(byte channel, ushort value)
@@ -268,6 +282,7 @@ public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtua
 
     public void ApplyResetState()
     {
+        scheduledInputs.Clear();
         foreach (var definition in profile.PinDefinitions)
         {
             var state = GetState(definition.VirtualPin);
