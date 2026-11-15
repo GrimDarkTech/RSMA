@@ -35,6 +35,44 @@ namespace RSMA.Microcontroller.Virtual
         }
     }
 
+    public sealed class VirtualPinPhysicalRoute
+    {
+        public string PortName { get; }
+        public string PinName { get; }
+
+        public VirtualPinPhysicalRoute(string portName, string pinName)
+        {
+            if (string.IsNullOrWhiteSpace(portName) || string.IsNullOrWhiteSpace(pinName))
+                throw new BoardProfileException("GPIO physical route is empty");
+            PortName = portName;
+            PinName = pinName;
+        }
+    }
+
+    public sealed class VirtualGpioElectricalState
+    {
+        public byte VirtualPin { get; set; }
+        public bool OutputDriverActive { get; set; }
+        public bool HighImpedance { get; set; }
+        public bool? ExternalDriveLevel { get; set; }
+        public bool LineLevel { get; set; }
+        public bool Conflict { get; set; }
+        public string Diagnostic { get; set; }
+    }
+
+    public interface IVirtualElectricalModel
+    {
+        IList<string> ElectricalDiagnostics { get; }
+        void SetExternalDrive(byte virtualPin, bool level);
+        void ClearExternalDrive(byte virtualPin);
+        VirtualGpioElectricalState GetElectricalState(byte virtualPin);
+    }
+
+    public interface IVirtualBoardProfileConsumer
+    {
+        void ApplyBoardProfile(VirtualBoardProfile profile);
+    }
+
     public enum VirtualPinPullMode : byte
     {
         None = 0,
@@ -69,6 +107,7 @@ namespace RSMA.Microcontroller.Virtual
         public bool ResetLatchLevel { get; }
         public VirtualPinCapabilities Capabilities { get; }
         public IList<VirtualPinAlternateFunction> AlternateFunctions { get; }
+        public IList<VirtualPinPhysicalRoute> PhysicalRoutes { get; }
 
         public VirtualPinDefinition(
             byte virtualPin,
@@ -79,7 +118,8 @@ namespace RSMA.Microcontroller.Virtual
             VirtualPinOutputType outputType = VirtualPinOutputType.PushPull,
             bool resetLatchLevel = false,
             VirtualPinCapabilities capabilities = VirtualPinCapabilities.LegacyUnconstrained,
-            IEnumerable<VirtualPinAlternateFunction> alternateFunctions = null)
+            IEnumerable<VirtualPinAlternateFunction> alternateFunctions = null,
+            IEnumerable<VirtualPinPhysicalRoute> physicalRoutes = null)
         {
             if (string.IsNullOrWhiteSpace(portName))
                 throw new BoardProfileException("GPIO profile port name is empty");
@@ -96,6 +136,8 @@ namespace RSMA.Microcontroller.Virtual
             Capabilities = capabilities;
             AlternateFunctions = new List<VirtualPinAlternateFunction>(alternateFunctions ??
                 Array.Empty<VirtualPinAlternateFunction>()).AsReadOnly();
+            PhysicalRoutes = new List<VirtualPinPhysicalRoute>(physicalRoutes ??
+                Array.Empty<VirtualPinPhysicalRoute>()).AsReadOnly();
             ValidateResetConfiguration();
         }
 
@@ -111,6 +153,30 @@ namespace RSMA.Microcontroller.Virtual
                 if (!string.Equals(alternate.Name, name, StringComparison.Ordinal))
                     continue;
                 if (route == null || string.Equals(alternate.Route, route, StringComparison.Ordinal))
+                    return true;
+            }
+            return false;
+        }
+
+        public string GetAlternateRoute(string name)
+        {
+            foreach (var alternate in AlternateFunctions)
+            {
+                if (string.Equals(alternate.Name, name, StringComparison.Ordinal))
+                    return alternate.Route;
+            }
+            return null;
+        }
+
+        public bool SupportsPhysicalRoute(string portName, string pinName)
+        {
+            if (string.Equals(PortName, portName, StringComparison.Ordinal) &&
+                string.Equals(PinName, pinName, StringComparison.Ordinal))
+                return true;
+            foreach (var route in PhysicalRoutes)
+            {
+                if (string.Equals(route.PortName, portName, StringComparison.Ordinal) &&
+                    string.Equals(route.PinName, pinName, StringComparison.Ordinal))
                     return true;
             }
             return false;
@@ -277,60 +343,108 @@ namespace RSMA.Microcontroller.Virtual
 
         public static VirtualBoardProfile CreateStm32F103()
         {
-            return new VirtualBoardProfile(Stm32F103BoardId, new[]
-            {
-                new VirtualPinDefinition(
-                    10,
-                    "PC",
-                    "10",
-                    VirtualPinMode.Input,
-                    VirtualPinPullMode.None,
-                    VirtualPinOutputType.PushPull,
-                    false,
-                    VirtualPinCapabilities.BasicGpio | VirtualPinCapabilities.Analog |
-                        VirtualPinCapabilities.ExternalInterrupt,
-                    new[]
-                    {
-                        new VirtualPinAlternateFunction("ADC", "ADC10"),
-                        new VirtualPinAlternateFunction("EXTI", "EXTI10")
-                    }),
-                new VirtualPinDefinition(
-                    11,
-                    "PC",
-                    "11",
-                    VirtualPinMode.Input,
-                    VirtualPinPullMode.None,
-                    VirtualPinOutputType.PushPull,
-                    false,
-                    VirtualPinCapabilities.BasicGpio | VirtualPinCapabilities.ExternalInterrupt,
-                    new[] { new VirtualPinAlternateFunction("EXTI", "EXTI11") }),
-                new VirtualPinDefinition(
-                    13,
-                    "PC",
-                    "13",
-                    VirtualPinMode.Input,
-                    VirtualPinPullMode.None,
-                    VirtualPinOutputType.PushPull,
-                    false,
-                    VirtualPinCapabilities.BasicGpio | VirtualPinCapabilities.Pwm,
-                    new[] { new VirtualPinAlternateFunction("PWM", "TIM1_CH1") })
-            });
+            var definitions = new List<VirtualPinDefinition>();
+            for (byte pin = 0; pin < 16; pin++)
+                definitions.Add(CreateStm32Pin(pin));
+            return new VirtualBoardProfile(Stm32F103BoardId, definitions);
         }
 
         public static VirtualBoardProfile CreateAvrAtmega328P()
         {
-            return new VirtualBoardProfile(AvrAtmega328PBoardId, new[]
+            var definitions = new List<VirtualPinDefinition>();
+            for (byte pin = 8; pin < 14; pin++)
+                definitions.Add(CreateAvrPin(pin));
+            return new VirtualBoardProfile(AvrAtmega328PBoardId, definitions);
+        }
+
+        private static VirtualPinDefinition CreateStm32Pin(byte pin)
+        {
+            var capabilities = VirtualPinCapabilities.BasicGpio |
+                VirtualPinCapabilities.OpenDrain | VirtualPinCapabilities.ExternalInterrupt;
+            var alternateFunctions = new List<VirtualPinAlternateFunction>
             {
-                new VirtualPinDefinition(11, "PB", "3", VirtualPinMode.Input, VirtualPinPullMode.None,
-                    VirtualPinOutputType.PushPull, false, VirtualPinCapabilities.BasicGpio | VirtualPinCapabilities.Pwm,
-                    new[] { new VirtualPinAlternateFunction("PWM", "TIM2_CH2") }),
-                new VirtualPinDefinition(12, "PB", "4", VirtualPinMode.Input, VirtualPinPullMode.None,
-                    VirtualPinOutputType.PushPull, false, VirtualPinCapabilities.BasicGpio | VirtualPinCapabilities.ExternalInterrupt,
-                    new[] { new VirtualPinAlternateFunction("EXTI", "EXTI4") }),
-                new VirtualPinDefinition(13, "PB", "5", VirtualPinMode.Input, VirtualPinPullMode.None,
-                    VirtualPinOutputType.PushPull, false, VirtualPinCapabilities.BasicGpio | VirtualPinCapabilities.Analog,
-                    new[] { new VirtualPinAlternateFunction("ADC", "ADC0") })
-            });
+                new VirtualPinAlternateFunction("EXTI", "EXTI" + pin)
+            };
+            if (pin <= 5 || pin == 10)
+            {
+                capabilities |= VirtualPinCapabilities.Analog;
+                alternateFunctions.Add(new VirtualPinAlternateFunction("ADC", "ADC" + pin));
+            }
+            switch (pin)
+            {
+                case 6:
+                    capabilities |= VirtualPinCapabilities.Pwm;
+                    alternateFunctions.Add(new VirtualPinAlternateFunction("PWM", "TIM3_CH1"));
+                    break;
+                case 7:
+                    capabilities |= VirtualPinCapabilities.Pwm;
+                    alternateFunctions.Add(new VirtualPinAlternateFunction("PWM", "TIM3_CH2"));
+                    break;
+                case 8:
+                    alternateFunctions.Add(new VirtualPinAlternateFunction("SPI", "SPI1_MISO"));
+                    break;
+                case 9:
+                    alternateFunctions.Add(new VirtualPinAlternateFunction("I2C", "I2C1_SCL"));
+                    break;
+                case 10:
+                    alternateFunctions.Add(new VirtualPinAlternateFunction("SPI", "SPI1_MOSI"));
+                    break;
+                case 11:
+                    alternateFunctions.Add(new VirtualPinAlternateFunction("I2C", "I2C1_SDA"));
+                    break;
+                case 13:
+                    capabilities |= VirtualPinCapabilities.Pwm;
+                    alternateFunctions.Add(new VirtualPinAlternateFunction("PWM", "TIM1_CH1"));
+                    alternateFunctions.Add(new VirtualPinAlternateFunction("SPI", "SPI1_SCK"));
+                    break;
+            }
+            var physicalRoutes = pin == 10 ? new[] { new VirtualPinPhysicalRoute("PB", "13") } :
+                pin == 11 ? new[] { new VirtualPinPhysicalRoute("PB", "14") } :
+                pin == 12 ? new[] { new VirtualPinPhysicalRoute("PA", "10") } :
+                pin == 13 ? new[] { new VirtualPinPhysicalRoute("PA", "11") } :
+                Array.Empty<VirtualPinPhysicalRoute>();
+            return new VirtualPinDefinition(pin, "PC", pin.ToString(), VirtualPinMode.Input,
+                VirtualPinPullMode.None, VirtualPinOutputType.PushPull, false,
+                capabilities, alternateFunctions, physicalRoutes);
+        }
+
+        private static VirtualPinDefinition CreateAvrPin(byte pin)
+        {
+            var capabilities = VirtualPinCapabilities.BasicGpio |
+                VirtualPinCapabilities.OpenDrain | VirtualPinCapabilities.ExternalInterrupt;
+            var alternateFunctions = new List<VirtualPinAlternateFunction>
+            {
+                new VirtualPinAlternateFunction("EXTI", "EXTI" + (pin - 8))
+            };
+            switch (pin)
+            {
+                case 8:
+                    capabilities |= VirtualPinCapabilities.Pwm;
+                    alternateFunctions.Add(new VirtualPinAlternateFunction("PWM", "TIM0_CH0"));
+                    break;
+                case 9:
+                    capabilities |= VirtualPinCapabilities.Pwm;
+                    alternateFunctions.Add(new VirtualPinAlternateFunction("PWM", "TIM0_CH1"));
+                    break;
+                case 10:
+                    alternateFunctions.Add(new VirtualPinAlternateFunction("SPI", "SPI0_SS"));
+                    break;
+                case 11:
+                    capabilities |= VirtualPinCapabilities.Pwm;
+                    alternateFunctions.Add(new VirtualPinAlternateFunction("PWM", "TIM2_CH2"));
+                    alternateFunctions.Add(new VirtualPinAlternateFunction("SPI", "SPI0_MOSI"));
+                    break;
+                case 12:
+                    alternateFunctions.Add(new VirtualPinAlternateFunction("I2C", "I2C0_SDA"));
+                    break;
+                case 13:
+                    capabilities |= VirtualPinCapabilities.Analog;
+                    alternateFunctions.Add(new VirtualPinAlternateFunction("ADC", "ADC0"));
+                    break;
+            }
+            return new VirtualPinDefinition(pin, "PB", (pin - 8).ToString(), VirtualPinMode.Input,
+                VirtualPinPullMode.None, VirtualPinOutputType.PushPull, false,
+                capabilities, alternateFunctions);
         }
 
         public static VirtualBoardProfile Create(string boardId)

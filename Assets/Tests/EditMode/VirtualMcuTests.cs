@@ -32,7 +32,8 @@ namespace RSMA.Microcontroller.Virtual.Tests
             Assert.IsTrue(backend.Capabilities.SupportsPeripheral("EEPROM"));
             Assert.IsTrue(backend.Capabilities.SupportsPeripheral("UART"));
             Assert.IsTrue(backend.Capabilities.SupportsPeripheral("IRQ"));
-            CollectionAssert.AreEqual(new byte[] { 10, 11, 13 }, backend.Capabilities.Pins);
+            CollectionAssert.AreEqual(new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 },
+                backend.Capabilities.Pins);
         }
 
         [Test]
@@ -1768,6 +1769,59 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
+        public void VirtualGpioModelsOpenDrainReleaseExternalDriveAndConflict()
+        {
+            var profile = new VirtualBoardProfile("electrical-test", new[]
+            {
+                new VirtualPinDefinition(1, "PA", "1", VirtualPinMode.Input,
+                    VirtualPinPullMode.PullUp, VirtualPinOutputType.OpenDrain, false,
+                    VirtualPinCapabilities.BasicGpio | VirtualPinCapabilities.OpenDrain)
+            });
+            var gpio = new VirtualGpioBank();
+            gpio.ApplyBoardProfile(profile);
+            gpio.ConfigurePin(1, VirtualPinMode.Output, VirtualPinPullMode.None,
+                VirtualPinOutputType.OpenDrain);
+
+            gpio.DigitalWrite(1, true);
+            var released = gpio.GetElectricalState(1);
+            Assert.IsTrue(released.HighImpedance);
+            Assert.IsFalse(released.OutputDriverActive);
+            Assert.IsFalse(released.LineLevel);
+
+            gpio.SetExternalDrive(1, true);
+            var externallyHigh = gpio.GetElectricalState(1);
+            Assert.IsTrue(externallyHigh.LineLevel);
+            Assert.IsFalse(externallyHigh.Conflict);
+
+            gpio.DigitalWrite(1, false);
+            var conflict = gpio.GetElectricalState(1);
+            Assert.IsTrue(conflict.OutputDriverActive);
+            Assert.IsTrue(conflict.Conflict);
+            StringAssert.Contains("conflicts", conflict.Diagnostic);
+
+            gpio.ClearExternalDrive(1);
+            var drivenLow = gpio.GetElectricalState(1);
+            Assert.IsFalse(drivenLow.LineLevel);
+            Assert.IsFalse(drivenLow.Conflict);
+            Assert.IsEmpty(gpio.ElectricalDiagnostics);
+        }
+
+        [Test]
+        public void VirtualGpioUsesPullBiasOnlyWhenLineIsHighImpedance()
+        {
+            var gpio = new VirtualGpioBank();
+            gpio.ConfigurePin(2, VirtualPinMode.Input, VirtualPinPullMode.PullUp,
+                VirtualPinOutputType.PushPull);
+            Assert.IsTrue(gpio.GetElectricalState(2).LineLevel);
+
+            gpio.SetExternalDrive(2, false);
+            var externallyLow = gpio.GetElectricalState(2);
+            Assert.IsTrue(externallyLow.HighImpedance);
+            Assert.IsFalse(externallyLow.LineLevel);
+            Assert.IsFalse(externallyLow.Conflict);
+        }
+
+        [Test]
         public void Stm32DefaultProfileMapsPwmMotorPinsToPc10Pc11AndPc13()
         {
             var profile = RsmaBoardProfiles.CreateStm32F103();
@@ -1778,7 +1832,8 @@ namespace RSMA.Microcontroller.Virtual.Tests
             Assert.AreEqual("11", profile.GetPin(11).PinName);
             Assert.AreEqual("PC", profile.GetPin(13).PortName);
             Assert.AreEqual("13", profile.GetPin(13).PinName);
-            Assert.Throws<BoardProfileException>(() => profile.GetPin(12));
+            Assert.AreEqual("PC", profile.GetPin(12).PortName);
+            Assert.IsTrue(profile.GetPin(12).Supports(VirtualPinCapabilities.DigitalInput));
         }
 
         [Test]
@@ -1791,7 +1846,7 @@ namespace RSMA.Microcontroller.Virtual.Tests
             Assert.AreEqual("3", profile.GetPin(11).PinName);
             Assert.AreEqual("4", profile.GetPin(12).PinName);
             Assert.AreEqual("5", profile.GetPin(13).PinName);
-            Assert.Throws<BoardProfileException>(() => profile.GetPin(10));
+            Assert.AreEqual("2", profile.GetPin(10).PinName);
         }
 
         [Test]
@@ -1878,7 +1933,7 @@ namespace RSMA.Microcontroller.Virtual.Tests
             Assert.AreEqual(VirtualPinPullMode.PullDown, state.PullMode);
             Assert.AreEqual(VirtualPinOutputType.OpenDrain, state.OutputType);
             Assert.IsTrue(state.LatchLevel);
-            Assert.IsTrue(state.LineLevel);
+            Assert.IsFalse(state.LineLevel);
             Assert.Throws<InvalidOperationException>(() => gpio.GetState(8));
         }
 
@@ -2066,7 +2121,7 @@ namespace RSMA.Microcontroller.Virtual.Tests
             Assert.AreEqual(VirtualPinPullMode.PullDown, state.PullMode);
             Assert.AreEqual(VirtualPinOutputType.OpenDrain, state.OutputType);
             Assert.IsTrue(state.LatchLevel);
-            Assert.IsTrue(state.LineLevel);
+            Assert.IsFalse(state.LineLevel);
             Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
         }
 

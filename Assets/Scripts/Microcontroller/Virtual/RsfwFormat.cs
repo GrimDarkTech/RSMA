@@ -104,6 +104,7 @@ namespace RSMA.Microcontroller.Virtual
         public uint RamSize { get; set; }
         public string EntryPointName { get; set; }
         public List<string> RequiredPeripherals { get; } = new List<string>();
+        public List<string> RequiredRoutes { get; } = new List<string>();
     }
 
     public sealed class RsfwInstruction

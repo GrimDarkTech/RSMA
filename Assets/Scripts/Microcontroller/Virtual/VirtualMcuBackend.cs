@@ -103,10 +103,11 @@ namespace RSMA.Microcontroller.Virtual
         IVirtualGpioEdgeSource, IVirtualButtonHost, IVirtualUartInputSource, IVirtualPwmHal,
         IVirtualAdcHal, IVirtualAnalogInputSource, IVirtualSpiHal, IVirtualI2cHal,
         IVirtualDmaHal, IVirtualAsyncDmaHal, IVirtualEepromHal, IVirtualUartHal,
-        IVirtualUartOutputSource, IVirtualUartTransportInput
+        IVirtualUartOutputSource, IVirtualUartTransportInput, IVirtualElectricalModel
     {
         private readonly IVirtualMcuHal gpio;
         private readonly List<object> components = new List<object>();
+        private readonly VirtualBoardProfile boardProfile;
         private RsfwPackage configuredPackage;
 
         public VirtualMcuBackend(string boardId, IVirtualMcuHal gpio,
@@ -133,7 +134,11 @@ namespace RSMA.Microcontroller.Virtual
             if (gpio == null)
                 throw new ArgumentNullException(nameof(gpio));
             this.gpio = gpio;
+            boardProfile = (capabilitySource as VirtualBoardProfileCapabilitySource)?.Profile;
             components.Add(gpio);
+            if (capabilitySource is VirtualBoardProfileCapabilitySource profileSource &&
+                gpio is IVirtualBoardProfileConsumer profileConsumer)
+                profileConsumer.ApplyBoardProfile(profileSource.Profile);
             if (peripheralBackends != null)
             {
                 foreach (var backend in peripheralBackends)
@@ -158,6 +163,24 @@ namespace RSMA.Microcontroller.Virtual
         public RsfwPackage ConfiguredPackage => configuredPackage;
         public string FaultMessage { get; private set; }
         public IList<string> Diagnostics { get; } = new List<string>();
+        public IList<string> ElectricalDiagnostics =>
+            gpio is IVirtualElectricalModel electrical ? electrical.ElectricalDiagnostics :
+                new List<string> { "GPIO provider does not expose electrical diagnostics" };
+
+        public void SetExternalDrive(byte virtualPin, bool level)
+        {
+            Require<IVirtualElectricalModel>().SetExternalDrive(virtualPin, level);
+        }
+
+        public void ClearExternalDrive(byte virtualPin)
+        {
+            Require<IVirtualElectricalModel>().ClearExternalDrive(virtualPin);
+        }
+
+        public VirtualGpioElectricalState GetElectricalState(byte virtualPin)
+        {
+            return Require<IVirtualElectricalModel>().GetElectricalState(virtualPin);
+        }
 
         public event Action<VirtualGpioInputEvent> InputEdge;
         public event Action<byte, byte> Received;
@@ -207,6 +230,13 @@ namespace RSMA.Microcontroller.Virtual
                 if (!Capabilities.SupportsPeripheral(peripheral))
                     throw new VirtualBackendConfigurationException("Backend does not provide required peripheral '" +
                         peripheral + "'");
+            }
+            ValidatePackagePinRoutes(package);
+            foreach (var route in package.Manifest.RequiredRoutes)
+            {
+                if (!SupportsRoute(route))
+                    throw new VirtualBackendConfigurationException("Board '" + BoardId +
+                        "' does not provide required route '" + route + "'");
             }
 
             configuredPackage = package;
@@ -552,6 +582,128 @@ namespace RSMA.Microcontroller.Virtual
             return required;
         }
 
+        private void ValidatePackagePinRoutes(RsfwPackage package)
+        {
+            if (boardProfile == null)
+                return;
+            foreach (var instruction in package.Bytecode.Instructions)
+            {
+                if (instruction.Opcode == RsfwOpcode.AttachIrq)
+                {
+                    EnsureMappedPin(instruction.Operands[0]);
+                    var irqDefinition = boardProfile.GetPin(instruction.Operands[0]);
+                    RequirePinCapability(irqDefinition, VirtualPinCapabilities.ExternalInterrupt,
+                        "external IRQ");
+                    RequireAlternate(irqDefinition, "EXTI");
+                    continue;
+                }
+                if (instruction.Opcode != RsfwOpcode.HalCall || instruction.Operands == null ||
+                    instruction.Operands.Length < 4)
+                    continue;
+                var service = (RsmaHalService)(instruction.Operands[0] | instruction.Operands[1] << 8);
+                var pin = instruction.Operands[2];
+                var value = instruction.Operands[3];
+                EnsureMappedPin(pin);
+                var definition = boardProfile.GetPin(pin);
+                switch (service)
+                {
+                    case RsmaHalService.PinMode:
+                        RequirePinCapability(definition,
+                            value == (byte)VirtualPinMode.Input
+                                ? VirtualPinCapabilities.DigitalInput
+                                : VirtualPinCapabilities.DigitalOutput,
+                            "GPIO mode");
+                        break;
+                    case RsmaHalService.DigitalRead:
+                        RequirePinCapability(definition, VirtualPinCapabilities.DigitalInput, "digital input");
+                        break;
+                    case RsmaHalService.DigitalWrite:
+                        RequirePinCapability(definition, VirtualPinCapabilities.DigitalOutput, "digital output");
+                        break;
+                    case RsmaHalService.ConfigurePin:
+                        RequirePinCapability(definition,
+                            (value & 0x01) != 0 ? VirtualPinCapabilities.DigitalOutput :
+                                VirtualPinCapabilities.DigitalInput, "GPIO configuration");
+                        var pull = (value >> 1) & 0x03;
+                        if (pull == (byte)VirtualPinPullMode.PullUp)
+                            RequirePinCapability(definition, VirtualPinCapabilities.PullUp, "pull-up");
+                        if (pull == (byte)VirtualPinPullMode.PullDown)
+                            RequirePinCapability(definition, VirtualPinCapabilities.PullDown, "pull-down");
+                        if (((value >> 3) & 0x01) != 0)
+                            RequirePinCapability(definition, VirtualPinCapabilities.OpenDrain, "open-drain");
+                        break;
+                    case RsmaHalService.PwmWrite:
+                    case RsmaHalService.AnalogWrite:
+                        RequirePinCapability(definition, VirtualPinCapabilities.Pwm, "PWM");
+                        RequireAlternate(definition, "PWM");
+                        break;
+                    case RsmaHalService.AnalogRead:
+                        RequirePinCapability(definition, VirtualPinCapabilities.Analog, "ADC");
+                        RequireAlternate(definition, "ADC");
+                        break;
+                    case RsmaHalService.SpiTransfer:
+                        RequireBoardAlternate("SPI");
+                        break;
+                    case RsmaHalService.I2cTransfer:
+                        RequireBoardAlternate("I2C");
+                        break;
+                }
+            }
+        }
+
+        private bool SupportsRoute(string requirement)
+        {
+            if (string.IsNullOrWhiteSpace(requirement))
+                return false;
+            var separator = requirement.IndexOf('@');
+            var name = separator < 0 ? null : requirement.Substring(0, separator);
+            var route = separator < 0 ? requirement : requirement.Substring(separator + 1);
+            foreach (var definition in boardProfile.PinDefinitions)
+            {
+                foreach (var alternate in definition.AlternateFunctions)
+                {
+                    if ((name == null || string.Equals(alternate.Name, name, StringComparison.Ordinal)) &&
+                        string.Equals(alternate.Route, route, StringComparison.Ordinal))
+                        return true;
+                }
+            }
+            return false;
+        }
+
+        private void RequireBoardAlternate(string function)
+        {
+            foreach (var definition in boardProfile.PinDefinitions)
+            {
+                if (definition.SupportsAlternateFunction(function))
+                    return;
+            }
+            throw new VirtualBackendConfigurationException("Board '" + boardProfile.BoardId +
+                "' has no " + function + " alternate-function route");
+        }
+
+        private void EnsureMappedPin(byte pin)
+        {
+            var source = gpio as IVirtualBoardCapabilitySource;
+            if (source != null && !source.SupportedPins.Contains(pin))
+                throw new VirtualBackendConfigurationException("Board pin " + pin +
+                    " is present in the profile but is not mapped by the active GPIO provider");
+        }
+
+        private static void RequirePinCapability(VirtualPinDefinition definition,
+            VirtualPinCapabilities capability, string operation)
+        {
+            if (!definition.Supports(capability))
+                throw new VirtualBackendConfigurationException("Board pin " + definition.VirtualPin +
+                    " does not support " + operation);
+        }
+
+        private static void RequireAlternate(VirtualPinDefinition definition, string function)
+        {
+            if (!definition.SupportsAlternateFunction(function))
+                throw new VirtualBackendConfigurationException("Board pin " + definition.VirtualPin +
+                    " has no " + function + " alternate-function route");
+        }
+
         private sealed class VirtualBoardProfileCapabilitySource : IVirtualBoardCapabilitySource
         {
             private readonly VirtualBoardProfile profile;
@@ -560,6 +712,8 @@ namespace RSMA.Microcontroller.Virtual
             {
                 this.profile = profile ?? throw new ArgumentNullException(nameof(profile));
             }
+
+            public VirtualBoardProfile Profile => profile;
 
             public IEnumerable<byte> SupportedPins => profile.PinDefinitions
                 .Select(definition => definition.VirtualPin);

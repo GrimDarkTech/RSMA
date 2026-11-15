@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using RSMA.Microcontroller.Virtual;
 
@@ -67,6 +68,27 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
         if (hal == null)
             return 0f;
         return backend.ReadPinValue(virtualPin);
+    }
+
+    public VirtualGpioElectricalState GetElectricalState(byte virtualPin)
+    {
+        if (backend == null)
+            throw new InvalidOperationException("Virtual MCU is not initialized");
+        return backend.GetElectricalState(virtualPin);
+    }
+
+    public void SetExternalDrive(byte virtualPin, bool level)
+    {
+        if (backend == null)
+            throw new InvalidOperationException("Virtual MCU is not initialized");
+        backend.SetExternalDrive(virtualPin, level);
+    }
+
+    public void ClearExternalDrive(byte virtualPin)
+    {
+        if (backend == null)
+            throw new InvalidOperationException("Virtual MCU is not initialized");
+        backend.ClearExternalDrive(virtualPin);
     }
 
     public void PwmWrite(byte virtualPin, byte dutyCycle)
@@ -149,13 +171,15 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
                 throw new RsfwFormatException("Firmware board '" + package.Manifest.BoardId +
                     "' does not match configured board '" + expectedBoardId + "'");
 
-            if (pinBindings.Count == 0)
-                hal = new RSMAGpioHalAdapter(gpio, RsmaBoardProfiles.Create(package.Manifest.BoardId));
-            else
-                hal = new RSMAGpioHalAdapter(gpio, pinBindings);
+            var boardProfile = RsmaBoardProfiles.Create(package.Manifest.BoardId);
+            if (pinBindings.Count != 0)
+                ValidateSceneBindings(boardProfile, pinBindings);
+            hal = pinBindings.Count == 0
+                ? new RSMAGpioHalAdapter(gpio, boardProfile)
+                : new RSMAGpioHalAdapter(gpio, boardProfile, pinBindings);
             uart = new VirtualUartBank();
             peripheralBank = new VirtualGpioBank();
-            backend = new VirtualMcuBackend(package.Manifest.BoardId, hal, uart, peripheralBank);
+            backend = new VirtualMcuBackend(boardProfile, hal, uart, peripheralBank);
             backend.Transmitted += OnUartTransmitted;
             virtualMachine = VirtualMachine.CreateWithBackend(package, backend);
             virtualMachine.TraceRecorded += OnTraceRecorded;
@@ -252,5 +276,19 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
     {
         var analogHal = backend as IVirtualAnalogInputSource;
         analogHal?.UnregisterAnalogSensor(sensor.AdcChannel, sensor.Sample);
+    }
+
+    private static void ValidateSceneBindings(VirtualBoardProfile profile,
+        IEnumerable<VirtualPinBinding> sceneBindings)
+    {
+        foreach (var binding in sceneBindings)
+        {
+            if (binding == null)
+                throw new BoardProfileException("Scene contains a null virtual pin binding");
+            var definition = profile.GetPin(binding.virtualPin);
+            if (!definition.SupportsPhysicalRoute(binding.gpioPin.portName, binding.gpioPin.pinName))
+                throw new BoardProfileException("Scene binding for virtual pin " + binding.virtualPin +
+                    " does not match board profile physical mapping");
+        }
     }
 }

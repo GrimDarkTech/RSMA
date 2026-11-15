@@ -15,12 +15,15 @@ public sealed class VirtualPinBinding
 }
 public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtualInputSource,
     IVirtualPinValueSource, IVirtualButtonHost, IVirtualGpioEdgeSource, IVirtualAnalogInputSource,
-    IVirtualPeripheralLifecycle, IVirtualBoardCapabilitySource
+    IVirtualPeripheralLifecycle, IVirtualBoardCapabilitySource, IVirtualElectricalModel
 {
     private readonly RSMAGPIO gpio;
     private readonly VirtualBoardProfile profile;
     private readonly Dictionary<byte, ConnectedPin> bindings = new Dictionary<byte, ConnectedPin>();
     private readonly Dictionary<byte, VirtualGpioPinState> states = new Dictionary<byte, VirtualGpioPinState>();
+    private readonly Dictionary<byte, bool?> externalDrives = new Dictionary<byte, bool?>();
+    private readonly Dictionary<byte, VirtualGpioElectricalState> electricalStates =
+        new Dictionary<byte, VirtualGpioElectricalState>();
     private readonly Dictionary<byte, Func<double, ushort>> analogSensors =
         new Dictionary<byte, Func<double, ushort>>();
     private readonly List<ScheduledInput> scheduledInputs = new List<ScheduledInput>();
@@ -35,10 +38,13 @@ public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtua
     }
 
     public event Action<VirtualGpioInputEvent> InputEdge;
-    public IEnumerable<byte> SupportedPins => profile.PinDefinitions.Select(definition => definition.VirtualPin);
+    public IList<string> ElectricalDiagnostics { get; } = new List<string>();
+    public IEnumerable<byte> SupportedPins => bindings.Keys;
     public IEnumerable<byte> SupportedAnalogChannels => profile.PinDefinitions
-        .Where(definition => analogSensors.ContainsKey(definition.VirtualPin) ||
+        .Where(definition => bindings.ContainsKey(definition.VirtualPin) &&
+            (analogSensors.ContainsKey(definition.VirtualPin) ||
             ((IVirtualAnalogInputSource)this).SupportsAnalogChannel(definition.VirtualPin))
+        )
         .Select(definition => definition.VirtualPin);
     public IEnumerable<byte> SupportedSpiBuses => Array.Empty<byte>();
     public IEnumerable<byte> SupportedI2cAddresses => Array.Empty<byte>();
@@ -58,16 +64,44 @@ public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtua
     }
 
     public RSMAGpioHalAdapter(RSMAGPIO gpio, VirtualBoardProfile profile)
+        : this(gpio, profile, null, null, true)
+    {
+    }
+
+    public RSMAGpioHalAdapter(RSMAGPIO gpio, VirtualBoardProfile profile, IEnumerable<byte> mappedPins)
+        : this(gpio, profile, mappedPins, null, true)
+    {
+    }
+
+    public RSMAGpioHalAdapter(RSMAGPIO gpio, VirtualBoardProfile profile,
+        IEnumerable<VirtualPinBinding> pinBindings)
+        : this(gpio, profile,
+            pinBindings == null ? null : pinBindings.Select(binding => binding.virtualPin),
+            pinBindings == null ? null : pinBindings.ToDictionary(
+                binding => binding.virtualPin, binding => binding.gpioPin), true)
+    {
+    }
+
+    private RSMAGpioHalAdapter(RSMAGPIO gpio, VirtualBoardProfile profile,
+        IEnumerable<byte> mappedPins, IDictionary<byte, ConnectedPin> physicalOverrides, bool initialize)
     {
         this.gpio = gpio ?? throw new ArgumentNullException(nameof(gpio));
         this.profile = profile ?? throw new ArgumentNullException(nameof(profile));
+        var allowedPins = mappedPins == null ? null : new HashSet<byte>(mappedPins);
 
         foreach (var definition in profile.PinDefinitions)
         {
-            var connectedPin = new ConnectedPin { portName = definition.PortName, pinName = definition.PinName };
+            if (allowedPins != null && !allowedPins.Contains(definition.VirtualPin))
+                continue;
+            var connectedPin = physicalOverrides != null && physicalOverrides.TryGetValue(definition.VirtualPin,
+                out var overridePin)
+                ? overridePin
+                : new ConnectedPin { portName = definition.PortName, pinName = definition.PinName };
+            if (!profile.GetPin(definition.VirtualPin).SupportsPhysicalRoute(connectedPin.portName, connectedPin.pinName))
+                throw new BoardProfileException("Board '" + profile.BoardId + "' does not declare physical route " +
+                    connectedPin.portName + "." + connectedPin.pinName + " for virtual pin " + definition.VirtualPin);
             if (gpio.GetPin(connectedPin) == null)
-                throw new BoardProfileException("Board '" + profile.BoardId + "' maps missing RSMA GPIO pin " +
-                    definition.PortName + "." + definition.PinName);
+                continue;
 
             bindings.Add(definition.VirtualPin, connectedPin);
             states.Add(definition.VirtualPin, new VirtualGpioPinState
@@ -86,7 +120,8 @@ public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtua
 
     public static RSMAGpioHalAdapter CreateStm32F103Default(RSMAGPIO gpio)
     {
-        return new RSMAGpioHalAdapter(gpio, RsmaBoardProfiles.CreateStm32F103());
+        return new RSMAGpioHalAdapter(gpio, RsmaBoardProfiles.CreateStm32F103(),
+            new byte[] { 10, 11, 13 });
     }
 
     public void PinMode(byte pin, VirtualPinMode mode)
@@ -119,13 +154,9 @@ public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtua
         state.Mode = mode;
         state.PullMode = pullMode;
         state.OutputType = outputType;
-        if (mode == VirtualPinMode.Input && pullMode == VirtualPinPullMode.PullUp && !state.LineLevel)
-        {
-            gpio.WritePin(connectedPin.portName, connectedPin.pinName, RSMAGPIO.High);
-            state.LineLevel = true;
-        }
         if (mode == VirtualPinMode.Output)
             WriteLine(pin, state.LatchLevel);
+        RecomputeElectricalState(pin);
     }
 
     public void DigitalWrite(byte pin, bool value)
@@ -137,8 +168,7 @@ public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtua
             throw new InvalidOperationException("DigitalWrite requires an output pin");
 
         state.LatchLevel = value;
-        gpio.WritePin(connectedPin.portName, connectedPin.pinName, value ? RSMAGPIO.High : RSMAGPIO.Low);
-        state.LineLevel = gpioPin.value >= 0.5f;
+        RecomputeElectricalState(pin);
     }
 
     public void PwmWrite(byte pin, byte dutyCycle)
@@ -150,9 +180,8 @@ public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtua
             throw new InvalidOperationException("PWM write requires an output pin");
 
         var value = dutyCycle / 255.0f;
-        gpio.WritePin(connectedPin.portName, connectedPin.pinName, value);
         state.LatchLevel = dutyCycle >= 128;
-        state.LineLevel = value >= 0.5f;
+        RecomputeElectricalState(pin, value);
     }
 
     public float ReadPinValue(byte pin)
@@ -219,8 +248,29 @@ public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtua
     public bool DigitalRead(byte pin)
     {
         var state = GetState(pin);
-        state.LineLevel = gpio.GetPin(Resolve(pin)).value >= 0.5f;
+        RecomputeElectricalState(pin);
         return state.LineLevel;
+    }
+
+    public void SetExternalDrive(byte virtualPin, bool level)
+    {
+        GetState(virtualPin);
+        externalDrives[virtualPin] = level;
+        RecomputeElectricalState(virtualPin);
+    }
+
+    public void ClearExternalDrive(byte virtualPin)
+    {
+        GetState(virtualPin);
+        externalDrives[virtualPin] = null;
+        RecomputeElectricalState(virtualPin);
+    }
+
+    public VirtualGpioElectricalState GetElectricalState(byte virtualPin)
+    {
+        GetState(virtualPin);
+        RecomputeElectricalState(virtualPin);
+        return electricalStates[virtualPin];
     }
 
     public void ScheduleInputLevel(byte pin, double timestampMilliseconds, bool level)
@@ -254,9 +304,8 @@ public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtua
             scheduledInputs.RemoveAt(0);
             var state = GetState(input.Pin);
             var previous = state.LineLevel;
-            state.LineLevel = input.Level;
-            gpio.WritePin(Resolve(input.Pin).portName, Resolve(input.Pin).pinName,
-                input.Level ? RSMAGPIO.High : RSMAGPIO.Low);
+            externalDrives[input.Pin] = input.Level;
+            RecomputeElectricalState(input.Pin);
             if (previous == input.Level)
                 continue;
             InputEdge?.Invoke(new VirtualGpioInputEvent(
@@ -283,8 +332,12 @@ public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtua
     public void ApplyResetState()
     {
         scheduledInputs.Clear();
+        externalDrives.Clear();
+        ElectricalDiagnostics.Clear();
         foreach (var definition in profile.PinDefinitions)
         {
+            if (!bindings.ContainsKey(definition.VirtualPin))
+                continue;
             var state = GetState(definition.VirtualPin);
             state.Mode = definition.ResetMode;
             state.PullMode = definition.ResetPullMode;
@@ -310,9 +363,43 @@ public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtua
 
     private void WriteLine(byte pin, bool value)
     {
+        GetState(pin).LatchLevel = value;
+        RecomputeElectricalState(pin);
+    }
+
+    private void RecomputeElectricalState(byte pin, float? analogValue = null)
+    {
+        var state = GetState(pin);
+        externalDrives.TryGetValue(pin, out var external);
+        var driverActive = state.Mode == VirtualPinMode.Output &&
+            (state.OutputType == VirtualPinOutputType.PushPull || !state.LatchLevel);
+        var driverLevel = analogValue.HasValue ? analogValue.Value >= 0.5f : state.LatchLevel;
+        var highImpedance = !driverActive;
+        var pullLevel = state.PullMode == VirtualPinPullMode.PullUp ? (bool?)true :
+            state.PullMode == VirtualPinPullMode.PullDown ? (bool?)false : null;
+        var line = highImpedance ? (external ?? pullLevel ?? false) : driverLevel;
+        var conflict = driverActive && external.HasValue && external.Value != driverLevel;
         var connectedPin = Resolve(pin);
-        gpio.WritePin(connectedPin.portName, connectedPin.pinName, value ? RSMAGPIO.High : RSMAGPIO.Low);
-        GetState(pin).LineLevel = gpio.GetPin(connectedPin).value >= 0.5f;
+        var physicalPin = gpio.GetPin(connectedPin);
+        if (physicalPin != null)
+            physicalPin.value = analogValue.HasValue && driverActive && !conflict
+                ? analogValue.Value : (line ? RSMAGPIO.High : RSMAGPIO.Low);
+        state.LineLevel = line;
+        var electrical = electricalStates.TryGetValue(pin, out var existing)
+            ? existing : new VirtualGpioElectricalState { VirtualPin = pin };
+        var previousDiagnostic = existing == null ? null : existing.Diagnostic;
+        electrical.OutputDriverActive = driverActive;
+        electrical.HighImpedance = highImpedance;
+        electrical.ExternalDriveLevel = external;
+        electrical.LineLevel = line;
+        electrical.Conflict = conflict;
+        electrical.Diagnostic = conflict
+            ? "External drive conflicts with push-pull output on virtual pin " + pin : null;
+        electricalStates[pin] = electrical;
+        if (conflict && !ElectricalDiagnostics.Contains(electrical.Diagnostic))
+            ElectricalDiagnostics.Add(electrical.Diagnostic);
+        else if (!conflict && !string.IsNullOrEmpty(previousDiagnostic))
+            ElectricalDiagnostics.Remove(previousDiagnostic);
     }
 
     private static VirtualBoardProfile CreateProfileFromBindings(IEnumerable<VirtualPinBinding> pinBindings)

@@ -353,7 +353,7 @@ namespace RSMA.Microcontroller.Virtual
     public sealed class VirtualGpioBank : IVirtualMcuHal, IVirtualPinValueSource, IVirtualInputSource, IVirtualButtonHost,
         IVirtualGpioEdgeSource, IVirtualPwmHal, IVirtualAdcHal, IVirtualSpiHal, IVirtualI2cHal,
         IVirtualDmaHal, IVirtualAsyncDmaHal, IVirtualEepromHal, IVirtualAnalogInputSource,
-        IVirtualPeripheralLifecycle
+        IVirtualPeripheralLifecycle, IVirtualElectricalModel, IVirtualBoardProfileConsumer
     {
         public const int MaxScheduledInputEvents = 4096;
         public const int EepromSize = 256;
@@ -380,6 +380,10 @@ namespace RSMA.Microcontroller.Virtual
         private readonly List<VirtualDmaTransfer> dmaTransfers = new List<VirtualDmaTransfer>();
         private readonly byte[] eeprom = new byte[EepromSize];
         private readonly Dictionary<byte, VirtualGpioPinState> states = new Dictionary<byte, VirtualGpioPinState>();
+        private readonly Dictionary<byte, bool?> externalDrives = new Dictionary<byte, bool?>();
+        private readonly Dictionary<byte, VirtualGpioElectricalState> electricalStates =
+            new Dictionary<byte, VirtualGpioElectricalState>();
+        private VirtualBoardProfile boardProfile;
         private readonly List<ScheduledInput> scheduledInputs = new List<ScheduledInput>();
         private ulong nextInputSequence;
         private int nextDmaTicket = 1;
@@ -418,6 +422,7 @@ namespace RSMA.Microcontroller.Virtual
 
         public event Action<byte, bool> OutputChanged;
         public event Action<VirtualGpioInputEvent> InputEdge;
+        public IList<string> ElectricalDiagnostics { get; } = new List<string>();
         public double? NextInputTimestampMilliseconds => scheduledInputs.Count == 0
             ? (double?)null : scheduledInputs[0].Timestamp;
 
@@ -429,6 +434,7 @@ namespace RSMA.Microcontroller.Virtual
         public void ConfigurePin(byte pin, VirtualPinMode mode, VirtualPinPullMode pullMode,
             VirtualPinOutputType outputType)
         {
+            ValidatePinConfiguration(pin, mode, pullMode, outputType);
             modes[pin] = mode;
             if (!values.ContainsKey(pin))
                 values[pin] = mode == VirtualPinMode.Input && pullMode == VirtualPinPullMode.PullUp;
@@ -446,6 +452,7 @@ namespace RSMA.Microcontroller.Virtual
             if (mode == VirtualPinMode.Input && !state.LineLevel && pullMode == VirtualPinPullMode.PullUp)
                 values[pin] = true;
             state.LineLevel = values[pin];
+            RecomputeElectricalState(pin);
         }
 
         public void DigitalWrite(byte pin, bool value)
@@ -458,17 +465,17 @@ namespace RSMA.Microcontroller.Virtual
             values.TryGetValue(pin, out var previous);
             values[pin] = value;
             states[pin].LatchLevel = value;
-            states[pin].LineLevel = value;
-            if (previous != value)
-                OutputChanged?.Invoke(pin, value);
             pwmValues[pin] = value ? 1f : 0f;
+            RecomputeElectricalState(pin);
+            if (previous != values[pin])
+                OutputChanged?.Invoke(pin, values[pin]);
         }
 
         public bool DigitalRead(byte pin)
         {
-            if (!values.TryGetValue(pin, out var value))
-                throw new InvalidOperationException("GPIO pin has not been configured");
-            return value;
+            EnsureConfiguredPin(pin);
+            RecomputeElectricalState(pin);
+            return states[pin].LineLevel;
         }
 
         public float GetOutputValue(byte pin)
@@ -480,7 +487,14 @@ namespace RSMA.Microcontroller.Virtual
 
         public float ReadPinValue(byte pin)
         {
-            return GetOutputValue(pin);
+            EnsureConfiguredPin(pin);
+            RecomputeElectricalState(pin);
+            var state = states[pin];
+            if (state.Mode == VirtualPinMode.Output &&
+                state.OutputType == VirtualPinOutputType.PushPull &&
+                pwmValues.TryGetValue(pin, out var dutyCycle))
+                return dutyCycle;
+            return state.LineLevel ? 1f : 0f;
         }
 
         public void SetAnalogInput(byte channel, ushort value)
@@ -492,7 +506,9 @@ namespace RSMA.Microcontroller.Virtual
 
         public bool SupportsAnalogChannel(byte channel)
         {
-            return true;
+            return boardProfile == null ||
+                (boardProfile.TryGetPin(channel, out var definition) &&
+                    definition.Supports(VirtualPinCapabilities.Analog));
         }
 
         public void ClearAnalogInput(byte channel)
@@ -528,7 +544,41 @@ namespace RSMA.Microcontroller.Virtual
 
         public ushort AnalogRead(byte channel)
         {
+            if (!SupportsAnalogChannel(channel))
+                throw new InvalidOperationException("ADC channel is not supported by the board profile");
             return analogValues.TryGetValue(channel, out var value) ? value : (ushort)0;
+        }
+
+        public void SetExternalDrive(byte virtualPin, bool level)
+        {
+            EnsureConfiguredPin(virtualPin);
+            externalDrives[virtualPin] = level;
+            RecomputeElectricalState(virtualPin);
+        }
+
+        public void ClearExternalDrive(byte virtualPin)
+        {
+            EnsureConfiguredPin(virtualPin);
+            externalDrives[virtualPin] = null;
+            RecomputeElectricalState(virtualPin);
+        }
+
+        public VirtualGpioElectricalState GetElectricalState(byte virtualPin)
+        {
+            EnsureConfiguredPin(virtualPin);
+            RecomputeElectricalState(virtualPin);
+            return electricalStates[virtualPin];
+        }
+
+        public void ApplyBoardProfile(VirtualBoardProfile profile)
+        {
+            boardProfile = profile ?? throw new ArgumentNullException(nameof(profile));
+            foreach (var definition in profile.PinDefinitions)
+            {
+                if (modes.ContainsKey(definition.VirtualPin))
+                    ValidatePinConfiguration(definition.VirtualPin, definition.ResetMode,
+                        definition.ResetPullMode, definition.OutputType);
+            }
         }
 
         public void SetSpiResponse(byte bus, byte value)
@@ -774,6 +824,8 @@ namespace RSMA.Microcontroller.Virtual
         public void ResetPeripheralState()
         {
             scheduledInputs.Clear();
+            ElectricalDiagnostics.Clear();
+            externalDrives.Clear();
             var configuredPins = new List<byte>(states.Keys);
             foreach (var pin in configuredPins)
             {
@@ -790,6 +842,7 @@ namespace RSMA.Microcontroller.Virtual
                 state.LatchLevel = false;
                 state.LineLevel = values[pin];
                 pwmValues[pin] = 0f;
+                RecomputeElectricalState(pin);
             }
             ResetDma();
         }
@@ -806,6 +859,8 @@ namespace RSMA.Microcontroller.Virtual
 
         public void PwmWrite(byte pin, byte dutyCycle)
         {
+            if (boardProfile != null)
+                boardProfile.GetPinWithCapability(pin, VirtualPinCapabilities.Pwm);
             if (!modes.TryGetValue(pin, out var mode))
                 throw new InvalidOperationException("GPIO pin has not been configured");
             if (mode != VirtualPinMode.Output)
@@ -814,10 +869,73 @@ namespace RSMA.Microcontroller.Virtual
             var value = dutyCycle / 255f;
             pwmValues[pin] = value;
             var digitalValue = dutyCycle >= 128;
+            var previous = values[pin];
             values[pin] = digitalValue;
             states[pin].LatchLevel = digitalValue;
-            states[pin].LineLevel = digitalValue;
-            OutputChanged?.Invoke(pin, digitalValue);
+            RecomputeElectricalState(pin);
+            if (previous != values[pin])
+                OutputChanged?.Invoke(pin, values[pin]);
+        }
+
+        private void EnsureConfiguredPin(byte pin)
+        {
+            if (!modes.ContainsKey(pin))
+                throw new InvalidOperationException("GPIO pin has not been configured");
+        }
+
+        private void ValidatePinConfiguration(byte pin, VirtualPinMode mode,
+            VirtualPinPullMode pullMode, VirtualPinOutputType outputType)
+        {
+            if (boardProfile == null)
+                return;
+            var definition = boardProfile.GetPin(pin);
+            if (mode == VirtualPinMode.Input && !definition.Supports(VirtualPinCapabilities.DigitalInput))
+                throw new InvalidOperationException("Pin " + pin + " does not support digital input");
+            if (mode == VirtualPinMode.Output && !definition.Supports(VirtualPinCapabilities.DigitalOutput))
+                throw new InvalidOperationException("Pin " + pin + " does not support digital output");
+            if (pullMode == VirtualPinPullMode.PullUp && !definition.Supports(VirtualPinCapabilities.PullUp))
+                throw new InvalidOperationException("Pin " + pin + " does not support pull-up");
+            if (pullMode == VirtualPinPullMode.PullDown && !definition.Supports(VirtualPinCapabilities.PullDown))
+                throw new InvalidOperationException("Pin " + pin + " does not support pull-down");
+            if (outputType == VirtualPinOutputType.OpenDrain && !definition.Supports(VirtualPinCapabilities.OpenDrain))
+                throw new InvalidOperationException("Pin " + pin + " does not support open-drain output");
+        }
+
+        private void RecomputeElectricalState(byte pin)
+        {
+            EnsureConfiguredPin(pin);
+            var state = states[pin];
+            externalDrives.TryGetValue(pin, out var external);
+            var driverActive = state.Mode == VirtualPinMode.Output &&
+                (state.OutputType == VirtualPinOutputType.PushPull || !state.LatchLevel);
+            var driverLevel = state.LatchLevel;
+            var highImpedance = !driverActive;
+            var pullLevel = state.PullMode == VirtualPinPullMode.PullUp ? (bool?)true :
+                state.PullMode == VirtualPinPullMode.PullDown ? (bool?)false : null;
+            var line = highImpedance ? (external ?? pullLevel ?? false) : driverLevel;
+            var conflict = driverActive && external.HasValue && external.Value != driverLevel;
+            state.LineLevel = line;
+            var electrical = electricalStates.TryGetValue(pin, out var existing)
+                ? existing : new VirtualGpioElectricalState { VirtualPin = pin };
+            var previousDiagnostic = existing == null ? null : existing.Diagnostic;
+            electrical.OutputDriverActive = driverActive;
+            electrical.HighImpedance = highImpedance;
+            electrical.ExternalDriveLevel = external;
+            electrical.LineLevel = line;
+            electrical.Conflict = conflict;
+            electrical.Diagnostic = conflict
+                ? "External drive conflicts with push-pull output on virtual pin " + pin : null;
+            electricalStates[pin] = electrical;
+            if (conflict)
+            {
+                var message = electrical.Diagnostic;
+                if (!ElectricalDiagnostics.Contains(message))
+                    ElectricalDiagnostics.Add(message);
+            }
+            else if (!string.IsNullOrEmpty(previousDiagnostic))
+            {
+                ElectricalDiagnostics.Remove(previousDiagnostic);
+            }
         }
 
         public void ScheduleInputLevel(byte pin, double timestampMilliseconds, bool level)
@@ -853,9 +971,9 @@ namespace RSMA.Microcontroller.Virtual
             {
                 var input = scheduledInputs[0];
                 scheduledInputs.RemoveAt(0);
-                var previous = values[input.Pin];
-                values[input.Pin] = input.Level;
-                states[input.Pin].LineLevel = input.Level;
+                var previous = states[input.Pin].LineLevel;
+                externalDrives[input.Pin] = input.Level;
+                RecomputeElectricalState(input.Pin);
                 if (previous == input.Level)
                     continue;
                 InputEdge?.Invoke(new VirtualGpioInputEvent(

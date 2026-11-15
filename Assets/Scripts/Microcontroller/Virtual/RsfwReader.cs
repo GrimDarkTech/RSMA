@@ -185,7 +185,8 @@ namespace RSMA.Microcontroller.Virtual
         {
             var reader = new Reader(data);
             reader.ExpectMagic("MAN1");
-            if (reader.U16() != 1)
+            var version = reader.U16();
+            if (version != 1 && version != 2)
                 throw new RsfwFormatException("Unsupported manifest version");
             reader.U16();
 
@@ -202,6 +203,13 @@ namespace RSMA.Microcontroller.Virtual
             manifest.EntryPointName = reader.String(entrySize);
             for (var i = 0; i < peripheralCount; ++i)
                 manifest.RequiredPeripherals.Add(reader.String(reader.U16()));
+            if (version >= 2)
+            {
+                var routeCount = reader.U16();
+                reader.U16();
+                for (var i = 0; i < routeCount; ++i)
+                    manifest.RequiredRoutes.Add(reader.String(reader.U16()));
+            }
             reader.End();
             return manifest;
         }
