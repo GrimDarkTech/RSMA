@@ -68,6 +68,22 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
+        public void VirtualBackendResetCancelsScheduledGpioInputs()
+        {
+            var gpio = new VirtualGpioBank();
+            var backend = new VirtualMcuBackend("RSMA-STM32F103", gpio);
+            backend.Configure(MakeBlinkPackage());
+            gpio.PinMode(13, VirtualPinMode.Input);
+            gpio.ScheduleInputLevel(13, 10, true);
+
+            backend.Reset();
+            gpio.AdvanceInputTo(10);
+
+            Assert.IsFalse(gpio.DigitalRead(13));
+            Assert.AreEqual(VirtualBackendLifecycleState.Configured, backend.State);
+        }
+
+        [Test]
         public void VirtualMachineCanBeConstructedThroughUnifiedBackend()
         {
             var gpio = new VirtualGpioBank();

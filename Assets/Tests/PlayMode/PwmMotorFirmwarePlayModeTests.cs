@@ -18,10 +18,14 @@ namespace RSMA.Microcontroller.Virtual.PlayMode.Tests
             Assert.AreEqual("RSMA-STM32F103", package.Manifest.BoardId);
 
             var gpio = new VirtualGpioBank();
-            var machine = new VirtualMachine(package, gpio);
+            var backend = new VirtualMcuBackend(RsmaBoardProfiles.CreateStm32F103(), gpio);
+            backend.Configure(package);
+            Assert.AreEqual(VirtualBackendLifecycleState.Configured, backend.State);
+            var machine = VirtualMachine.CreateWithBackend(package, backend);
             machine.Advance(0);
 
             Assert.AreEqual(VirtualExecutionState.Waiting, machine.State);
+            Assert.AreEqual(VirtualBackendLifecycleState.Running, backend.State);
             Assert.AreEqual(VirtualPinMode.Output, gpio.GetState(10).Mode);
             Assert.AreEqual(VirtualPinMode.Output, gpio.GetState(11).Mode);
             Assert.AreEqual(VirtualPinMode.Output, gpio.GetState(13).Mode);
@@ -30,6 +34,7 @@ namespace RSMA.Microcontroller.Virtual.PlayMode.Tests
             yield return null;
 
             machine.Advance(500);
+            Assert.AreEqual(VirtualBackendLifecycleState.Running, backend.State);
             Assert.AreEqual(64f / 255f, gpio.GetOutputValue(13), 0.0001f);
             Assert.IsTrue(gpio.DigitalRead(10));
             Assert.IsFalse(gpio.DigitalRead(11));

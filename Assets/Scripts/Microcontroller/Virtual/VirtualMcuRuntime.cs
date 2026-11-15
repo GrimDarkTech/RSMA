@@ -773,6 +773,7 @@ namespace RSMA.Microcontroller.Virtual
 
         public void ResetPeripheralState()
         {
+            scheduledInputs.Clear();
             var configuredPins = new List<byte>(states.Keys);
             foreach (var pin in configuredPins)
             {
