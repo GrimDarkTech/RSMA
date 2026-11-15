@@ -264,6 +264,36 @@ namespace RSMA.Microcontroller.Virtual.PlayMode.Tests
             yield return null;
         }
 
+        [UnityTest]
+        public IEnumerator SerialTransportUsesBaudTimedTxAndObservableOverflowDiagnostics()
+        {
+            var uart = new VirtualUartBank();
+            uart.Begin(0, 0); // 9600 baud, 10-bit frames.
+            var transmitted = new List<byte>();
+            var diagnostics = new List<VirtualUartDiagnostic>();
+            uart.Transmitted += (_, value) => transmitted.Add(value);
+            uart.DiagnosticRaised += diagnostics.Add;
+
+            uart.Write(0, 0x54);
+            uart.Write(0, 0x45);
+            uart.AdvanceOutputTo(0);
+            CollectionAssert.AreEqual(new byte[] { 0x54 }, transmitted);
+            uart.AdvanceOutputTo(1.0);
+            Assert.AreEqual(1, transmitted.Count);
+            uart.AdvanceOutputTo(2.0);
+            CollectionAssert.AreEqual(new byte[] { 0x54, 0x45 }, transmitted);
+
+            uart.InjectReceived(0, new byte[VirtualUartBank.ReceiveBufferCapacity + 1]);
+            Assert.AreEqual(1UL, uart.DroppedReceiveByteCount);
+            Assert.IsNotEmpty(diagnostics.FindAll(item => item.Code == "UART_RX_OVERFLOW"));
+
+            uart.ResetPeripheralState();
+            Assert.IsEmpty(uart.UartDiagnostics);
+            Assert.AreEqual(0UL, uart.DroppedReceiveByteCount);
+            Assert.IsFalse(uart.NextOutputTimestampMilliseconds.HasValue);
+            yield return null;
+        }
+
         private static byte[] SubArray(byte[] source, int offset, int count)
         {
             var result = new byte[count];

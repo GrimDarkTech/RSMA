@@ -160,11 +160,12 @@ namespace RSMA.Microcontroller.Virtual
 
     public sealed class VirtualUartBank : IVirtualUartHal, IVirtualUartInputSource,
         IVirtualUartOutputSource, IVirtualUartTransportInput,
-        IVirtualPeripheralLifecycle
+        IVirtualPeripheralLifecycle, IVirtualUartDiagnostics, IVirtualUartOutputScheduler
     {
         public const byte PortCount = 4;
         public const byte BaudRateCount = 5;
         public const int ReceiveBufferCapacity = 256;
+        public const int TransmitBufferCapacity = 256;
         public const int MaxScheduledReceiveEvents = 4096;
         public const int MaxPendingHitlPackets = 256;
 
@@ -176,6 +177,8 @@ namespace RSMA.Microcontroller.Virtual
             public bool Initialized;
             public int BaudRate;
             public readonly Queue<byte> ReceiveBuffer = new Queue<byte>();
+            public readonly Queue<byte> TransmitBuffer = new Queue<byte>();
+            public double? NextTransmitTimestampMilliseconds;
             public readonly HitlFrameParser HitlParser = new HitlFrameParser();
             public readonly Queue<HitlFrame> PendingHitlPackets = new Queue<HitlFrame>();
         }
@@ -191,10 +194,31 @@ namespace RSMA.Microcontroller.Virtual
         public event Action<byte, byte> Transmitted;
         public event Action<byte, byte> Received;
         public event Action<byte, HitlFrame> PacketReceived;
+        public event Action<VirtualUartDiagnostic> DiagnosticRaised;
         private readonly List<ScheduledReceive> scheduledReceives = new List<ScheduledReceive>();
         private ulong nextReceiveSequence;
+        private double currentTimeMilliseconds;
+        private readonly List<VirtualUartDiagnostic> diagnostics = new List<VirtualUartDiagnostic>();
         public double? NextInputTimestampMilliseconds => scheduledReceives.Count == 0
             ? (double?)null : scheduledReceives[0].Timestamp;
+        public double? NextOutputTimestampMilliseconds
+        {
+            get
+            {
+                double? result = null;
+                foreach (var port in ports)
+                {
+                    if (!port.NextTransmitTimestampMilliseconds.HasValue ||
+                        (result.HasValue && port.NextTransmitTimestampMilliseconds.Value >= result.Value))
+                        continue;
+                    result = port.NextTransmitTimestampMilliseconds.Value;
+                }
+                return result;
+            }
+        }
+        public IList<VirtualUartDiagnostic> UartDiagnostics => diagnostics.AsReadOnly();
+        public ulong DroppedReceiveByteCount { get; private set; }
+        public ulong DroppedTransmitByteCount { get; private set; }
 
         public void Begin(byte port, byte baudRatePreset)
         {
@@ -220,8 +244,16 @@ namespace RSMA.Microcontroller.Virtual
 
         public void Write(byte port, byte value)
         {
-            GetInitializedPort(port);
-            Transmitted?.Invoke(port, value);
+            var state = GetInitializedPort(port);
+            if (state.TransmitBuffer.Count >= TransmitBufferCapacity)
+            {
+                DroppedTransmitByteCount++;
+                RaiseDiagnostic("UART_TX_OVERFLOW", "UART transmit FIFO is full", port);
+                return;
+            }
+            state.TransmitBuffer.Enqueue(value);
+            if (!state.NextTransmitTimestampMilliseconds.HasValue)
+                state.NextTransmitTimestampMilliseconds = currentTimeMilliseconds;
         }
 
         public int PacketAvailable(byte port)
@@ -265,11 +297,19 @@ namespace RSMA.Microcontroller.Virtual
 
         public void ResetPeripheralState()
         {
+            scheduledReceives.Clear();
+            nextReceiveSequence = 0;
+            currentTimeMilliseconds = 0;
+            DroppedReceiveByteCount = 0;
+            DroppedTransmitByteCount = 0;
+            diagnostics.Clear();
             foreach (var port in ports)
             {
                 port.Initialized = false;
                 port.BaudRate = 0;
                 port.ReceiveBuffer.Clear();
+                port.TransmitBuffer.Clear();
+                port.NextTransmitTimestampMilliseconds = null;
                 port.HitlParser.ClearBufferedData();
                 port.PendingHitlPackets.Clear();
             }
@@ -277,6 +317,48 @@ namespace RSMA.Microcontroller.Virtual
 
         public void ApplySafeState()
         {
+        }
+
+        public int GetTransmitQueueCount(byte port)
+        {
+            return GetInitializedPort(port).TransmitBuffer.Count;
+        }
+
+        public void AdvanceOutputTo(double timestampMilliseconds)
+        {
+            if (double.IsNaN(timestampMilliseconds) || double.IsInfinity(timestampMilliseconds) ||
+                timestampMilliseconds < 0)
+                throw new ArgumentOutOfRangeException(nameof(timestampMilliseconds));
+            currentTimeMilliseconds = Math.Max(currentTimeMilliseconds, timestampMilliseconds);
+            while (true)
+            {
+                var port = FindNextTransmitPort(timestampMilliseconds);
+                if (!port.HasValue)
+                    break;
+                var state = GetInitializedPort(port.Value);
+                var value = state.TransmitBuffer.Dequeue();
+                var transmittedAt = state.NextTransmitTimestampMilliseconds.Value;
+                Transmitted?.Invoke(port.Value, value);
+                var frameTime = 10.0 / state.BaudRate * 1000.0;
+                state.NextTransmitTimestampMilliseconds = state.TransmitBuffer.Count == 0
+                    ? (double?)null : transmittedAt + frameTime;
+            }
+        }
+
+        private byte? FindNextTransmitPort(double timestampMilliseconds)
+        {
+            byte? result = null;
+            for (byte port = 0; port < ports.Length; port++)
+            {
+                var state = ports[port];
+                if (!state.NextTransmitTimestampMilliseconds.HasValue ||
+                    state.NextTransmitTimestampMilliseconds.Value > timestampMilliseconds ||
+                    (result.HasValue && state.NextTransmitTimestampMilliseconds.Value >=
+                        ports[result.Value].NextTransmitTimestampMilliseconds.Value))
+                    continue;
+                result = port;
+            }
+            return result;
         }
 
         public void CompletePacket(byte port)
@@ -314,13 +396,24 @@ namespace RSMA.Microcontroller.Virtual
             if (data == null)
                 throw new ArgumentNullException(nameof(data));
             var buffer = GetInitializedPort(port).ReceiveBuffer;
-            if (data.Length > ReceiveBufferCapacity - buffer.Count)
-                throw new InvalidOperationException("UART receive buffer capacity exceeded");
             foreach (var value in data)
             {
+                if (buffer.Count >= ReceiveBufferCapacity)
+                {
+                    DroppedReceiveByteCount++;
+                    RaiseDiagnostic("UART_RX_OVERFLOW", "UART receive FIFO is full; byte was dropped", port);
+                    continue;
+                }
                 buffer.Enqueue(value);
                 Received?.Invoke(port, value);
             }
+        }
+
+        private void RaiseDiagnostic(string code, string message, byte port)
+        {
+            var diagnostic = new VirtualUartDiagnostic(code, message, port, currentTimeMilliseconds);
+            diagnostics.Add(diagnostic);
+            DiagnosticRaised?.Invoke(diagnostic);
         }
 
         public void ScheduleReceived(byte port, double timestampMilliseconds, byte[] data)
@@ -1137,6 +1230,9 @@ namespace RSMA.Microcontroller.Virtual
         private readonly IVirtualMcuHal hal;
         private readonly IVirtualInputSource inputSource;
         private readonly IVirtualUartInputSource uartInputSource;
+        private readonly IVirtualUartOutputSource uartOutputSource;
+        private readonly IVirtualUartOutputScheduler uartOutputScheduler;
+        private readonly IVirtualUartDiagnostics uartDiagnostics;
         private readonly IVirtualInterruptController interruptController;
         private readonly IVirtualUartHal uart;
         private readonly VirtualMachineProfiler profiler;
@@ -1231,6 +1327,9 @@ namespace RSMA.Microcontroller.Virtual
             backend.Reset();
             inputSource = backend;
             uartInputSource = backend;
+            uartOutputSource = backend;
+            uartOutputScheduler = backend;
+            uartDiagnostics = backend;
             interruptController = new VirtualInterruptController(backend, backend.SchedulingPolicy);
             if (interruptController is IVirtualInterruptDiagnostics interruptDiagnostics)
             {
@@ -1249,6 +1348,10 @@ namespace RSMA.Microcontroller.Virtual
                 uartInputSource.Received += OnUartReceived;
                 uartInputSource.PacketReceived += OnUartPacketReceived;
             }
+            if (uartOutputSource != null)
+                uartOutputSource.Transmitted += OnUartTransmitted;
+            if (uartDiagnostics != null)
+                uartDiagnostics.DiagnosticRaised += OnUartDiagnostic;
             programCounter = package.Bytecode.EntryPoint;
             State = VirtualExecutionState.Ready;
         }
@@ -1273,6 +1376,9 @@ namespace RSMA.Microcontroller.Virtual
             this.hal = hal ?? throw new ArgumentNullException(nameof(hal));
             inputSource = hal as IVirtualInputSource;
             uartInputSource = uart as IVirtualUartInputSource;
+            uartOutputSource = uart as IVirtualUartOutputSource;
+            uartOutputScheduler = uart as IVirtualUartOutputScheduler;
+            uartDiagnostics = uart as IVirtualUartDiagnostics;
             this.interruptController = interruptController ??
                 (hal is IVirtualGpioEdgeSource edgeSource ? new VirtualInterruptController(edgeSource) : null);
             this.uart = uart;
@@ -1283,6 +1389,10 @@ namespace RSMA.Microcontroller.Virtual
                 uartInputSource.Received += OnUartReceived;
                 uartInputSource.PacketReceived += OnUartPacketReceived;
             }
+            if (uartOutputSource != null)
+                uartOutputSource.Transmitted += OnUartTransmitted;
+            if (uartDiagnostics != null)
+                uartDiagnostics.DiagnosticRaised += OnUartDiagnostic;
             programCounter = package.Bytecode.EntryPoint;
             State = VirtualExecutionState.Ready;
         }
@@ -1431,6 +1541,8 @@ namespace RSMA.Microcontroller.Virtual
                 return;
             if (State == VirtualExecutionState.Halted)
             {
+                // HALT freezes VM time and peripheral progression. External
+                // backends may still be advanced explicitly by the host.
                 AdvanceInputSourcesTo(SimulatedTimeMilliseconds);
                 return;
             }
@@ -1446,6 +1558,7 @@ namespace RSMA.Microcontroller.Virtual
             try
             {
                 var executed = 0;
+                var advancedThroughScheduledInput = false;
                 while (State != VirtualExecutionState.Halted && State != VirtualExecutionState.Faulted)
                 {
                     AdvanceInputSourcesTo(SimulatedTimeMilliseconds);
@@ -1459,11 +1572,16 @@ namespace RSMA.Microcontroller.Virtual
                     {
                         var nextInput = NextInputTimestampMilliseconds();
                         var nextDma = (hal as IVirtualAsyncDmaHal)?.NextDmaCompletionTimeMilliseconds;
+                        var nextOutput = uartOutputScheduler?.NextOutputTimestampMilliseconds;
                         var nextEvent = nextInput;
                         if (nextDma.HasValue && (!nextEvent.HasValue || nextDma.Value < nextEvent.Value))
                             nextEvent = nextDma;
+                        if (nextOutput.HasValue && (!nextEvent.HasValue || nextOutput.Value < nextEvent.Value))
+                            nextEvent = nextOutput;
                         if (nextEvent.HasValue && nextEvent.Value <= wakeTimeMilliseconds && nextEvent.Value <= targetTime)
                         {
+                            if (nextInput.HasValue && nextInput.Value == nextEvent.Value)
+                                advancedThroughScheduledInput = true;
                             SetSimulatedTime(nextEvent.Value);
                             AdvanceInputSourcesTo(SimulatedTimeMilliseconds);
                             if (TryDispatchUartCallback())
@@ -1488,9 +1606,12 @@ namespace RSMA.Microcontroller.Virtual
                         throw new VirtualMachineFaultException("Instruction budget exceeded; possible tight loop");
                     ExecuteInstruction(package.Bytecode.Instructions[(int)programCounter]);
                 }
-                SetSimulatedTime(targetTime);
-                AdvanceInputSourcesTo(targetTime);
-                periodicScheduler.AdvanceTo(targetTime);
+                if (!(State == VirtualExecutionState.Halted && advancedThroughScheduledInput))
+                {
+                    SetSimulatedTime(targetTime);
+                    AdvanceInputSourcesTo(targetTime);
+                    periodicScheduler.AdvanceTo(targetTime);
+                }
             }
             catch (Exception exception)
             {
@@ -1709,6 +1830,7 @@ namespace RSMA.Microcontroller.Virtual
             RecordTrace(VirtualTraceEventKind.TimeAdvanced, -1, 0);
             AdvanceAnalogTo(timeMilliseconds);
             AdvanceDmaTo(timeMilliseconds);
+            uartOutputScheduler?.AdvanceOutputTo(timeMilliseconds);
         }
 
         private void RecordTrace(VirtualTraceEventKind kind, int channel, int value,
@@ -1750,6 +1872,17 @@ namespace RSMA.Microcontroller.Virtual
                     });
                 }
             }
+        }
+
+        private void OnUartTransmitted(byte port, byte value)
+        {
+            RecordTrace(VirtualTraceEventKind.UartTransmit, port, value);
+        }
+
+        private void OnUartDiagnostic(VirtualUartDiagnostic diagnostic)
+        {
+            RecordTrace(VirtualTraceEventKind.SchedulingDiagnostic, diagnostic.Port, 0, 0,
+                diagnostic.Code + ": " + diagnostic.Message);
         }
 
         private void OnUartPacketReceived(byte port, HitlFrame frame)
@@ -1954,7 +2087,10 @@ namespace RSMA.Microcontroller.Virtual
                     if (transmittedValue < byte.MinValue || transmittedValue > byte.MaxValue)
                         throw new VirtualMachineFaultException("UART write value must be between 0 and 255");
                     RequireUart().Write(argument, (byte)transmittedValue);
-                    RecordTrace(VirtualTraceEventKind.UartTransmit, argument, transmittedValue);
+                    // A byte whose frame starts at the current VM timestamp is
+                    // observable immediately. Remaining queued bytes still
+                    // respect baud-derived frame timing.
+                    uartOutputScheduler?.AdvanceOutputTo(SimulatedTimeMilliseconds);
                     break;
                 }
                 case RsmaHalService.UartPacketAvailable:

@@ -48,6 +48,38 @@ namespace RSMA.Microcontroller.Virtual
         event Action<byte, byte> Transmitted;
     }
 
+    public sealed class VirtualUartDiagnostic
+    {
+        public string Code { get; }
+        public string Message { get; }
+        public byte Port { get; }
+        public double TimestampMilliseconds { get; }
+
+        public VirtualUartDiagnostic(string code, string message, byte port,
+            double timestampMilliseconds)
+        {
+            Code = code ?? throw new ArgumentNullException(nameof(code));
+            Message = message ?? throw new ArgumentNullException(nameof(message));
+            Port = port;
+            TimestampMilliseconds = timestampMilliseconds;
+        }
+    }
+
+    public interface IVirtualUartDiagnostics
+    {
+        event Action<VirtualUartDiagnostic> DiagnosticRaised;
+        IList<VirtualUartDiagnostic> UartDiagnostics { get; }
+        ulong DroppedReceiveByteCount { get; }
+        ulong DroppedTransmitByteCount { get; }
+    }
+
+    public interface IVirtualUartOutputScheduler
+    {
+        double? NextOutputTimestampMilliseconds { get; }
+        void AdvanceOutputTo(double timestampMilliseconds);
+        int GetTransmitQueueCount(byte port);
+    }
+
     public interface IVirtualUartTransportInput
     {
         void InjectReceived(byte port, byte[] data);

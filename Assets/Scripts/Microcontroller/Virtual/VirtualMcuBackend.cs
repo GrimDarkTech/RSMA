@@ -105,7 +105,8 @@ namespace RSMA.Microcontroller.Virtual
         IVirtualPwmOutputSource,
         IVirtualAdcHal, IVirtualAnalogInputSource, IVirtualSpiHal, IVirtualI2cHal,
         IVirtualDmaHal, IVirtualAsyncDmaHal, IVirtualEepromHal, IVirtualUartHal,
-        IVirtualUartOutputSource, IVirtualUartTransportInput, IVirtualElectricalModel
+        IVirtualUartOutputSource, IVirtualUartTransportInput, IVirtualUartDiagnostics,
+        IVirtualUartOutputScheduler, IVirtualElectricalModel
     {
         private readonly IVirtualMcuHal gpio;
         private readonly List<object> components = new List<object>();
@@ -204,6 +205,7 @@ namespace RSMA.Microcontroller.Virtual
 
         public event Action<VirtualGpioInputEvent> InputEdge;
         public event Action<byte, byte> Received;
+        public event Action<VirtualUartDiagnostic> DiagnosticRaised;
         public event Action<byte, HitlFrame> PacketReceived;
         public event Action<byte, byte> Transmitted;
 
@@ -357,6 +359,23 @@ namespace RSMA.Microcontroller.Virtual
         public int Available(byte port) { return Require<IVirtualUartHal>().Available(port); }
         public byte Read(byte port) { return Require<IVirtualUartHal>().Read(port); }
         public void Write(byte port, byte value) { Require<IVirtualUartHal>().Write(port, value); }
+        public double? NextOutputTimestampMilliseconds => Has<IVirtualUartOutputScheduler>()
+            ? Require<IVirtualUartOutputScheduler>().NextOutputTimestampMilliseconds : null;
+        public void AdvanceOutputTo(double timeMilliseconds)
+        {
+            if (Has<IVirtualUartOutputScheduler>())
+                Require<IVirtualUartOutputScheduler>().AdvanceOutputTo(timeMilliseconds);
+        }
+        public int GetTransmitQueueCount(byte port)
+        {
+            return Require<IVirtualUartOutputScheduler>().GetTransmitQueueCount(port);
+        }
+        public IList<VirtualUartDiagnostic> UartDiagnostics => Has<IVirtualUartDiagnostics>()
+            ? Require<IVirtualUartDiagnostics>().UartDiagnostics : new List<VirtualUartDiagnostic>();
+        public ulong DroppedReceiveByteCount => Has<IVirtualUartDiagnostics>()
+            ? Require<IVirtualUartDiagnostics>().DroppedReceiveByteCount : 0UL;
+        public ulong DroppedTransmitByteCount => Has<IVirtualUartDiagnostics>()
+            ? Require<IVirtualUartDiagnostics>().DroppedTransmitByteCount : 0UL;
         public int PacketAvailable(byte port) { return Require<IVirtualUartHal>().PacketAvailable(port); }
         public byte PacketRead(byte port) { return Require<IVirtualUartHal>().PacketRead(port); }
         public byte PacketType(byte port) { return Require<IVirtualUartHal>().PacketType(port); }
@@ -450,6 +469,9 @@ namespace RSMA.Microcontroller.Virtual
                 var uartOutput = component as IVirtualUartOutputSource;
                 if (uartOutput != null)
                     uartOutput.Transmitted += (port, value) => Transmitted?.Invoke(port, value);
+                var uartDiagnostics = component as IVirtualUartDiagnostics;
+                if (uartDiagnostics != null)
+                    uartDiagnostics.DiagnosticRaised += diagnostic => DiagnosticRaised?.Invoke(diagnostic);
             }
         }
 

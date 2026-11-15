@@ -43,6 +43,7 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
         ? new List<VirtualSchedulingDiagnostic>() : backend.SchedulingDiagnostics;
     public IList<string> AnalogSensorDiagnostics => analogSensorDiagnostics.AsReadOnly();
     public event Action<byte, byte> UartTransmitted;
+    public event Action<VirtualUartDiagnostic> UartDiagnosticRaised;
     public event Action<VirtualTraceEvent> TraceRecorded;
 
     public List<VirtualTraceEvent> GetTraceSnapshot()
@@ -133,12 +134,31 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
         backend.InjectReceived(port, data);
     }
 
+    public void InjectUartTransportBytes(byte port, byte[] data)
+    {
+        if (uart == null)
+            throw new InvalidOperationException("Virtual MCU UART is not initialized");
+        backend.InjectTransportBytes(port, data);
+    }
+
     public void ScheduleUartReceive(byte port, double timestampMilliseconds, byte[] data)
     {
         if (uart == null)
             throw new InvalidOperationException("Virtual MCU UART is not initialized");
         backend.ScheduleReceived(port, timestampMilliseconds, data);
     }
+
+    public int GetUartTransmitQueueCount(byte port)
+    {
+        if (backend == null)
+            throw new InvalidOperationException("Virtual MCU UART is not initialized");
+        return backend.GetTransmitQueueCount(port);
+    }
+
+    public ulong DroppedUartReceiveByteCount => backend == null ? 0UL : backend.DroppedReceiveByteCount;
+    public ulong DroppedUartTransmitByteCount => backend == null ? 0UL : backend.DroppedTransmitByteCount;
+    public IList<VirtualUartDiagnostic> UartDiagnostics => backend == null
+        ? new List<VirtualUartDiagnostic>() : backend.UartDiagnostics;
 
     public void Reset()
     {
@@ -201,6 +221,7 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
             peripheralBank = new VirtualGpioBank();
             backend = new VirtualMcuBackend(boardProfile, hal, CreateSchedulingPolicy(), uart, peripheralBank);
             backend.Transmitted += OnUartTransmitted;
+            backend.DiagnosticRaised += OnUartDiagnostic;
             virtualMachine = VirtualMachine.CreateWithBackend(package, backend);
             virtualMachine.TraceRecorded += OnTraceRecorded;
             for (var i = 0; i < analogSensors.Count; i++)
@@ -216,7 +237,10 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
             Debug.LogError("Virtual MCU failed to load firmware: " + exception.Message, this);
             virtualMachine = null;
             if (backend != null)
+            {
                 backend.Transmitted -= OnUartTransmitted;
+                backend.DiagnosticRaised -= OnUartDiagnostic;
+            }
             backend = null;
             hal = null;
             uart = null;
@@ -262,7 +286,10 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
                 hal?.ApplySafeState();
         }
         if (backend != null)
+        {
             backend.Transmitted -= OnUartTransmitted;
+            backend.DiagnosticRaised -= OnUartDiagnostic;
+        }
         uart = null;
         peripheralBank = null;
         for (var i = 0; i < analogSensors.Count; i++)
@@ -295,6 +322,11 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
     private void OnUartTransmitted(byte port, byte value)
     {
         UartTransmitted?.Invoke(port, value);
+    }
+
+    private void OnUartDiagnostic(VirtualUartDiagnostic diagnostic)
+    {
+        UartDiagnosticRaised?.Invoke(diagnostic);
     }
 
     private void OnTraceRecorded(VirtualTraceEvent traceEvent)

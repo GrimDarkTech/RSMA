@@ -2962,13 +2962,14 @@ namespace RSMA.Microcontroller.Virtual.Tests
             machine.Advance(0);
 
             Assert.AreEqual(VirtualExecutionState.Halted, machine.State);
+            uart.AdvanceOutputTo(1.0);
             CollectionAssert.AreEqual(new byte[] { 2, 0x41, 0x42 }, transmissions);
             Assert.AreEqual(0, uart.Available(0));
             Assert.AreEqual(0, machine.StackDepth);
         }
 
         [Test]
-        public void VirtualUartBankPreservesReceiveFifoOrderAndRejectsOverflow()
+        public void VirtualUartBankPreservesReceiveFifoOrderAndReportsOverflow()
         {
             var uart = new VirtualUartBank();
             uart.Begin(0, 0);
@@ -2981,8 +2982,57 @@ namespace RSMA.Microcontroller.Virtual.Tests
             Assert.AreEqual(0x43, uart.Read(0));
             Assert.AreEqual(0, uart.Available(0));
             Assert.Throws<InvalidOperationException>(() => uart.Read(0));
-            Assert.Throws<InvalidOperationException>(() => uart.InjectReceived(
-                0, new byte[VirtualUartBank.ReceiveBufferCapacity + 1]));
+            uart.InjectReceived(0, new byte[VirtualUartBank.ReceiveBufferCapacity + 1]);
+            Assert.AreEqual(1UL, uart.DroppedReceiveByteCount);
+            Assert.IsTrue(uart.UartDiagnostics.Any(item => item.Code == "UART_RX_OVERFLOW"));
+        }
+
+        [Test]
+        public void VirtualUartBankSchedulesTransmitByBaudAndBoundsTxFifo()
+        {
+            var uart = new VirtualUartBank();
+            uart.Begin(0, 0); // 9600 baud, 10 bits per frame.
+            var transmitted = new List<byte>();
+            uart.Transmitted += (_, value) => transmitted.Add(value);
+
+            uart.Write(0, 0x11);
+            uart.Write(0, 0x22);
+            Assert.AreEqual(0, transmitted.Count);
+            Assert.AreEqual(0.0, uart.NextOutputTimestampMilliseconds);
+
+            uart.AdvanceOutputTo(0);
+            CollectionAssert.AreEqual(new byte[] { 0x11 }, transmitted);
+            Assert.AreEqual(1000.0 / 960.0, uart.NextOutputTimestampMilliseconds.Value, 0.0001);
+
+            uart.AdvanceOutputTo(1.0);
+            CollectionAssert.AreEqual(new byte[] { 0x11 }, transmitted);
+            uart.AdvanceOutputTo(2.0);
+            CollectionAssert.AreEqual(new byte[] { 0x11, 0x22 }, transmitted);
+
+            for (var index = 0; index < VirtualUartBank.TransmitBufferCapacity + 1; index++)
+                uart.Write(0, (byte)index);
+            Assert.AreEqual(1UL, uart.DroppedTransmitByteCount);
+            Assert.IsTrue(uart.UartDiagnostics.Any(item => item.Code == "UART_TX_OVERFLOW"));
+        }
+
+        [Test]
+        public void VirtualUartBankResetClearsQueuesSchedulesAndDiagnostics()
+        {
+            var uart = new VirtualUartBank();
+            uart.Begin(0, 4);
+            uart.InjectReceived(0, new byte[] { 1 });
+            uart.Write(0, 2);
+            uart.ScheduleReceived(0, 50, new byte[] { 3 });
+            uart.InjectReceived(0, new byte[VirtualUartBank.ReceiveBufferCapacity]);
+
+            uart.ResetPeripheralState();
+
+            Assert.Throws<InvalidOperationException>(() => uart.Available(0));
+            Assert.IsFalse(uart.NextInputTimestampMilliseconds.HasValue);
+            Assert.IsFalse(uart.NextOutputTimestampMilliseconds.HasValue);
+            Assert.AreEqual(0UL, uart.DroppedReceiveByteCount);
+            Assert.AreEqual(0UL, uart.DroppedTransmitByteCount);
+            Assert.AreEqual(0, uart.UartDiagnostics.Count);
         }
 
         [Test]
