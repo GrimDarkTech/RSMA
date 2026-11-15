@@ -10,6 +10,75 @@ namespace RSMA.Microcontroller.Virtual
         Curve
     }
 
+    public enum VirtualAnalogSensorKind
+    {
+        TestSignal,
+        Temperature,
+        Light,
+        Distance,
+        Position
+    }
+
+    public sealed class VirtualAnalogSensorPreset
+    {
+        public VirtualAnalogSensorKind Kind { get; }
+        public string Units { get; }
+        public double PhysicalMinimum { get; }
+        public double PhysicalMaximum { get; }
+
+        internal VirtualAnalogSensorPreset(VirtualAnalogSensorKind kind, string units,
+            double physicalMinimum, double physicalMaximum)
+        {
+            Kind = kind;
+            Units = units;
+            PhysicalMinimum = physicalMinimum;
+            PhysicalMaximum = physicalMaximum;
+        }
+
+        public VirtualAnalogSensorModel CreateModel(
+            VirtualAnalogWaveform waveform = VirtualAnalogWaveform.Constant,
+            double constantValue = 0.0,
+            double rampStart = 0.0,
+            double rampEnd = 1.0,
+            double periodMilliseconds = 1000.0,
+            double samplePeriodMilliseconds = 0.0,
+            double noiseAmplitude = 0.0,
+            int noiseSeed = 1,
+            double calibrationOffset = 0.0,
+            double calibrationGain = 1.0,
+            double calibrationMinimum = 0.0,
+            double calibrationMaximum = 1.0,
+            Func<double, double> curve = null)
+        {
+            return new VirtualAnalogSensorModel(waveform, constantValue, rampStart, rampEnd,
+                periodMilliseconds, samplePeriodMilliseconds, noiseAmplitude, noiseSeed,
+                calibrationOffset, calibrationGain, calibrationMinimum, calibrationMaximum,
+                PhysicalMinimum, PhysicalMaximum, curve);
+        }
+    }
+
+    public static class VirtualAnalogSensorPresets
+    {
+        public static VirtualAnalogSensorPreset Get(VirtualAnalogSensorKind kind)
+        {
+            switch (kind)
+            {
+                case VirtualAnalogSensorKind.Temperature:
+                    return new VirtualAnalogSensorPreset(kind, "degC", -40.0, 125.0);
+                case VirtualAnalogSensorKind.Light:
+                    return new VirtualAnalogSensorPreset(kind, "lux", 0.0, 1000.0);
+                case VirtualAnalogSensorKind.Distance:
+                    return new VirtualAnalogSensorPreset(kind, "cm", 0.0, 400.0);
+                case VirtualAnalogSensorKind.Position:
+                    return new VirtualAnalogSensorPreset(kind, "%", 0.0, 100.0);
+                case VirtualAnalogSensorKind.TestSignal:
+                    return new VirtualAnalogSensorPreset(kind, "normalized", 0.0, 1.0);
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(kind));
+            }
+        }
+    }
+
     /// <summary>
     /// Deterministic, Unity-independent analog sensor model.
     /// The waveform and noise operate in normalized units; calibration maps the
@@ -20,6 +89,9 @@ namespace RSMA.Microcontroller.Virtual
         public const ushort AdcMaximum = 4095;
 
         private readonly Func<double, double> curve;
+        private bool hasHeldSample;
+        private long heldSampleIndex;
+        private double heldNormalized;
 
         public VirtualAnalogWaveform Waveform { get; }
         public double ConstantValue { get; }
@@ -35,6 +107,8 @@ namespace RSMA.Microcontroller.Virtual
         public double CalibrationMaximum { get; }
         public double PhysicalMinimum { get; }
         public double PhysicalMaximum { get; }
+        public bool HasHeldSample => hasHeldSample;
+        public double LastSampleTimeMilliseconds { get; private set; }
 
         public VirtualAnalogSensorModel(
             VirtualAnalogWaveform waveform,
@@ -89,9 +163,70 @@ namespace RSMA.Microcontroller.Virtual
             this.curve = curve;
         }
 
+        public static VirtualAnalogSensorModel CreateTemperature(
+            VirtualAnalogWaveform waveform = VirtualAnalogWaveform.Ramp,
+            double samplePeriodMilliseconds = 0.0,
+            double noiseAmplitude = 0.0,
+            int noiseSeed = 1)
+        {
+            return VirtualAnalogSensorPresets.Get(VirtualAnalogSensorKind.Temperature).CreateModel(
+                waveform: waveform,
+                rampStart: 0.0,
+                rampEnd: 1.0,
+                samplePeriodMilliseconds: samplePeriodMilliseconds,
+                noiseAmplitude: noiseAmplitude,
+                noiseSeed: noiseSeed);
+        }
+
+        public static VirtualAnalogSensorModel CreateLight(
+            VirtualAnalogWaveform waveform = VirtualAnalogWaveform.Ramp,
+            double samplePeriodMilliseconds = 0.0,
+            double noiseAmplitude = 0.0,
+            int noiseSeed = 1)
+        {
+            return VirtualAnalogSensorPresets.Get(VirtualAnalogSensorKind.Light).CreateModel(
+                waveform: waveform,
+                rampStart: 0.0,
+                rampEnd: 1.0,
+                samplePeriodMilliseconds: samplePeriodMilliseconds,
+                noiseAmplitude: noiseAmplitude,
+                noiseSeed: noiseSeed);
+        }
+
+        public static VirtualAnalogSensorModel CreateDistance(
+            VirtualAnalogWaveform waveform = VirtualAnalogWaveform.Ramp,
+            double samplePeriodMilliseconds = 0.0,
+            double noiseAmplitude = 0.0,
+            int noiseSeed = 1)
+        {
+            return VirtualAnalogSensorPresets.Get(VirtualAnalogSensorKind.Distance).CreateModel(
+                waveform: waveform,
+                rampStart: 0.0,
+                rampEnd: 1.0,
+                samplePeriodMilliseconds: samplePeriodMilliseconds,
+                noiseAmplitude: noiseAmplitude,
+                noiseSeed: noiseSeed);
+        }
+
+        public static VirtualAnalogSensorModel CreatePosition(
+            VirtualAnalogWaveform waveform = VirtualAnalogWaveform.Ramp,
+            double samplePeriodMilliseconds = 0.0,
+            double noiseAmplitude = 0.0,
+            int noiseSeed = 1)
+        {
+            return VirtualAnalogSensorPresets.Get(VirtualAnalogSensorKind.Position).CreateModel(
+                waveform: waveform,
+                rampStart: 0.0,
+                rampEnd: 1.0,
+                samplePeriodMilliseconds: samplePeriodMilliseconds,
+                noiseAmplitude: noiseAmplitude,
+                noiseSeed: noiseSeed);
+        }
+
         public ushort Sample(double timestampMilliseconds)
         {
-            var normalized = EvaluateSampledNormalized(timestampMilliseconds);
+            AdvanceTo(timestampMilliseconds);
+            var normalized = heldNormalized;
 
             var calibrated = (normalized + CalibrationOffset) * CalibrationGain;
             var range = CalibrationMaximum - CalibrationMinimum;
@@ -102,22 +237,28 @@ namespace RSMA.Microcontroller.Virtual
 
         public double PhysicalValue(double timestampMilliseconds)
         {
-            var normalized = EvaluateSampledNormalized(timestampMilliseconds);
-            return PhysicalMinimum + normalized * (PhysicalMaximum - PhysicalMinimum);
+            AdvanceTo(timestampMilliseconds);
+            return PhysicalMinimum + heldNormalized * (PhysicalMaximum - PhysicalMinimum);
         }
 
-        private double EvaluateSampledNormalized(double timestampMilliseconds)
+        public void AdvanceTo(double timestampMilliseconds)
         {
             if (double.IsNaN(timestampMilliseconds) || double.IsInfinity(timestampMilliseconds) || timestampMilliseconds < 0)
                 throw new ArgumentOutOfRangeException(nameof(timestampMilliseconds));
 
+            var sampleIndex = SampleIndex(timestampMilliseconds);
+            if (hasHeldSample && SamplePeriodMilliseconds > 0 && sampleIndex == heldSampleIndex)
+                return;
+
             var sampledTime = SamplePeriodMilliseconds <= 0
                 ? timestampMilliseconds
-                : Math.Floor(timestampMilliseconds / SamplePeriodMilliseconds) * SamplePeriodMilliseconds;
-            var normalized = EvaluateWaveform(sampledTime);
+                : sampleIndex * SamplePeriodMilliseconds;
+            heldNormalized = EvaluateWaveform(sampledTime);
             if (NoiseAmplitude > 0)
-                normalized += DeterministicNoise(SampleIndex(sampledTime)) * NoiseAmplitude;
-            return normalized;
+                heldNormalized += DeterministicNoise(sampleIndex) * NoiseAmplitude;
+            heldSampleIndex = sampleIndex;
+            LastSampleTimeMilliseconds = sampledTime;
+            hasHeldSample = true;
         }
 
         private double EvaluateWaveform(double timestampMilliseconds)

@@ -2224,6 +2224,54 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
+        public void VirtualPwmOutputStateSeparatesDutyDigitalLevelFrequencyAndPhase()
+        {
+            var gpio = new VirtualGpioBank();
+            gpio.PinMode(7, VirtualPinMode.Output);
+            gpio.PwmWriteFrequency(7, 64, 1000);
+            gpio.SetPwmUpdateTime(7, 12.5);
+
+            var output = gpio.GetPwmOutput(7);
+            Assert.AreEqual(64, output.DutyCycle);
+            Assert.AreEqual(64f / 255f, output.Duty, 0.0001f);
+            Assert.AreEqual(1000, output.FrequencyHz);
+            Assert.IsFalse(output.DigitalLevel);
+            Assert.AreEqual(12.5, output.LastUpdateTimeMilliseconds);
+            Assert.AreEqual(0.1, output.PhaseAt(0.1), 0.0001);
+            Assert.AreEqual(1f, output.EffectivePwmValueAt(0.1f), 0.0001f);
+            Assert.AreEqual(0f, output.EffectivePwmValueAt(0.5f), 0.0001f);
+
+            gpio.ApplySafeState();
+            Assert.AreEqual(0f, gpio.GetOutputValue(7), 0.0001f);
+            gpio.ResetPeripheralState();
+            Assert.AreEqual(0, gpio.GetPwmFrequency(7));
+        }
+
+        [Test]
+        public void VirtualPwmActuatorModelSaturatesSlewsAndEntersSafeState()
+        {
+            var model = new VirtualPwmActuatorModel(
+                VirtualActuatorKind.DcMotor,
+                physicalMinimum: -1f,
+                physicalMaximum: 1f,
+                slewRatePerSecond: 0.5f);
+
+            model.SetCommand(2f, true, enabled: true, direction: -1);
+            var first = model.AdvanceTo(0);
+            Assert.AreEqual(0f, first.EffectiveValue, 0.0001f);
+            var second = model.AdvanceTo(1000);
+            Assert.AreEqual(0.5f, second.EffectiveValue, 0.0001f);
+            Assert.AreEqual(-0.5f, second.PhysicalValue, 0.0001f);
+            Assert.AreEqual(-1, second.Direction);
+            Assert.AreEqual(2, model.OutputTrace.Count);
+
+            var safe = model.SafeState();
+            Assert.AreEqual(0f, safe.TargetValue, 0.0001f);
+            Assert.AreEqual(0f, safe.EffectiveValue, 0.0001f);
+            Assert.IsFalse(safe.Enabled);
+        }
+
+        [Test]
         public void VirtualMachineAnalogReadReturnsConfiguredTwelveBitSample()
         {
             var package = MakeBlinkPackage();
@@ -2314,6 +2362,63 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
+        public void VirtualAnalogSensorModelSupportsAllWaveformsAndDeterministicSampleHold()
+        {
+            var constant = new VirtualAnalogSensorModel(
+                VirtualAnalogWaveform.Constant, constantValue: 0.25);
+            var sine = new VirtualAnalogSensorModel(VirtualAnalogWaveform.Sine,
+                periodMilliseconds: 1000.0);
+            var curve = new VirtualAnalogSensorModel(VirtualAnalogWaveform.Curve,
+                curve: phase => phase);
+
+            Assert.AreEqual(1024, constant.Sample(10));
+            Assert.AreEqual(VirtualAnalogSensorModel.AdcMaximum, sine.Sample(250));
+            Assert.AreEqual(2048, curve.Sample(500));
+
+            var sampled = new VirtualAnalogSensorModel(
+                VirtualAnalogWaveform.Ramp,
+                rampStart: 0.0,
+                rampEnd: 1.0,
+                periodMilliseconds: 1000.0,
+                samplePeriodMilliseconds: 100.0,
+                noiseAmplitude: 0.05,
+                noiseSeed: 123);
+            var first = sampled.Sample(101);
+            Assert.AreEqual(first, sampled.Sample(199));
+            Assert.AreEqual(100.0, sampled.LastSampleTimeMilliseconds);
+            sampled.AdvanceTo(200.0);
+            Assert.AreEqual(200.0, sampled.LastSampleTimeMilliseconds);
+            Assert.AreNotEqual(first, sampled.Sample(200));
+        }
+
+        [Test]
+        public void VirtualAnalogSensorPresetsKeepPhysicalUnitsSeparateFromRawAdc()
+        {
+            var temperature = VirtualAnalogSensorModel.CreateTemperature();
+            var light = VirtualAnalogSensorModel.CreateLight();
+            var distance = VirtualAnalogSensorModel.CreateDistance();
+            var position = VirtualAnalogSensorModel.CreatePosition();
+
+            Assert.AreEqual(-40.0, temperature.PhysicalMinimum);
+            Assert.AreEqual(125.0, temperature.PhysicalMaximum);
+            Assert.AreEqual(1000.0, light.PhysicalMaximum);
+            Assert.AreEqual(400.0, distance.PhysicalMaximum);
+            Assert.AreEqual(100.0, position.PhysicalMaximum);
+            Assert.AreEqual(0, temperature.Sample(1000));
+            Assert.AreEqual(-40.0, temperature.PhysicalValue(0), 0.0001);
+        }
+
+        [TestCase(1.0, -1.0)]
+        [TestCase(0.0, 0.0)]
+        public void VirtualAnalogSensorModelRejectsInvalidPhysicalRange(double minimum, double maximum)
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => new VirtualAnalogSensorModel(
+                VirtualAnalogWaveform.Constant,
+                physicalMinimum: minimum,
+                physicalMaximum: maximum));
+        }
+
+        [Test]
         public void VirtualGpioBankAdvancesRegisteredAnalogSensorAndRejectsDuplicateChannel()
         {
             var gpio = new VirtualGpioBank();
@@ -2327,6 +2432,19 @@ namespace RSMA.Microcontroller.Virtual.Tests
             gpio.UnregisterAnalogSensor(4, sampler);
             gpio.AdvanceAnalogTo(200);
             Assert.AreEqual(1000, gpio.AnalogRead(4));
+        }
+
+        [Test]
+        public void VirtualBackendPublishesBoardAdcCapabilitiesAndRejectsUnmappedSensorChannel()
+        {
+            var profile = RsmaBoardProfiles.CreateStm32F103();
+            var backend = new VirtualMcuBackend(profile, new VirtualGpioBank());
+
+            CollectionAssert.AreEqual(new byte[] { 0, 1, 2, 3, 4, 5, 10 },
+                backend.Capabilities.AnalogChannels);
+            Assert.IsTrue(backend.SupportsAnalogChannel(10));
+            Assert.IsFalse(backend.SupportsAnalogChannel(14));
+            Assert.Throws<InvalidOperationException>(() => backend.RegisterAnalogSensor(14, _ => 1));
         }
 
         [Test]

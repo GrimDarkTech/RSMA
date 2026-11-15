@@ -30,12 +30,17 @@ namespace RSMA.Microcontroller.Virtual.PlayMode.Tests
             Assert.AreEqual(VirtualPinMode.Output, gpio.GetState(11).Mode);
             Assert.AreEqual(VirtualPinMode.Output, gpio.GetState(13).Mode);
             Assert.AreEqual(0f, gpio.GetOutputValue(13), 0.0001f);
+            Assert.AreEqual(490, gpio.GetPwmFrequency(13));
 
             yield return null;
 
             machine.Advance(500);
             Assert.AreEqual(VirtualBackendLifecycleState.Running, backend.State);
             Assert.AreEqual(64f / 255f, gpio.GetOutputValue(13), 0.0001f);
+            var forwardPwm = gpio.GetPwmOutput(13);
+            Assert.AreEqual(64, forwardPwm.DutyCycle);
+            Assert.IsFalse(forwardPwm.DigitalLevel);
+            Assert.AreEqual(490, forwardPwm.FrequencyHz);
             Assert.IsTrue(gpio.DigitalRead(10));
             Assert.IsFalse(gpio.DigitalRead(11));
 
@@ -56,6 +61,7 @@ namespace RSMA.Microcontroller.Virtual.PlayMode.Tests
 
             machine.Advance(500);
             Assert.AreEqual(0f, gpio.GetOutputValue(13), 0.0001f);
+            Assert.AreEqual(0, gpio.GetPwmOutput(13).DutyCycle);
             Assert.IsFalse(gpio.DigitalRead(10));
             Assert.IsFalse(gpio.DigitalRead(11));
 

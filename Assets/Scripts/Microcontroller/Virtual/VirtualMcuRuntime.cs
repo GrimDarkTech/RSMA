@@ -43,6 +43,45 @@ namespace RSMA.Microcontroller.Virtual
         void PwmWriteFrequency(byte pin, byte dutyCycle, int frequencyHz);
     }
 
+    public sealed class VirtualPwmOutputState
+    {
+        public byte Pin { get; }
+        public byte DutyCycle { get; }
+        public float Duty { get { return DutyCycle / 255f; } }
+        public int FrequencyHz { get; }
+        public bool DigitalLevel { get; }
+        public double LastUpdateTimeMilliseconds { get; }
+
+        public VirtualPwmOutputState(byte pin, byte dutyCycle, int frequencyHz,
+            bool digitalLevel, double lastUpdateTimeMilliseconds)
+        {
+            Pin = pin;
+            DutyCycle = dutyCycle;
+            FrequencyHz = frequencyHz;
+            DigitalLevel = digitalLevel;
+            LastUpdateTimeMilliseconds = lastUpdateTimeMilliseconds;
+        }
+
+        public double PhaseAt(double timestampMilliseconds)
+        {
+            if (FrequencyHz <= 0)
+                return 0.0;
+            var cycles = timestampMilliseconds * FrequencyHz / 1000.0;
+            return cycles - Math.Floor(cycles);
+        }
+
+        public float EffectivePwmValueAt(double timestampMilliseconds)
+        {
+            return PhaseAt(timestampMilliseconds) < Duty ? 1f : 0f;
+        }
+    }
+
+    public interface IVirtualPwmOutputSource
+    {
+        VirtualPwmOutputState GetPwmOutput(byte pin);
+        void SetPwmUpdateTime(byte pin, double timestampMilliseconds);
+    }
+
     public interface IVirtualAdcHal
     {
         ushort AnalogRead(byte channel);
@@ -359,7 +398,7 @@ namespace RSMA.Microcontroller.Virtual
         IVirtualGpioEdgeSource, IVirtualPwmHal, IVirtualAdcHal, IVirtualSpiHal, IVirtualI2cHal,
         IVirtualDmaHal, IVirtualAsyncDmaHal, IVirtualEepromHal, IVirtualAnalogInputSource,
         IVirtualPeripheralLifecycle, IVirtualElectricalModel, IVirtualBoardProfileConsumer,
-        IVirtualPwmFrequencyHal
+        IVirtualPwmFrequencyHal, IVirtualPwmOutputSource
     {
         public const int MaxScheduledInputEvents = 4096;
         public const int EepromSize = 256;
@@ -368,11 +407,13 @@ namespace RSMA.Microcontroller.Virtual
         public const int DmaQueueCapacity = 16;
         public const int DmaMaximumTicket = int.MaxValue;
         public const int DmaQueueFull = -2;
+        public const int DefaultPwmFrequencyHz = 490;
 
         private readonly Dictionary<byte, VirtualPinMode> modes = new Dictionary<byte, VirtualPinMode>();
         private readonly Dictionary<byte, bool> values = new Dictionary<byte, bool>();
         private readonly Dictionary<byte, float> pwmValues = new Dictionary<byte, float>();
         private readonly Dictionary<byte, int> pwmFrequencies = new Dictionary<byte, int>();
+        private readonly Dictionary<byte, double> pwmUpdateTimes = new Dictionary<byte, double>();
         private readonly Dictionary<byte, ushort> analogValues = new Dictionary<byte, ushort>();
         private readonly Dictionary<byte, Func<double, ushort>> analogSensors =
             new Dictionary<byte, Func<double, ushort>>();
@@ -849,6 +890,8 @@ namespace RSMA.Microcontroller.Virtual
                 state.LatchLevel = false;
                 state.LineLevel = values[pin];
                 pwmValues[pin] = 0f;
+                pwmFrequencies.Remove(pin);
+                pwmUpdateTimes.Remove(pin);
                 RecomputeElectricalState(pin);
             }
             ResetDma();
@@ -875,6 +918,8 @@ namespace RSMA.Microcontroller.Virtual
 
             var value = dutyCycle / 255f;
             pwmValues[pin] = value;
+            if (!pwmFrequencies.ContainsKey(pin))
+                pwmFrequencies[pin] = DefaultPwmFrequencyHz;
             var digitalValue = dutyCycle >= 128;
             var previous = values[pin];
             values[pin] = digitalValue;
@@ -895,6 +940,28 @@ namespace RSMA.Microcontroller.Virtual
         public int GetPwmFrequency(byte pin)
         {
             return pwmFrequencies.TryGetValue(pin, out var frequency) ? frequency : 0;
+        }
+
+        public VirtualPwmOutputState GetPwmOutput(byte pin)
+        {
+            EnsureConfiguredPin(pin);
+            return new VirtualPwmOutputState(
+                pin,
+                (byte)Math.Round(Math.Max(0f, Math.Min(1f, GetOutputValue(pin))) * 255f,
+                    MidpointRounding.AwayFromZero),
+                pwmFrequencies.TryGetValue(pin, out var frequency)
+                    ? frequency : DefaultPwmFrequencyHz,
+                values[pin],
+                pwmUpdateTimes.TryGetValue(pin, out var timestamp) ? timestamp : 0.0);
+        }
+
+        public void SetPwmUpdateTime(byte pin, double timestampMilliseconds)
+        {
+            if (double.IsNaN(timestampMilliseconds) || double.IsInfinity(timestampMilliseconds) ||
+                timestampMilliseconds < 0)
+                throw new ArgumentOutOfRangeException(nameof(timestampMilliseconds));
+            EnsureConfiguredPin(pin);
+            pwmUpdateTimes[pin] = timestampMilliseconds;
         }
 
         private void EnsureConfiguredPin(byte pin)
@@ -1747,6 +1814,12 @@ namespace RSMA.Microcontroller.Virtual
                 asyncDmaHal.AdvanceDmaTo(timeMilliseconds);
         }
 
+        private void SetPwmUpdateTime(byte pin)
+        {
+            if (hal is IVirtualPwmOutputSource pwmOutput)
+                pwmOutput.SetPwmUpdateTime(pin, SimulatedTimeMilliseconds);
+        }
+
         private bool TryDispatchInterrupt()
         {
             if (interruptController == null || irqReturnStack.Count != 0 ||
@@ -1805,6 +1878,7 @@ namespace RSMA.Microcontroller.Virtual
                     if (!(hal is IVirtualPwmHal pwmHal))
                         throw new VirtualMachineFaultException("Firmware requires PWM support");
                     pwmHal.PwmWrite(argument, value);
+                    SetPwmUpdateTime(argument);
                     RecordTrace(VirtualTraceEventKind.PwmOutput, argument, value);
                     break;
                 case RsmaHalService.AnalogWrite:
@@ -1814,6 +1888,7 @@ namespace RSMA.Microcontroller.Virtual
                     if (dynamicDutyCycle < byte.MinValue || dynamicDutyCycle > byte.MaxValue)
                         throw new VirtualMachineFaultException("PWM duty must be between 0 and 255");
                     dynamicPwmHal.PwmWrite(argument, (byte)dynamicDutyCycle);
+                    SetPwmUpdateTime(argument);
                     RecordTrace(VirtualTraceEventKind.PwmOutput, argument, dynamicDutyCycle);
                     break;
                 case RsmaHalService.PwmWriteFrequency:
@@ -1827,6 +1902,7 @@ namespace RSMA.Microcontroller.Virtual
                     if (frequency < 1 || frequency > 1000000)
                         throw new VirtualMachineFaultException("PWM frequency must be between 1 and 1000000 Hz");
                     frequencyPwmHal.PwmWriteFrequency(argument, (byte)frequencyDuty, frequency);
+                    SetPwmUpdateTime(argument);
                     RecordTrace(VirtualTraceEventKind.PwmOutput, argument, frequencyDuty, frequency);
                     break;
                 }

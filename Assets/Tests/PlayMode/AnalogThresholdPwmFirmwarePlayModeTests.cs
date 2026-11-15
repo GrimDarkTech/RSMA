@@ -19,25 +19,34 @@ namespace RSMA.Microcontroller.Virtual.PlayMode.Tests
             CollectionAssert.Contains(package.Manifest.RequiredPeripherals, "PWM");
 
             var gpio = new VirtualGpioBank();
-            var sample = 0;
-            gpio.RegisterAnalogSensor(10, _ => (ushort)sample);
+            var sensor = new VirtualAnalogSensorModel(
+                VirtualAnalogWaveform.Ramp,
+                rampStart: 0.0,
+                rampEnd: 1.0,
+                periodMilliseconds: 20.0,
+                samplePeriodMilliseconds: 10.0);
+            gpio.RegisterAnalogSensor(10, sensor.Sample);
             var machine = new VirtualMachine(package, gpio);
+            var trace = new System.Collections.Generic.List<VirtualTraceEvent>();
+            machine.TraceRecorded += trace.Add;
 
             machine.Advance(0);
             Assert.AreEqual(0f, gpio.GetOutputValue(13), 0.0001f);
             Assert.AreEqual(VirtualExecutionState.Waiting, machine.State);
             Assert.AreEqual(10.0, machine.WakeTimeMilliseconds);
 
-            sample = 4095;
             machine.Advance(10);
             Assert.AreEqual(1f, gpio.GetOutputValue(13), 0.0001f);
             Assert.AreEqual(VirtualExecutionState.Waiting, machine.State);
             Assert.AreEqual(20.0, machine.WakeTimeMilliseconds);
 
-            sample = 0;
-            machine.Advance(10);
+            machine.Advance(490);
             Assert.AreEqual(0f, gpio.GetOutputValue(13), 0.0001f);
             Assert.AreEqual(VirtualExecutionState.Waiting, machine.State);
+            Assert.IsTrue(trace.Exists(item => item.Kind == VirtualTraceEventKind.AnalogSample &&
+                item.Channel == 10 && item.Value == 0));
+            Assert.IsTrue(trace.Exists(item => item.Kind == VirtualTraceEventKind.PwmOutput &&
+                item.Channel == 13 && item.Value == 255));
 
             yield return null;
         }

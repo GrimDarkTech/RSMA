@@ -13,7 +13,8 @@ public sealed class VirtualPinBinding
     public PinModes resetMode = PinModes.Input;
     public bool resetLatchLevel;
 }
-public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtualInputSource,
+public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtualPwmFrequencyHal,
+    IVirtualPwmOutputSource, IVirtualInputSource,
     IVirtualPinValueSource, IVirtualButtonHost, IVirtualGpioEdgeSource, IVirtualAnalogInputSource,
     IVirtualPeripheralLifecycle, IVirtualBoardCapabilitySource, IVirtualElectricalModel
 {
@@ -26,6 +27,8 @@ public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtua
         new Dictionary<byte, VirtualGpioElectricalState>();
     private readonly Dictionary<byte, Func<double, ushort>> analogSensors =
         new Dictionary<byte, Func<double, ushort>>();
+    private readonly Dictionary<byte, int> pwmFrequencies = new Dictionary<byte, int>();
+    private readonly Dictionary<byte, double> pwmUpdateTimes = new Dictionary<byte, double>();
     private readonly List<ScheduledInput> scheduledInputs = new List<ScheduledInput>();
     private ulong nextInputSequence;
 
@@ -182,6 +185,37 @@ public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtua
         var value = dutyCycle / 255.0f;
         state.LatchLevel = dutyCycle >= 128;
         RecomputeElectricalState(pin, value);
+        if (!pwmFrequencies.ContainsKey(pin))
+            pwmFrequencies[pin] = VirtualGpioBank.DefaultPwmFrequencyHz;
+    }
+
+    public void PwmWriteFrequency(byte pin, byte dutyCycle, int frequencyHz)
+    {
+        if (frequencyHz < 1 || frequencyHz > 1000000)
+            throw new InvalidOperationException("PWM frequency must be between 1 and 1000000 Hz");
+        PwmWrite(pin, dutyCycle);
+        pwmFrequencies[pin] = frequencyHz;
+    }
+
+    public VirtualPwmOutputState GetPwmOutput(byte pin)
+    {
+        var normalized = Math.Max(0f, Math.Min(1f, ReadPinValue(pin)));
+        return new VirtualPwmOutputState(
+            pin,
+            (byte)Math.Round(normalized * 255f, MidpointRounding.AwayFromZero),
+            pwmFrequencies.TryGetValue(pin, out var frequency)
+                ? frequency : VirtualGpioBank.DefaultPwmFrequencyHz,
+            normalized >= 0.5f,
+            pwmUpdateTimes.TryGetValue(pin, out var timestamp) ? timestamp : 0.0);
+    }
+
+    public void SetPwmUpdateTime(byte pin, double timestampMilliseconds)
+    {
+        if (double.IsNaN(timestampMilliseconds) || double.IsInfinity(timestampMilliseconds) ||
+            timestampMilliseconds < 0)
+            throw new ArgumentOutOfRangeException(nameof(timestampMilliseconds));
+        Resolve(pin);
+        pwmUpdateTimes[pin] = timestampMilliseconds;
     }
 
     public float ReadPinValue(byte pin)
@@ -332,6 +366,8 @@ public sealed class RSMAGpioHalAdapter : IVirtualMcuHal, IVirtualPwmHal, IVirtua
     public void ApplyResetState()
     {
         scheduledInputs.Clear();
+        pwmFrequencies.Clear();
+        pwmUpdateTimes.Clear();
         externalDrives.Clear();
         ElectricalDiagnostics.Clear();
         foreach (var definition in profile.PinDefinitions)

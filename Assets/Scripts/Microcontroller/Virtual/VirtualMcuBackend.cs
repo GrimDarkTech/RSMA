@@ -102,6 +102,7 @@ namespace RSMA.Microcontroller.Virtual
         IVirtualMcuHal, IVirtualPinValueSource, IVirtualInputSource,
         IVirtualGpioEdgeSource, IVirtualButtonHost, IVirtualUartInputSource, IVirtualPwmHal,
         IVirtualPwmFrequencyHal,
+        IVirtualPwmOutputSource,
         IVirtualAdcHal, IVirtualAnalogInputSource, IVirtualSpiHal, IVirtualI2cHal,
         IVirtualDmaHal, IVirtualAsyncDmaHal, IVirtualEepromHal, IVirtualUartHal,
         IVirtualUartOutputSource, IVirtualUartTransportInput, IVirtualElectricalModel
@@ -297,6 +298,14 @@ namespace RSMA.Microcontroller.Virtual
         public void PwmWriteFrequency(byte pin, byte dutyCycle, int frequencyHz)
         {
             Require<IVirtualPwmFrequencyHal>().PwmWriteFrequency(pin, dutyCycle, frequencyHz);
+        }
+        public VirtualPwmOutputState GetPwmOutput(byte pin)
+        {
+            return Require<IVirtualPwmOutputSource>().GetPwmOutput(pin);
+        }
+        public void SetPwmUpdateTime(byte pin, double timestampMilliseconds)
+        {
+            Require<IVirtualPwmOutputSource>().SetPwmUpdateTime(pin, timestampMilliseconds);
         }
         public ushort AnalogRead(byte channel) { return Require<IVirtualAdcHal>().AnalogRead(channel); }
         public bool SupportsAnalogChannel(byte channel) { return Require<IVirtualAnalogInputSource>().SupportsAnalogChannel(channel); }
@@ -730,7 +739,9 @@ namespace RSMA.Microcontroller.Virtual
 
             public IEnumerable<byte> SupportedPins => profile.PinDefinitions
                 .Select(definition => definition.VirtualPin);
-            public IEnumerable<byte> SupportedAnalogChannels => Array.Empty<byte>();
+            public IEnumerable<byte> SupportedAnalogChannels => profile.PinDefinitions
+                .Where(definition => definition.Supports(VirtualPinCapabilities.Analog))
+                .Select(definition => definition.VirtualPin);
             public IEnumerable<byte> SupportedSpiBuses => Array.Empty<byte>();
             public IEnumerable<byte> SupportedI2cAddresses => Array.Empty<byte>();
             public IEnumerable<byte> SupportedDmaChannels => Array.Empty<byte>();

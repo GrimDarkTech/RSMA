@@ -7,6 +7,7 @@ public sealed class VirtualAnalogSensor : MonoBehaviour
 {
     [SerializeField] private RSMAVirtualMicrocontroller microcontroller;
     [SerializeField, Range(0, 255)] private int adcChannel;
+    [SerializeField] private VirtualAnalogSensorKind sensorKind = VirtualAnalogSensorKind.TestSignal;
     [SerializeField] private VirtualAnalogWaveform waveform = VirtualAnalogWaveform.Constant;
     [SerializeField, Range(-1f, 1f)] private float constantValue;
     [SerializeField, Range(-1f, 1f)] private float rampStart;
@@ -29,7 +30,10 @@ public sealed class VirtualAnalogSensor : MonoBehaviour
     private bool registered;
 
     public byte AdcChannel => (byte)adcChannel;
-    public string Units => units;
+    public VirtualAnalogSensorKind SensorKind => sensorKind;
+    public string Units => sensorKind == VirtualAnalogSensorKind.TestSignal
+        ? units
+        : VirtualAnalogSensorPresets.Get(sensorKind).Units;
     public ushort CurrentSample { get; private set; }
     public double CurrentPhysicalValue { get; private set; }
 
@@ -79,6 +83,11 @@ public sealed class VirtualAnalogSensor : MonoBehaviour
         if (curve == null)
             throw new InvalidOperationException("Curve waveform requires an AnimationCurve");
         var capturedCurve = curve;
+        var preset = VirtualAnalogSensorPresets.Get(sensorKind);
+        var modelPhysicalMinimum = sensorKind == VirtualAnalogSensorKind.TestSignal
+            ? physicalMinimum : preset.PhysicalMinimum;
+        var modelPhysicalMaximum = sensorKind == VirtualAnalogSensorKind.TestSignal
+            ? physicalMaximum : preset.PhysicalMaximum;
         return new VirtualAnalogSensorModel(
             waveform,
             constantValue,
@@ -92,8 +101,8 @@ public sealed class VirtualAnalogSensor : MonoBehaviour
             calibrationGain,
             calibrationMinimum,
             calibrationMaximum,
-            physicalMinimum,
-            physicalMaximum,
+            modelPhysicalMinimum,
+            modelPhysicalMaximum,
             phase => capturedCurve.Evaluate((float)phase));
     }
 }

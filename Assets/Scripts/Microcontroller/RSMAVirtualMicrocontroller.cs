@@ -23,6 +23,7 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
     private VirtualUartBank uart;
     private VirtualGpioBank peripheralBank;
     private readonly List<VirtualAnalogSensor> analogSensors = new List<VirtualAnalogSensor>();
+    private readonly List<string> analogSensorDiagnostics = new List<string>();
 
     public VirtualExecutionState ExecutionState => virtualMachine?.State ?? VirtualExecutionState.Ready;
     public string FaultMessage => virtualMachine?.FaultMessage;
@@ -30,6 +31,7 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
     public int IrqDispatchCount => irqDispatchCount;
     public int LastIrqVirtualPin => lastIrqVirtualPin;
     public string LastIrqEdge => lastIrqEdge;
+    public IList<string> AnalogSensorDiagnostics => analogSensorDiagnostics.AsReadOnly();
     public event Action<byte, byte> UartTransmitted;
     public event Action<VirtualTraceEvent> TraceRecorded;
 
@@ -98,6 +100,13 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
         backend.PwmWrite(virtualPin, dutyCycle);
     }
 
+    public VirtualPwmOutputState GetPwmOutput(byte virtualPin)
+    {
+        if (backend == null)
+            throw new InvalidOperationException("Virtual MCU is not initialized");
+        return backend.GetPwmOutput(virtualPin);
+    }
+
     public bool SetButtonPressed(byte virtualPin, bool pressed)
     {
         if (virtualMachine == null || hal == null)
@@ -149,6 +158,7 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
 
     private void OnEnable()
     {
+        analogSensorDiagnostics.Clear();
         if (firmware == null)
             firmware = Resources.Load<TextAsset>("RSMA/Firmware/blink.rsfw");
         if (firmware == null)
@@ -192,6 +202,7 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
         }
         catch (Exception exception)
         {
+            analogSensorDiagnostics.Add(exception.Message);
             Debug.LogError("Virtual MCU failed to load firmware: " + exception.Message, this);
             virtualMachine = null;
             if (backend != null)
@@ -269,7 +280,15 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
         var analogHal = backend as IVirtualAnalogInputSource;
         if (analogHal == null)
             throw new InvalidOperationException("Configured MCU backend does not support virtual analog sensors");
-        analogHal.RegisterAnalogSensor(sensor.AdcChannel, sensor.Sample);
+        try
+        {
+            analogHal.RegisterAnalogSensor(sensor.AdcChannel, sensor.Sample);
+        }
+        catch (Exception exception)
+        {
+            analogSensorDiagnostics.Add("ADC channel " + sensor.AdcChannel + ": " + exception.Message);
+            throw;
+        }
     }
 
     private void UnregisterAnalogSensorFromHal(VirtualAnalogSensor sensor)
