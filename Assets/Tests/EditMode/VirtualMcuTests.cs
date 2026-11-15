@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
 using UnityEditor;
@@ -2111,12 +2112,16 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
-        public void VirtualInterruptControllerRejectsPendingQueueOverflowAndPreservesFifo()
+        public void VirtualInterruptControllerReportsPendingQueueOverflowAndPreservesFifo()
         {
             var gpio = new VirtualGpioBank();
             gpio.ConfigurePin(7, VirtualPinMode.Input, VirtualPinPullMode.None,
                 VirtualPinOutputType.PushPull);
-            var controller = new VirtualInterruptController(gpio);
+            var controller = new VirtualInterruptController(gpio,
+                new VirtualSchedulingPolicy
+                {
+                    InterruptQueueCapacity = VirtualInterruptController.MaxPendingInterrupts
+                });
             controller.Attach(7, (byte)VirtualGpioEdge.Rising, 12);
 
             for (var i = 0; i < VirtualInterruptController.MaxPendingInterrupts; ++i)
@@ -2134,8 +2139,9 @@ namespace RSMA.Microcontroller.Virtual.Tests
             gpio.AdvanceInputTo(rejectedTimestamp);
             gpio.ScheduleInputLevel(7, rejectedTimestamp + 1.0, true);
             rejectedTimestamp += 1.0;
-            var exception = Assert.Throws<InvalidOperationException>(() => gpio.AdvanceInputTo(rejectedTimestamp));
-            StringAssert.Contains("Virtual interrupt queue capacity exceeded", exception.Message);
+            Assert.DoesNotThrow(() => gpio.AdvanceInputTo(rejectedTimestamp));
+            Assert.AreEqual(1UL, controller.DroppedInterruptCount);
+            Assert.IsTrue(controller.SchedulingDiagnostics.Any(item => item.Code == "IRQ_QUEUE_OVERFLOW"));
             Assert.IsTrue(controller.HasPendingInterrupt);
 
             controller.Enable();

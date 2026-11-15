@@ -18,7 +18,8 @@ namespace RSMA.Microcontroller.Virtual
         UartTransmit,
         UartReceive,
         RejectedMapping,
-        Fault
+        Fault,
+        SchedulingDiagnostic
     }
 
     public sealed class VirtualTraceEvent

@@ -13,6 +13,13 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
     [SerializeField] private string expectedBoardId = "RSMA-STM32F103";
     [SerializeField] private bool stopOutputsOnDisable = true;
     [SerializeField] private bool runAutomatically = true;
+    [Header("Virtual scheduling")]
+    [SerializeField] private VirtualHostClockPolicy hostClockPolicy = VirtualHostClockPolicy.ScaledDeltaTime;
+    [SerializeField] private bool pauseWhenUnityPaused = true;
+    [SerializeField, Min(0.001f)] private float maximumHostDeltaMilliseconds = 1000f;
+    [SerializeField, Min(1)] private int interruptQueueCapacity = VirtualSchedulingPolicy.DefaultInterruptQueueCapacity;
+    [SerializeField, Min(0f)] private double interruptDebounceMilliseconds;
+    [SerializeField] private VirtualInterruptMaskPolicy interruptMaskPolicy = VirtualInterruptMaskPolicy.QueueWhileMasked;
     [SerializeField] private int irqDispatchCount;
     [SerializeField] private int lastIrqVirtualPin = -1;
     [SerializeField] private string lastIrqEdge = "None";
@@ -31,6 +38,9 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
     public int IrqDispatchCount => irqDispatchCount;
     public int LastIrqVirtualPin => lastIrqVirtualPin;
     public string LastIrqEdge => lastIrqEdge;
+    public ulong DroppedInterruptCount => backend == null ? 0UL : backend.DroppedInterruptCount;
+    public IList<VirtualSchedulingDiagnostic> SchedulingDiagnostics => backend == null
+        ? new List<VirtualSchedulingDiagnostic>() : backend.SchedulingDiagnostics;
     public IList<string> AnalogSensorDiagnostics => analogSensorDiagnostics.AsReadOnly();
     public event Action<byte, byte> UartTransmitted;
     public event Action<VirtualTraceEvent> TraceRecorded;
@@ -189,7 +199,7 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
                 : new RSMAGpioHalAdapter(gpio, boardProfile, pinBindings);
             uart = new VirtualUartBank();
             peripheralBank = new VirtualGpioBank();
-            backend = new VirtualMcuBackend(boardProfile, hal, uart, peripheralBank);
+            backend = new VirtualMcuBackend(boardProfile, hal, CreateSchedulingPolicy(), uart, peripheralBank);
             backend.Transmitted += OnUartTransmitted;
             virtualMachine = VirtualMachine.CreateWithBackend(package, backend);
             virtualMachine.TraceRecorded += OnTraceRecorded;
@@ -222,7 +232,13 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
 
         try
         {
-            AdvanceSimulation(Time.deltaTime * 1000.0);
+            var policy = CreateSchedulingPolicy();
+            var deltaMilliseconds = policy.ComputeHostDeltaMilliseconds(
+                Time.deltaTime * 1000.0,
+                Time.unscaledDeltaTime * 1000.0,
+                pauseWhenUnityPaused && Mathf.Approximately(Time.timeScale, 0f),
+                backend == null ? null : backend.Diagnostics);
+            AdvanceSimulation(deltaMilliseconds);
         }
         catch (VirtualMachineFaultException exception)
         {
@@ -261,6 +277,19 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
         irqDispatchCount++;
         lastIrqVirtualPin = request.VirtualPin;
         lastIrqEdge = request.Edge.ToString();
+    }
+
+    private VirtualSchedulingPolicy CreateSchedulingPolicy()
+    {
+        return new VirtualSchedulingPolicy
+        {
+            HostClockPolicy = hostClockPolicy,
+            InterruptMaskPolicy = interruptMaskPolicy,
+            InterruptQueueCapacity = Mathf.Clamp(interruptQueueCapacity, 1,
+                VirtualInterruptController.MaxPendingInterrupts),
+            InterruptDebounceMilliseconds = Math.Max(0.0, interruptDebounceMilliseconds),
+            MaximumHostDeltaMilliseconds = Math.Max(0.001, maximumHostDeltaMilliseconds)
+        };
     }
 
     private void OnUartTransmitted(byte port, byte value)

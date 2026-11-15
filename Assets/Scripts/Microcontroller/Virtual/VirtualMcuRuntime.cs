@@ -1141,6 +1141,7 @@ namespace RSMA.Microcontroller.Virtual
         private readonly IVirtualUartHal uart;
         private readonly VirtualMachineProfiler profiler;
         private readonly VirtualMcuBackend backend;
+        private readonly VirtualPeriodicScheduler periodicScheduler = new VirtualPeriodicScheduler();
         private readonly Stack<CallFrame> callStack = new Stack<CallFrame>();
         private readonly Stack<IrqReturnState> irqReturnStack = new Stack<IrqReturnState>();
         private readonly Queue<UartCallbackRequest> pendingUartCallbacks = new Queue<UartCallbackRequest>();
@@ -1230,7 +1231,16 @@ namespace RSMA.Microcontroller.Virtual
             backend.Reset();
             inputSource = backend;
             uartInputSource = backend;
-            interruptController = new VirtualInterruptController(backend);
+            interruptController = new VirtualInterruptController(backend, backend.SchedulingPolicy);
+            if (interruptController is IVirtualInterruptDiagnostics interruptDiagnostics)
+            {
+                interruptDiagnostics.DiagnosticRaised += diagnostic =>
+                {
+                    backend.RecordSchedulingDiagnostic(diagnostic);
+                    RecordTrace(VirtualTraceEventKind.SchedulingDiagnostic, diagnostic.Pin, 0, 0,
+                        diagnostic.Code + ": " + diagnostic.Message);
+                };
+            }
             uart = backend;
             this.profiler = profiler;
             Trace = new VirtualTraceBuffer();
@@ -1309,6 +1319,10 @@ namespace RSMA.Microcontroller.Virtual
         public VirtualTraceBuffer Trace { get; }
         public event Action<VirtualTraceEvent> TraceRecorded;
         public event Action<VirtualInterruptRequest> InterruptDispatched;
+        public VirtualPeriodicScheduler PeriodicScheduler => periodicScheduler;
+        public VirtualSchedulingPolicy SchedulingPolicy => backend?.SchedulingPolicy?.Clone();
+        public IList<VirtualSchedulingDiagnostic> SchedulingDiagnostics =>
+            backend?.SchedulingDiagnostics ?? new List<VirtualSchedulingDiagnostic>();
 
         public List<VirtualTraceEvent> GetTraceSnapshot()
         {
@@ -1346,6 +1360,7 @@ namespace RSMA.Microcontroller.Virtual
             FaultMessage = null;
             State = VirtualExecutionState.Ready;
             profiler?.Reset();
+            periodicScheduler.Reset();
         }
 
         public void Stop()
@@ -1475,6 +1490,7 @@ namespace RSMA.Microcontroller.Virtual
                 }
                 SetSimulatedTime(targetTime);
                 AdvanceInputSourcesTo(targetTime);
+                periodicScheduler.AdvanceTo(targetTime);
             }
             catch (Exception exception)
             {

@@ -111,10 +111,11 @@ namespace RSMA.Microcontroller.Virtual
         private readonly List<object> components = new List<object>();
         private readonly VirtualBoardProfile boardProfile;
         private RsfwPackage configuredPackage;
+        public VirtualSchedulingPolicy SchedulingPolicy { get; }
 
         public VirtualMcuBackend(string boardId, IVirtualMcuHal gpio,
             params object[] peripheralBackends)
-            : this(boardId, gpio, null, peripheralBackends)
+            : this(boardId, gpio, null, null, peripheralBackends)
         {
         }
 
@@ -124,12 +125,25 @@ namespace RSMA.Microcontroller.Virtual
                 boardProfile == null ? null : boardProfile.BoardId,
                 gpio,
                 new VirtualBoardProfileCapabilitySource(boardProfile),
+                null,
+                peripheralBackends)
+        {
+        }
+
+        public VirtualMcuBackend(VirtualBoardProfile boardProfile, IVirtualMcuHal gpio,
+            VirtualSchedulingPolicy schedulingPolicy, params object[] peripheralBackends)
+            : this(
+                boardProfile == null ? null : boardProfile.BoardId,
+                gpio,
+                new VirtualBoardProfileCapabilitySource(boardProfile),
+                schedulingPolicy,
                 peripheralBackends)
         {
         }
 
         private VirtualMcuBackend(string boardId, IVirtualMcuHal gpio,
-            IVirtualBoardCapabilitySource capabilitySource, object[] peripheralBackends)
+            IVirtualBoardCapabilitySource capabilitySource,
+            VirtualSchedulingPolicy schedulingPolicy, object[] peripheralBackends)
         {
             if (string.IsNullOrWhiteSpace(boardId))
                 throw new ArgumentException("Backend board ID is required", nameof(boardId));
@@ -137,6 +151,7 @@ namespace RSMA.Microcontroller.Virtual
                 throw new ArgumentNullException(nameof(gpio));
             this.gpio = gpio;
             boardProfile = (capabilitySource as VirtualBoardProfileCapabilitySource)?.Profile;
+            SchedulingPolicy = schedulingPolicy?.Clone() ?? new VirtualSchedulingPolicy();
             components.Add(gpio);
             if (capabilitySource is VirtualBoardProfileCapabilitySource profileSource &&
                 gpio is IVirtualBoardProfileConsumer profileConsumer)
@@ -165,6 +180,9 @@ namespace RSMA.Microcontroller.Virtual
         public RsfwPackage ConfiguredPackage => configuredPackage;
         public string FaultMessage { get; private set; }
         public IList<string> Diagnostics { get; } = new List<string>();
+        public IList<VirtualSchedulingDiagnostic> SchedulingDiagnostics { get; } =
+            new List<VirtualSchedulingDiagnostic>();
+        public ulong DroppedInterruptCount { get; private set; }
         public IList<string> ElectricalDiagnostics =>
             gpio is IVirtualElectricalModel electrical ? electrical.ElectricalDiagnostics :
                 new List<string> { "GPIO provider does not expose electrical diagnostics" };
@@ -433,6 +451,16 @@ namespace RSMA.Microcontroller.Virtual
                 if (uartOutput != null)
                     uartOutput.Transmitted += (port, value) => Transmitted?.Invoke(port, value);
             }
+        }
+
+        public void RecordSchedulingDiagnostic(VirtualSchedulingDiagnostic diagnostic)
+        {
+            if (diagnostic == null)
+                return;
+            SchedulingDiagnostics.Add(diagnostic);
+            Diagnostics.Add(diagnostic.Code + ": " + diagnostic.Message);
+            if (diagnostic.Code == "IRQ_QUEUE_OVERFLOW" || diagnostic.Code == "IRQ_MASKED")
+                DroppedInterruptCount++;
         }
 
         private bool Has<T>() where T : class
