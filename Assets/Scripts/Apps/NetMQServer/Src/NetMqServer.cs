@@ -15,7 +15,9 @@ namespace RSMA.NetMQ
 {
     public static class NetMQServer
     {
-        private static bool _isRunning;
+        private static volatile bool _isRunning;
+        private static readonly object _lifecycleLock = new object();
+        private static Task[] _serverTasks = Array.Empty<Task>();
         private static readonly Queue<Action> _actionQueue = new Queue<Action>();
         private static readonly object _queueLock = new object();
 
@@ -43,24 +45,47 @@ namespace RSMA.NetMQ
 
         public static void Run(int commandPort = 5555, int pubPort = 5556, int subPort = 5560)
         {
-            if (_isRunning) return;
-            _isRunning = true;
+            lock (_lifecycleLock)
+            {
+                if (_isRunning) return;
+                _isRunning = true;
 
-            // Запуск потока служебных команд (ROUTER)
-            Task.Run(() => CommandServerLoop(commandPort));
-
-            // Инициализация сокета публикаций (PUB)
-            Task.Run(() => InitPublisher(pubPort));
-
-            Task.Run(() => ReceiverLoop(subPort));
+                // Keep task handles so Stop can complete the previous generation before a restart.
+                _serverTasks = new[]
+                {
+                    Task.Run(() => CommandServerLoop(commandPort)),
+                    Task.Run(() => InitPublisher(pubPort)),
+                    Task.Run(() => ReceiverLoop(subPort))
+                };
+            }
         }
 
         public static void Stop()
         {
-            _isRunning = false;
-            _routerSocket?.Dispose();
-            _pubSocket?.Dispose();
-            _subSocket?.Dispose();
+            Task[] tasks;
+            lock (_lifecycleLock)
+            {
+                if (!_isRunning && _serverTasks.Length == 0) return;
+                _isRunning = false;
+                tasks = _serverTasks;
+                _serverTasks = Array.Empty<Task>();
+
+                _routerSocket?.Dispose();
+                _pubSocket?.Dispose();
+                _subSocket?.Dispose();
+                _routerSocket = null;
+                _pubSocket = null;
+                _subSocket = null;
+            }
+
+            try
+            {
+                Task.WaitAll(tasks, TimeSpan.FromSeconds(2));
+            }
+            catch (AggregateException)
+            {
+                // Socket disposal interrupts receive loops during normal shutdown.
+            }
             NetMQConfig.Cleanup();
         }
 
@@ -71,28 +96,48 @@ namespace RSMA.NetMQ
         private static void InitPublisher(int pubPort)
         {
             AsyncIO.ForceDotNet.Force();
-            _pubSocket = new PublisherSocket();
-            _pubSocket.Options.SendHighWatermark = 1000;
-            _pubSocket.Options.Linger = TimeSpan.Zero;
-            _pubSocket.Bind($"tcp://*:{pubPort}");
+            var socket = new PublisherSocket();
+            try
+            {
+                socket.Options.SendHighWatermark = 1000;
+                socket.Options.Linger = TimeSpan.Zero;
+                socket.Bind($"tcp://*:{pubPort}");
+                if (!_isRunning)
+                {
+                    socket.Dispose();
+                    return;
+                }
+                _pubSocket = socket;
+            }
+            catch
+            {
+                socket.Dispose();
+                if (_isRunning) _isRunning = false;
+                throw;
+            }
         }
 
 
         private static void ReceiverLoop(int subPort)
         {
             AsyncIO.ForceDotNet.Force();
-            using (_subSocket = new SubscriberSocket())
+            using (var socket = new SubscriberSocket())
             {
-                _subSocket.Options.Linger = TimeSpan.Zero;
-                _subSocket.Options.ReceiveHighWatermark = 1000;
+                socket.Options.Linger = TimeSpan.Zero;
+                socket.Options.ReceiveHighWatermark = 1000;
 
                 // ВМЕСТО Connect ДЕЛАЕМ Bind:
-                _subSocket.Bind($"tcp://*:{subPort}");
-                _subSocket.Subscribe(""); // Подписка на все топики
+                socket.Bind($"tcp://*:{subPort}");
+                if (!_isRunning)
+                    return;
+                _subSocket = socket;
+                socket.Subscribe(""); // Подписка на все топики
 
                 while (_isRunning)
                 {
-                    var message = _subSocket.ReceiveMultipartMessage();
+                    NetMQMessage message = new NetMQMessage();
+                    if (!socket.TryReceiveMultipartMessage(TimeSpan.FromMilliseconds(100), ref message))
+                        continue;
 
                     if (message.FrameCount == 3)
                     {
@@ -216,13 +261,18 @@ namespace RSMA.NetMQ
         private static void CommandServerLoop(int commandPort)
         {
             AsyncIO.ForceDotNet.Force();
-            using (_routerSocket = new RouterSocket())
+            using (var socket = new RouterSocket())
             {
-                _routerSocket.Bind($"tcp://*:{commandPort}");
+                socket.Bind($"tcp://*:{commandPort}");
+                if (!_isRunning)
+                    return;
+                _routerSocket = socket;
 
                 while (_isRunning)
                 {
-                    var message = _routerSocket.ReceiveMultipartMessage();
+                    NetMQMessage message = new NetMQMessage();
+                    if (!socket.TryReceiveMultipartMessage(TimeSpan.FromMilliseconds(100), ref message))
+                        continue;
 
                     if (message.FrameCount >= 3)
                     {
@@ -233,7 +283,7 @@ namespace RSMA.NetMQ
                         string response = ProcessCommand(payload);
                         byte[] responseBytes = Encoding.UTF8.GetBytes(response);
 
-                        _routerSocket.SendMultipartMessage(new NetMQMessage(new[]
+                        socket.SendMultipartMessage(new NetMQMessage(new[]
                         {
                             clientIdentity,
                             NetMQFrame.Empty,

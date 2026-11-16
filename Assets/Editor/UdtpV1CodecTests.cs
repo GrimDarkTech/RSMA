@@ -40,11 +40,11 @@ namespace RSMA.Tests
         }
 
         [Test]
-        public void LegacyCameraAndUnknownTypesRemainOpaque()
+        public void LegacyCameraIsOpaqueAndUnknownTypesAreRejected()
         {
             Assert.IsTrue(UdtpV1Codec.IsOpaqueTypeId(UdtpV1Codec.OpaqueTypeId));
             Assert.IsTrue(UdtpV1Codec.IsOpaqueTypeId(UdtpV1Codec.LegacyCameraTypeId));
-            Assert.IsTrue(UdtpV1Codec.IsOpaqueTypeId(42));
+            Assert.IsFalse(UdtpV1Codec.IsOpaqueTypeId(42));
 
             var camera = new byte[] { 1, 2, 3, 4 };
             DataBroker.UpdateFromNetwork(
@@ -84,6 +84,30 @@ namespace RSMA.Tests
             var poseBytes = new byte[40];
             poseBytes[36] = 1;
             Assert.IsFalse(UdtpV1Codec.TryDecode(1002, poseBytes, out _));
+        }
+
+        [Test]
+        public void RejectsUnknownNetworkTypeId()
+        {
+            var header = new TopicHeader { timestamp = 123, payloadSize = 4, topicTypeId = 42 }.EncodeV1();
+            Assert.Throws<FormatException>(() => DataBroker.UpdateFromNetwork("test/unknown", header, new byte[] { 1, 2, 3, 4 }));
+            Assert.IsNull(DataBroker.GetRawState("test/unknown"));
+        }
+
+        [Test]
+        public void TypedNetworkValueReplacesPreviousOpaquePayload()
+        {
+            var topic = "test/reused-topic";
+            var raw = new byte[] { 1, 2, 3, 4 };
+            DataBroker.UpdateFromNetwork(topic,
+                new TopicHeader { timestamp = 123, payloadSize = raw.Length, topicTypeId = UdtpV1Codec.LegacyCameraTypeId }.EncodeV1(), raw);
+
+            var pose = new Pose { timestamp = 456, position = UnityEngine.Vector3.one, rotation = UnityEngine.Quaternion.identity };
+            DataBroker.UpdateFromNetwork(topic,
+                new TopicHeader { timestamp = 456, payloadSize = 40, topicTypeId = UdtpV1Codec.PoseTypeId }.EncodeV1(), UdtpV1Codec.Encode(pose));
+
+            Assert.IsInstanceOf<Pose>(DataBroker.GetRawState(topic));
+            Assert.AreEqual(456, DataBroker.GetState<Pose>(topic).timestamp);
         }
 
         private static string Hex(byte[] bytes) => BitConverter.ToString(bytes).Replace("-", "").ToLowerInvariant();

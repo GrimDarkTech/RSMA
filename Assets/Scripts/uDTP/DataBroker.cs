@@ -112,9 +112,7 @@ namespace RSMA.uDTP
             if (decodedHeader.payloadSize != payload.Length)
                 throw new FormatException("uDTP payloadSize does not match payload frame.");
 
-            if (decodedHeader.topicTypeId >= UdtpV1Codec.RobotVelocityTypeId &&
-                decodedHeader.topicTypeId <= UdtpV1Codec.TrajectoryPointTypeId &&
-                UdtpV1Codec.IsKnownTypeId(decodedHeader.topicTypeId))
+            if (UdtpV1Codec.IsKnownTypeId(decodedHeader.topicTypeId))
             {
                 if (!UdtpV1Codec.TryDecode(decodedHeader.topicTypeId, payload, out var decoded))
                     throw new FormatException("Invalid uDTP v1 payload for the declared type ID.");
@@ -169,7 +167,10 @@ namespace RSMA.uDTP
                 }
             }
 
-            // Keep legacy raw IDs (for example Camera=2) as opaque payloads.
+            if (!UdtpV1Codec.IsOpaqueTypeId(decodedHeader.topicTypeId))
+                throw new FormatException($"Unknown uDTP v1 type ID {decodedHeader.topicTypeId}.");
+
+            // Keep explicitly supported opaque IDs (for example legacy Camera=2).
             RegisterTopic(topicName, "NetworkPayload");
             _topics.TryRemove(topicName, out _);
             _rawHeaders[topicName] = header;
@@ -181,6 +182,7 @@ namespace RSMA.uDTP
         {
             RegisterTopic<T>(topicName);
             _topics[topicName] = new TopicStorage<T> { LatestValue = value };
+            _rawTopics.TryRemove(topicName, out _);
             _rawHeaders.TryRemove(topicName, out _);
             _networkTypeIds.TryRemove(topicName, out _);
         }

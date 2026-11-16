@@ -59,7 +59,7 @@ namespace RSMA.uDTP.CDR
             typeId >= RobotVelocityTypeId && typeId <= TrajectoryPointTypeId;
 
         public static bool IsOpaqueTypeId(int typeId) =>
-            typeId == OpaqueTypeId || typeId == LegacyCameraTypeId || !IsKnownTypeId(typeId);
+            typeId == OpaqueTypeId || typeId == LegacyCameraTypeId;
 
         public static int GetPayloadSize(int typeId)
         {

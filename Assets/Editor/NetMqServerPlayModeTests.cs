@@ -106,17 +106,44 @@ namespace RSMA.Tests
                 SendFrame(publisher, "e2e/in/Pose", 1002, UdtpV1Codec.Encode(pose), 11);
                 SendFrame(publisher, "e2e/in/LaserScan128", 1003, UdtpV1Codec.Encode(scan), 12);
                 SendFrame(publisher, "e2e/in/Camera", UdtpV1Codec.LegacyCameraTypeId, new byte[] { 1, 2, 3, 4 }, 13);
+                SendFrame(publisher, "e2e/in/Unknown", 42, new byte[] { 9, 8, 7, 6 }, 14);
+                SendFrame(publisher, "e2e/in/RobotVelocity", 1001, new byte[] { 1, 2, 3 }, 15);
 
                 yield return WaitForIncomingState(velocity, pose, scan);
 
                 var camera = DataBroker.GetRawState("e2e/in/Camera") as byte[];
                 CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4 }, camera);
+                Assert.IsNull(DataBroker.GetRawState("e2e/in/Unknown"));
             }
             finally
             {
                 publisher?.Dispose();
                 subscriber?.Dispose();
                 command?.Dispose();
+                NetMQServer.Stop();
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator ServerCanStopAndStartAgain()
+        {
+            var commandPort = GetFreePort();
+            var pubPort = GetFreePort();
+            var subPort = GetFreePort();
+            try
+            {
+                NetMQServer.Run(commandPort, pubPort, subPort);
+                Assert.IsTrue(WaitForPort(commandPort), "First server start failed.");
+                NetMQServer.Stop();
+                Assert.IsFalse(NetMQServer.IsRunning);
+
+                NetMQServer.Run(commandPort, pubPort, subPort);
+                Assert.IsTrue(WaitForPort(commandPort), "Server did not restart after Stop.");
+                Assert.IsTrue(NetMQServer.IsRunning);
+                yield return null;
+            }
+            finally
+            {
                 NetMQServer.Stop();
             }
         }
