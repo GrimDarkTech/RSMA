@@ -106,7 +106,8 @@ namespace RSMA.Microcontroller.Virtual
         IVirtualAdcHal, IVirtualAnalogInputSource, IVirtualSpiHal, IVirtualI2cHal,
         IVirtualDmaHal, IVirtualAsyncDmaHal, IVirtualEepromHal, IVirtualUartHal,
         IVirtualUartOutputSource, IVirtualUartTransportInput, IVirtualUartDiagnostics,
-        IVirtualUartOutputScheduler, IVirtualElectricalModel
+        IVirtualUartOutputScheduler, IVirtualRegisterBusHal, IVirtualBusDiagnostics,
+        IVirtualElectricalModel
     {
         private readonly IVirtualMcuHal gpio;
         private readonly List<object> components = new List<object>();
@@ -206,6 +207,7 @@ namespace RSMA.Microcontroller.Virtual
         public event Action<VirtualGpioInputEvent> InputEdge;
         public event Action<byte, byte> Received;
         public event Action<VirtualUartDiagnostic> DiagnosticRaised;
+        public event Action<VirtualBusDiagnostic> BusDiagnosticRaised;
         public event Action<byte, HitlFrame> PacketReceived;
         public event Action<byte, byte> Transmitted;
 
@@ -336,6 +338,44 @@ namespace RSMA.Microcontroller.Virtual
         public void AdvanceAnalogTo(double timeMilliseconds) { Require<IVirtualAnalogInputSource>().AdvanceAnalogTo(timeMilliseconds); }
         public byte SpiTransfer(byte bus, byte value) { return Require<IVirtualSpiHal>().SpiTransfer(bus, value); }
         public byte I2cTransfer(byte address, byte value) { return Require<IVirtualI2cHal>().I2cTransfer(address, value); }
+        public VirtualBusTransactionResult I2cTransaction(byte address, byte registerAddress,
+            byte[] writeData, int readLength, bool repeatedStart, int speedHz, double timeoutMilliseconds)
+        {
+            return Require<IVirtualRegisterBusHal>().I2cTransaction(address, registerAddress, writeData,
+                readLength, repeatedStart, speedHz, timeoutMilliseconds);
+        }
+        public VirtualBusTransactionResult SpiTransaction(byte bus, byte chipSelect, byte[] transmit,
+            VirtualSpiMode mode, VirtualBitOrder bitOrder, int speedHz, double timeoutMilliseconds)
+        {
+            return Require<IVirtualRegisterBusHal>().SpiTransaction(bus, chipSelect, transmit, mode,
+                bitOrder, speedHz, timeoutMilliseconds);
+        }
+        public VirtualBusTransactionResult I2cReadRegister(byte address, byte registerAddress, int length,
+            int speedHz, double timeoutMilliseconds)
+        {
+            return Require<IVirtualRegisterBusHal>().I2cReadRegister(address, registerAddress, length,
+                speedHz, timeoutMilliseconds);
+        }
+        public VirtualBusTransactionResult I2cWriteRegister(byte address, byte registerAddress, byte[] data,
+            int speedHz, double timeoutMilliseconds)
+        {
+            return Require<IVirtualRegisterBusHal>().I2cWriteRegister(address, registerAddress, data,
+                speedHz, timeoutMilliseconds);
+        }
+        public VirtualBusTransactionResult SpiReadRegister(byte bus, byte chipSelect, byte registerAddress,
+            int length, VirtualSpiMode mode, VirtualBitOrder bitOrder, int speedHz, double timeoutMilliseconds)
+        {
+            return Require<IVirtualRegisterBusHal>().SpiReadRegister(bus, chipSelect, registerAddress, length,
+                mode, bitOrder, speedHz, timeoutMilliseconds);
+        }
+        public VirtualBusTransactionResult SpiWriteRegister(byte bus, byte chipSelect, byte registerAddress,
+            byte[] data, VirtualSpiMode mode, VirtualBitOrder bitOrder, int speedHz, double timeoutMilliseconds)
+        {
+            return Require<IVirtualRegisterBusHal>().SpiWriteRegister(bus, chipSelect, registerAddress, data,
+                mode, bitOrder, speedHz, timeoutMilliseconds);
+        }
+        public IList<VirtualBusDiagnostic> BusDiagnostics => Has<IVirtualBusDiagnostics>()
+            ? Require<IVirtualBusDiagnostics>().BusDiagnostics : new List<VirtualBusDiagnostic>();
         public byte DmaTransfer(byte channel, byte value) { return Require<IVirtualDmaHal>().DmaTransfer(channel, value); }
         public void DmaBufferWrite(byte buffer, byte offset, byte value) { Require<IVirtualAsyncDmaHal>().DmaBufferWrite(buffer, offset, value); }
         public byte DmaBufferRead(byte buffer, byte offset) { return Require<IVirtualAsyncDmaHal>().DmaBufferRead(buffer, offset); }
@@ -472,6 +512,9 @@ namespace RSMA.Microcontroller.Virtual
                 var uartDiagnostics = component as IVirtualUartDiagnostics;
                 if (uartDiagnostics != null)
                     uartDiagnostics.DiagnosticRaised += diagnostic => DiagnosticRaised?.Invoke(diagnostic);
+                var busDiagnostics = component as IVirtualBusDiagnostics;
+                if (busDiagnostics != null)
+                    busDiagnostics.BusDiagnosticRaised += diagnostic => BusDiagnosticRaised?.Invoke(diagnostic);
             }
         }
 
@@ -501,7 +544,7 @@ namespace RSMA.Microcontroller.Virtual
                 for (var index = components.Count - 1; index > 0; index--)
                 {
                     var provider = components[index] as T;
-                    if (provider != null)
+                    if (provider != null && !(components[index] is IVirtualMcuHal))
                         return provider;
                 }
             }
@@ -532,7 +575,7 @@ namespace RSMA.Microcontroller.Virtual
             for (var index = 1; index < components.Count; index++)
             {
                 var component = components[index];
-                if (!(component is T))
+                if (!(component is T) || component is IVirtualMcuHal)
                     continue;
                 if (provider != null && !ReferenceEquals(provider, component))
                     throw new VirtualBackendConfigurationException("Multiple peripheral providers implement " +
@@ -621,9 +664,13 @@ namespace RSMA.Microcontroller.Virtual
                         required.Add("UART");
                         break;
                     case RsmaHalService.SpiTransfer:
+                    case RsmaHalService.SpiReadRegister:
+                    case RsmaHalService.SpiWriteRegister:
                         required.Add("SPI");
                         break;
                     case RsmaHalService.I2cTransfer:
+                    case RsmaHalService.I2cReadRegister:
+                    case RsmaHalService.I2cWriteRegister:
                         required.Add("I2C");
                         break;
                     case RsmaHalService.DmaTransfer:

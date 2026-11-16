@@ -2529,6 +2529,68 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
+        public void VirtualI2cRegisterDeviceSupportsReadWriteRepeatedStartNackTimeoutAndReset()
+        {
+            var buses = new VirtualBusBank { DefaultI2cSpeedHz = 100000 };
+            var device = new VirtualI2cDevice(0x48);
+            device.SetRegister(0x10, 0x2A);
+            buses.RegisterI2cDevice(device);
+
+            var read = buses.I2cReadRegister(0x48, 0x10, 1, 100000, 1.0);
+            Assert.IsTrue(read.Success);
+            Assert.IsTrue(read.Acknowledged);
+            CollectionAssert.AreEqual(new byte[] { 0x2A }, read.Data);
+            Assert.Greater(read.DurationMilliseconds, 0.0);
+
+            var write = buses.I2cWriteRegister(0x48, 0x10, new byte[] { 0x55 }, 100000, 1.0);
+            Assert.IsTrue(write.Success);
+            Assert.AreEqual(0x55, device.GetRegister(0x10));
+
+            device.Acknowledge = false;
+            var nack = buses.I2cReadRegister(0x48, 0x10, 1, 100000, -1);
+            Assert.IsFalse(nack.Success);
+            Assert.IsFalse(nack.Acknowledged);
+            Assert.IsTrue(buses.BusDiagnostics.Any(item => item.Code == "I2C_NACK"));
+
+            device.Acknowledge = true;
+            var timeout = buses.I2cReadRegister(0x48, 0x10, 1, 1000, 0.001);
+            Assert.IsTrue(timeout.TimedOut);
+            Assert.IsTrue(buses.BusDiagnostics.Any(item => item.Code == "I2C_TIMEOUT"));
+
+            buses.ResetPeripheralState();
+            Assert.AreEqual(0x2A, device.GetRegister(0x10));
+            Assert.AreEqual(0.0, buses.SimulatedTimeMilliseconds);
+            Assert.IsEmpty(buses.BusDiagnostics);
+        }
+
+        [Test]
+        public void VirtualSpiRegisterDeviceHonorsChipSelectModeBitOrderAndReset()
+        {
+            var buses = new VirtualBusBank();
+            var device = new VirtualSpiDevice(1, 3);
+            device.SetRegister(0x12, 0xA5);
+            buses.RegisterSpiDevice(device);
+
+            var read = buses.SpiReadRegister(1, 3, 0x12, 1, VirtualSpiMode.Mode3,
+                VirtualBitOrder.MsbFirst, 1000000, -1);
+            Assert.IsTrue(read.Success);
+            CollectionAssert.AreEqual(new byte[] { 0xA5 }, read.Data);
+
+            var write = buses.SpiWriteRegister(1, 3, 0x12, new byte[] { 0x3C },
+                VirtualSpiMode.Mode1, VirtualBitOrder.MsbFirst, 1000000, -1);
+            Assert.IsTrue(write.Success);
+            Assert.AreEqual(0x3C, device.GetRegister(0x12));
+
+            var missing = buses.SpiReadRegister(1, 2, 0x12, 1, VirtualSpiMode.Mode0,
+                VirtualBitOrder.MsbFirst, 1000000, -1);
+            Assert.IsFalse(missing.Success);
+            Assert.IsTrue(buses.BusDiagnostics.Any(item => item.Code == "SPI_NACK"));
+
+            buses.ResetPeripheralState();
+            Assert.AreEqual(0xA5, device.GetRegister(0x12));
+        }
+
+        [Test]
         public void VirtualMachineFailsExplicitlyWhenDmaBackendIsMissing()
         {
             var package = MakeBlinkPackage();

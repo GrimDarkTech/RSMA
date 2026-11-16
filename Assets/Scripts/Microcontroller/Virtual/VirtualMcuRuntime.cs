@@ -2137,6 +2137,57 @@ namespace RSMA.Microcontroller.Virtual
                     PushValue(i2cHal.I2cTransfer(argument, (byte)transmittedValue));
                     break;
                 }
+                case RsmaHalService.SpiReadRegister:
+                {
+                    if (!(hal is IVirtualRegisterBusHal registerBus))
+                        throw new VirtualMachineFaultException("Firmware requires register-level SPI support");
+                    var bus = (byte)(argument >> 4);
+                    var chipSelect = (byte)(argument & 0x0F);
+                    var result = registerBus.SpiReadRegister(bus, chipSelect, value, 1,
+                        VirtualSpiMode.Mode0, VirtualBitOrder.MsbFirst, 0, -1);
+                    if (!result.Success)
+                        throw new VirtualMachineFaultException(result.Error ?? "SPI register read failed");
+                    PushValue(result.Data[0]);
+                    break;
+                }
+                case RsmaHalService.SpiWriteRegister:
+                {
+                    if (!(hal is IVirtualRegisterBusHal registerBus))
+                        throw new VirtualMachineFaultException("Firmware requires register-level SPI support");
+                    var transmittedValue = PopValue();
+                    if (transmittedValue < byte.MinValue || transmittedValue > byte.MaxValue)
+                        throw new VirtualMachineFaultException("SPI register write value must be between 0 and 255");
+                    var bus = (byte)(argument >> 4);
+                    var chipSelect = (byte)(argument & 0x0F);
+                    var result = registerBus.SpiWriteRegister(bus, chipSelect, value,
+                        new[] { (byte)transmittedValue }, VirtualSpiMode.Mode0, VirtualBitOrder.MsbFirst, 0, -1);
+                    if (!result.Success)
+                        throw new VirtualMachineFaultException(result.Error ?? "SPI register write failed");
+                    break;
+                }
+                case RsmaHalService.I2cReadRegister:
+                {
+                    if (!(hal is IVirtualRegisterBusHal registerBus))
+                        throw new VirtualMachineFaultException("Firmware requires register-level I2C support");
+                    var result = registerBus.I2cReadRegister(argument, value, 1, 0, -1);
+                    if (!result.Success)
+                        throw new VirtualMachineFaultException(result.Error ?? "I2C register read failed");
+                    PushValue(result.Data[0]);
+                    break;
+                }
+                case RsmaHalService.I2cWriteRegister:
+                {
+                    if (!(hal is IVirtualRegisterBusHal registerBus))
+                        throw new VirtualMachineFaultException("Firmware requires register-level I2C support");
+                    var transmittedValue = PopValue();
+                    if (transmittedValue < byte.MinValue || transmittedValue > byte.MaxValue)
+                        throw new VirtualMachineFaultException("I2C register write value must be between 0 and 255");
+                    var result = registerBus.I2cWriteRegister(argument, value,
+                        new[] { (byte)transmittedValue }, 0, -1);
+                    if (!result.Success)
+                        throw new VirtualMachineFaultException(result.Error ?? "I2C register write failed");
+                    break;
+                }
                 case RsmaHalService.DmaTransfer:
                 {
                     if (value != 0)

@@ -28,6 +28,7 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
     private VirtualMcuBackend backend;
     private VirtualMachine virtualMachine;
     private VirtualUartBank uart;
+    private VirtualBusBank buses;
     private VirtualGpioBank peripheralBank;
     private readonly List<VirtualAnalogSensor> analogSensors = new List<VirtualAnalogSensor>();
     private readonly List<string> analogSensorDiagnostics = new List<string>();
@@ -44,6 +45,7 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
     public IList<string> AnalogSensorDiagnostics => analogSensorDiagnostics.AsReadOnly();
     public event Action<byte, byte> UartTransmitted;
     public event Action<VirtualUartDiagnostic> UartDiagnosticRaised;
+    public event Action<VirtualBusDiagnostic> BusDiagnosticRaised;
     public event Action<VirtualTraceEvent> TraceRecorded;
 
     public List<VirtualTraceEvent> GetTraceSnapshot()
@@ -159,6 +161,50 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
     public ulong DroppedUartTransmitByteCount => backend == null ? 0UL : backend.DroppedTransmitByteCount;
     public IList<VirtualUartDiagnostic> UartDiagnostics => backend == null
         ? new List<VirtualUartDiagnostic>() : backend.UartDiagnostics;
+    public IList<VirtualBusDiagnostic> BusDiagnostics => backend == null
+        ? new List<VirtualBusDiagnostic>() : backend.BusDiagnostics;
+
+    public void RegisterI2cDevice(VirtualI2cDevice device)
+    {
+        if (buses == null)
+            throw new InvalidOperationException("Virtual MCU bus bank is not initialized");
+        buses.RegisterI2cDevice(device);
+    }
+
+    public void RegisterSpiDevice(VirtualSpiDevice device)
+    {
+        if (buses == null)
+            throw new InvalidOperationException("Virtual MCU bus bank is not initialized");
+        buses.RegisterSpiDevice(device);
+    }
+
+    public VirtualBusTransactionResult I2cReadRegister(byte address, byte registerAddress, int length,
+        int speedHz = 0, double timeoutMilliseconds = -1)
+    {
+        return backend.I2cReadRegister(address, registerAddress, length, speedHz, timeoutMilliseconds);
+    }
+
+    public VirtualBusTransactionResult I2cWriteRegister(byte address, byte registerAddress, byte[] data,
+        int speedHz = 0, double timeoutMilliseconds = -1)
+    {
+        return backend.I2cWriteRegister(address, registerAddress, data, speedHz, timeoutMilliseconds);
+    }
+
+    public VirtualBusTransactionResult SpiReadRegister(byte bus, byte chipSelect, byte registerAddress,
+        int length, VirtualSpiMode mode = VirtualSpiMode.Mode0,
+        VirtualBitOrder bitOrder = VirtualBitOrder.MsbFirst, int speedHz = 0, double timeoutMilliseconds = -1)
+    {
+        return backend.SpiReadRegister(bus, chipSelect, registerAddress, length, mode, bitOrder,
+            speedHz, timeoutMilliseconds);
+    }
+
+    public VirtualBusTransactionResult SpiWriteRegister(byte bus, byte chipSelect, byte registerAddress,
+        byte[] data, VirtualSpiMode mode = VirtualSpiMode.Mode0,
+        VirtualBitOrder bitOrder = VirtualBitOrder.MsbFirst, int speedHz = 0, double timeoutMilliseconds = -1)
+    {
+        return backend.SpiWriteRegister(bus, chipSelect, registerAddress, data, mode, bitOrder,
+            speedHz, timeoutMilliseconds);
+    }
 
     public void Reset()
     {
@@ -218,10 +264,12 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
                 ? new RSMAGpioHalAdapter(gpio, boardProfile)
                 : new RSMAGpioHalAdapter(gpio, boardProfile, pinBindings);
             uart = new VirtualUartBank();
+            buses = new VirtualBusBank();
             peripheralBank = new VirtualGpioBank();
-            backend = new VirtualMcuBackend(boardProfile, hal, CreateSchedulingPolicy(), uart, peripheralBank);
+            backend = new VirtualMcuBackend(boardProfile, hal, CreateSchedulingPolicy(), uart, buses, peripheralBank);
             backend.Transmitted += OnUartTransmitted;
             backend.DiagnosticRaised += OnUartDiagnostic;
+            backend.BusDiagnosticRaised += OnBusDiagnostic;
             virtualMachine = VirtualMachine.CreateWithBackend(package, backend);
             virtualMachine.TraceRecorded += OnTraceRecorded;
             for (var i = 0; i < analogSensors.Count; i++)
@@ -240,10 +288,12 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
             {
                 backend.Transmitted -= OnUartTransmitted;
                 backend.DiagnosticRaised -= OnUartDiagnostic;
+                backend.BusDiagnosticRaised -= OnBusDiagnostic;
             }
             backend = null;
             hal = null;
             uart = null;
+            buses = null;
             peripheralBank = null;
             enabled = false;
         }
@@ -289,8 +339,10 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
         {
             backend.Transmitted -= OnUartTransmitted;
             backend.DiagnosticRaised -= OnUartDiagnostic;
+            backend.BusDiagnosticRaised -= OnBusDiagnostic;
         }
         uart = null;
+        buses = null;
         peripheralBank = null;
         for (var i = 0; i < analogSensors.Count; i++)
             UnregisterAnalogSensorFromHal(analogSensors[i]);
@@ -327,6 +379,11 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
     private void OnUartDiagnostic(VirtualUartDiagnostic diagnostic)
     {
         UartDiagnosticRaised?.Invoke(diagnostic);
+    }
+
+    private void OnBusDiagnostic(VirtualBusDiagnostic diagnostic)
+    {
+        BusDiagnosticRaised?.Invoke(diagnostic);
     }
 
     private void OnTraceRecorded(VirtualTraceEvent traceEvent)
