@@ -80,6 +80,28 @@ thread.
 
 ## Требуемый SBC developer API (предложение)
 
+### Реализованный Unity-side vertical slice
+
+`RSMA.SBC.SbcDevice` является scene-компонентом цифрового двойника для первого
+сквозного сценария. Он хранит `nodeId`, режим `Sitl`/`Hitl`, advertised TCP
+endpoint, три порта существующего `NetMqServer`, request timeout и имена
+velocity/arm topics. Компонент не создаёт отдельный ZeroMQ transport: он
+подключается к общей Unity-side сессии `NetMqServer` и останавливает её только
+если сам был владельцем запуска.
+
+Публичные операции первого инкремента:
+
+- `StartSession` / `StopSession` и `ValidateConfiguration`;
+- `PublishVelocity(RobotVelocity)` для sensor-to-RSMA пути;
+- `ProcessPendingCommands` для main-thread dispatch входящего `ArmCommand`;
+- `State`, `LastError`, `LastArmCommand`, `StateChanged` и `ArmCommandReceived`
+  для диагностики и прикладного контроллера.
+
+Командный handler вызывается только из Unity `Update`/`ProcessPendingCommands`;
+NetMQ worker не меняет GameObject. SITL/HITL mode пока является явной частью
+конфигурации и диагностики, но управление VM и Serial-Bridge относятся к этапам
+5–6 и намеренно не входят в этот vertical slice.
+
 API клиента следует строить вокруг capabilities и typed operations, а не
 переносить Unity-классы или низкоуровневые OS descriptors через сеть.
 
