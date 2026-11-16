@@ -1492,6 +1492,11 @@ namespace RSMA.Microcontroller.Virtual
             return Trace.Snapshot();
         }
 
+        public string ExportTraceJson()
+        {
+            return VirtualTraceJsonExporter.Export(Trace);
+        }
+
         public void ClearTrace()
         {
             Trace.Clear();

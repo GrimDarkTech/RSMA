@@ -23,6 +23,21 @@ namespace RSMA.Microcontroller.Virtual.Tests
         }
 
         [Test]
+        public void TraceJsonExportIsDeterministicAndEscapesMessages()
+        {
+            var trace = new VirtualTraceBuffer(4);
+            trace.Record(VirtualTraceEventKind.Fault, 1.25, 2, 3, 4, "NACK\n\"sensor\"");
+
+            var json = VirtualTraceJsonExporter.Export(trace);
+
+            StringAssert.StartsWith("{\"droppedEventCount\":0,\"events\":[", json);
+            StringAssert.Contains("\"kind\":\"Fault\"", json);
+            StringAssert.Contains("\"timestampMilliseconds\":1.25", json);
+            StringAssert.Contains("\"message\":\"NACK\\n\\\"sensor\\\"\"", json);
+            StringAssert.EndsWith("]}", json);
+        }
+
+        [Test]
         public void VirtualMachineTraceContainsAnalogDecisionAndPwmOutput()
         {
             var package = MakeAnalogPwmPackage();

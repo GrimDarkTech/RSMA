@@ -56,6 +56,13 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
             : virtualMachine.GetTraceSnapshot();
     }
 
+    public string ExportTraceJson()
+    {
+        return virtualMachine == null
+            ? VirtualTraceJsonExporter.Export(new List<VirtualTraceEvent>())
+            : virtualMachine.ExportTraceJson();
+    }
+
     public void ClearTrace()
     {
         virtualMachine?.ClearTrace();
