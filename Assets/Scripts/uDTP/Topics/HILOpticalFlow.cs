@@ -5,6 +5,7 @@ namespace RSMA.uDTP.Topics
     [StructLayout(LayoutKind.Sequential, Pack = 8)]
     public struct HILOpticalFlow
     {
+        public const int TypeId = 1008;
         public long timestamp;              // 8 байт
         public ulong time_usec;             // 8 байт
         public ushort sensor_id;            // 2 байта (+2 байта padding)

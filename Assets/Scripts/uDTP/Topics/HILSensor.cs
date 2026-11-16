@@ -5,6 +5,7 @@ namespace RSMA.uDTP.Topics
     [StructLayout(LayoutKind.Sequential, Pack = 8)]
     public struct HILSensor
     {
+        public const int TypeId = 1005;
         public long timestamp;    // 8 байт
         public float accel_x;     // 4 байта
         public float accel_y;     // 4 байта

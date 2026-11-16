@@ -5,6 +5,7 @@ namespace RSMA.uDTP.Topics
     [StructLayout(LayoutKind.Sequential, Pack = 8)]
     public unsafe struct RCChannelsInput
     {
+        public const int TypeId = 1014;
         public long timestamp;            // 8 байт
         public fixed ushort channels[18]; // 36 байт
         public byte chancount;            // 1 байт (+3 байта padding = 48 байт)

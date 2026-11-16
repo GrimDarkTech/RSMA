@@ -5,6 +5,7 @@ namespace RSMA.uDTP.Topics
     [StructLayout(LayoutKind.Sequential, Pack = 8)]
     public struct HILGPS
     {
+        public const int TypeId = 1006;
         public long timestamp;          // 8 байт
         public byte fix_type;           // 1 байт (+3 байта padding)
         public int lat;                 // 4 байта

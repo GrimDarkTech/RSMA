@@ -5,6 +5,7 @@ namespace RSMA.uDTP.Topics
     [StructLayout(LayoutKind.Sequential, Pack = 4)]
     public unsafe struct ActuatorInputs
     {
+        public const int TypeId = 1010;
         public long timestamp;         // 8 байт (0..7)
         public int size;               // 4 байта (8..11)
         public fixed float inputs[16]; // 64 байта (12..75) -> Итого: 76 байт

@@ -5,6 +5,7 @@ namespace RSMA.uDTP.Topics
     [StructLayout(LayoutKind.Sequential, Pack = 8)]
     public unsafe struct HILStateQuaternion
     {
+        public const int TypeId = 1007;
         public long timestamp;           // 8 байт
         public fixed float orientation[4]; // 16 байт [w, x, y, z]
         public float rollspeed;          // 4 байта

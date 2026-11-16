@@ -113,7 +113,7 @@ namespace RSMA.uDTP
                 throw new FormatException("uDTP payloadSize does not match payload frame.");
 
             if (decodedHeader.topicTypeId >= UdtpV1Codec.RobotVelocityTypeId &&
-                decodedHeader.topicTypeId <= UdtpV1Codec.LaserScan128TypeId &&
+                decodedHeader.topicTypeId <= UdtpV1Codec.TrajectoryPointTypeId &&
                 UdtpV1Codec.IsKnownTypeId(decodedHeader.topicTypeId))
             {
                 if (!UdtpV1Codec.TryDecode(decodedHeader.topicTypeId, payload, out var decoded))
@@ -129,6 +129,42 @@ namespace RSMA.uDTP
                         return;
                     case UdtpV1Codec.LaserScan128TypeId:
                         StoreNetworkValue(topicName, (Topics.LaserScan128)decoded);
+                        return;
+                    case UdtpV1Codec.Float32TypeId:
+                        StoreNetworkValue(topicName, (Topics.Float32)decoded);
+                        return;
+                    case UdtpV1Codec.HILSensorTypeId:
+                        StoreNetworkValue(topicName, (Topics.HILSensor)decoded);
+                        return;
+                    case UdtpV1Codec.HILGPSTypeId:
+                        StoreNetworkValue(topicName, (Topics.HILGPS)decoded);
+                        return;
+                    case UdtpV1Codec.HILStateQuaternionTypeId:
+                        StoreNetworkValue(topicName, (Topics.HILStateQuaternion)decoded);
+                        return;
+                    case UdtpV1Codec.HILOpticalFlowTypeId:
+                        StoreNetworkValue(topicName, (Topics.HILOpticalFlow)decoded);
+                        return;
+                    case UdtpV1Codec.LaserScan256TypeId:
+                        StoreNetworkValue(topicName, (Topics.LaserScan256)decoded);
+                        return;
+                    case UdtpV1Codec.ActuatorInputsTypeId:
+                        StoreNetworkValue(topicName, (Topics.ActuatorInputs)decoded);
+                        return;
+                    case UdtpV1Codec.ArmCommandTypeId:
+                        StoreNetworkValue(topicName, (Topics.ArmCommand)decoded);
+                        return;
+                    case UdtpV1Codec.FlightModeCommandTypeId:
+                        StoreNetworkValue(topicName, (Topics.FlightModeCommand)decoded);
+                        return;
+                    case UdtpV1Codec.MotorInputTypeId:
+                        StoreNetworkValue(topicName, (Topics.MotorInput)decoded);
+                        return;
+                    case UdtpV1Codec.RCChannelsInputTypeId:
+                        StoreNetworkValue(topicName, (Topics.RCChannelsInput)decoded);
+                        return;
+                    case UdtpV1Codec.TrajectoryPointTypeId:
+                        StoreNetworkValue(topicName, (Topics.TrajectoryPoint)decoded);
                         return;
                 }
             }

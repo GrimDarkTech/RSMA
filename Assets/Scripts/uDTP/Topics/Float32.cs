@@ -5,8 +5,9 @@ namespace RSMA.uDTP.Topics
     [StructLayout(LayoutKind.Sequential, Pack = 8)]
     public struct Float32
     {
-        public float value;    // 4 байта (+4 байта padding)
-        public long timestamp; // 8 байт -> 16 байт
+        public const int TypeId = 1004;
+        public float value;    // offset 0
+        public long timestamp; // offset 8, total 16 bytes
     }
 }
 

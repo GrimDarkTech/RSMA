@@ -5,6 +5,7 @@ namespace RSMA.uDTP.Topics
     [StructLayout(LayoutKind.Sequential, Pack = 4)]
     public unsafe struct LaserScan128
     {
+        public const int TypeId = 1003;
         public fixed float ranges[128]; // 512 байт
         public float angleMin;          // 4 байта
         public float angleMax;          // 4 байта
