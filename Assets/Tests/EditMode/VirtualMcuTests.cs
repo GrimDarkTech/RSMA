@@ -2648,6 +2648,7 @@ namespace RSMA.Microcontroller.Virtual.Tests
             Assert.AreEqual(VirtualDmaStatus.Active, (VirtualDmaStatus)gpio.DmaStatus(channelOneTicket));
             Assert.AreEqual(VirtualDmaStatus.Queued, (VirtualDmaStatus)gpio.DmaStatus(queuedTickets[0]));
             Assert.AreEqual(VirtualGpioBank.DmaQueueFull, gpio.DmaSubmit(2, 0, 1));
+            Assert.IsTrue(gpio.DmaDiagnostics.Any(item => item.Code == "DMA_QUEUE_FULL"));
 
             gpio.AdvanceDmaTo(0.01);
             Assert.AreEqual(VirtualDmaStatus.Complete, (VirtualDmaStatus)gpio.DmaStatus(channelZeroTicket));
@@ -2657,6 +2658,28 @@ namespace RSMA.Microcontroller.Virtual.Tests
 
             Assert.IsTrue(gpio.DmaRelease(channelZeroTicket));
             Assert.Greater(gpio.DmaSubmit(2, 0, 1), 0);
+        }
+
+        [Test]
+        public void VirtualDmaPublishesDeterministicErrorsAndResetCancelsUnreleasedTransfers()
+        {
+            var gpio = new VirtualGpioBank { DmaByteTimeMilliseconds = 0.01 };
+            var ticket = gpio.DmaSubmit(0, 0, 2);
+
+            Assert.Throws<InvalidOperationException>(() => gpio.DmaReadByte(ticket, 0));
+            Assert.IsTrue(gpio.DmaDiagnostics.Any(item => item.Code == "DMA_RESULT_NOT_READY"));
+            Assert.IsFalse(gpio.DmaRelease(ticket));
+            Assert.IsTrue(gpio.DmaDiagnostics.Any(item => item.Code == "DMA_RELEASE_INVALID"));
+
+            gpio.AdvanceDmaTo(0.02);
+            Assert.AreEqual((int)VirtualDmaStatus.Complete, gpio.DmaStatus(ticket));
+            Assert.Throws<InvalidOperationException>(() => gpio.DmaReadByte(ticket, 2));
+            Assert.IsTrue(gpio.DmaDiagnostics.Any(item => item.Code == "DMA_RESULT_OFFSET"));
+
+            gpio.ResetDma();
+            Assert.AreEqual((int)VirtualDmaStatus.Invalid, gpio.DmaStatus(ticket));
+            Assert.IsEmpty(gpio.DmaDiagnostics);
+            Assert.AreEqual(1, gpio.DmaSubmit(0, 0, 1));
         }
 
         [Test]

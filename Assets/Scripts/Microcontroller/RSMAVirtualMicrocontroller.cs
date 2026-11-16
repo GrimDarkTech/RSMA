@@ -46,6 +46,7 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
     public event Action<byte, byte> UartTransmitted;
     public event Action<VirtualUartDiagnostic> UartDiagnosticRaised;
     public event Action<VirtualBusDiagnostic> BusDiagnosticRaised;
+    public event Action<VirtualDmaDiagnostic> DmaDiagnosticRaised;
     public event Action<VirtualTraceEvent> TraceRecorded;
 
     public List<VirtualTraceEvent> GetTraceSnapshot()
@@ -270,6 +271,7 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
             backend.Transmitted += OnUartTransmitted;
             backend.DiagnosticRaised += OnUartDiagnostic;
             backend.BusDiagnosticRaised += OnBusDiagnostic;
+            backend.DmaDiagnosticRaised += OnDmaDiagnostic;
             virtualMachine = VirtualMachine.CreateWithBackend(package, backend);
             virtualMachine.TraceRecorded += OnTraceRecorded;
             for (var i = 0; i < analogSensors.Count; i++)
@@ -289,6 +291,7 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
                 backend.Transmitted -= OnUartTransmitted;
                 backend.DiagnosticRaised -= OnUartDiagnostic;
                 backend.BusDiagnosticRaised -= OnBusDiagnostic;
+                backend.DmaDiagnosticRaised -= OnDmaDiagnostic;
             }
             backend = null;
             hal = null;
@@ -340,6 +343,7 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
             backend.Transmitted -= OnUartTransmitted;
             backend.DiagnosticRaised -= OnUartDiagnostic;
             backend.BusDiagnosticRaised -= OnBusDiagnostic;
+        backend.DmaDiagnosticRaised -= OnDmaDiagnostic;
         }
         uart = null;
         buses = null;
@@ -384,6 +388,11 @@ public sealed class RSMAVirtualMicrocontroller : MonoBehaviour
     private void OnBusDiagnostic(VirtualBusDiagnostic diagnostic)
     {
         BusDiagnosticRaised?.Invoke(diagnostic);
+    }
+
+    private void OnDmaDiagnostic(VirtualDmaDiagnostic diagnostic)
+    {
+        DmaDiagnosticRaised?.Invoke(diagnostic);
     }
 
     private void OnTraceRecorded(VirtualTraceEvent traceEvent)

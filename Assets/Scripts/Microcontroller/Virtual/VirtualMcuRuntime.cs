@@ -112,6 +112,26 @@ namespace RSMA.Microcontroller.Virtual
         byte DmaTransfer(byte channel, byte value);
     }
 
+    public sealed class VirtualDmaDiagnostic
+    {
+        public string Code { get; }
+        public string Message { get; }
+        public double TimestampMilliseconds { get; }
+
+        public VirtualDmaDiagnostic(string code, string message, double timestampMilliseconds)
+        {
+            Code = code ?? throw new ArgumentNullException(nameof(code));
+            Message = message ?? throw new ArgumentNullException(nameof(message));
+            TimestampMilliseconds = timestampMilliseconds;
+        }
+    }
+
+    public interface IVirtualDmaDiagnostics
+    {
+        event Action<VirtualDmaDiagnostic> DiagnosticRaised;
+        IList<VirtualDmaDiagnostic> DmaDiagnostics { get; }
+    }
+
     public interface IVirtualAsyncDmaHal
     {
         void DmaBufferWrite(byte buffer, byte offset, byte value);
@@ -491,7 +511,7 @@ namespace RSMA.Microcontroller.Virtual
         IVirtualGpioEdgeSource, IVirtualPwmHal, IVirtualAdcHal, IVirtualSpiHal, IVirtualI2cHal,
         IVirtualDmaHal, IVirtualAsyncDmaHal, IVirtualEepromHal, IVirtualAnalogInputSource,
         IVirtualPeripheralLifecycle, IVirtualElectricalModel, IVirtualBoardProfileConsumer,
-        IVirtualPwmFrequencyHal, IVirtualPwmOutputSource
+        IVirtualPwmFrequencyHal, IVirtualPwmOutputSource, IVirtualDmaDiagnostics
     {
         public const int MaxScheduledInputEvents = 4096;
         public const int EepromSize = 256;
@@ -520,6 +540,7 @@ namespace RSMA.Microcontroller.Virtual
         };
         private readonly List<VirtualDmaTransfer> dmaTransfers = new List<VirtualDmaTransfer>();
         private readonly byte[] eeprom = new byte[EepromSize];
+        private readonly List<VirtualDmaDiagnostic> dmaDiagnostics = new List<VirtualDmaDiagnostic>();
         private readonly Dictionary<byte, VirtualGpioPinState> states = new Dictionary<byte, VirtualGpioPinState>();
         private readonly Dictionary<byte, bool?> externalDrives = new Dictionary<byte, bool?>();
         private readonly Dictionary<byte, VirtualGpioElectricalState> electricalStates =
@@ -563,7 +584,9 @@ namespace RSMA.Microcontroller.Virtual
 
         public event Action<byte, bool> OutputChanged;
         public event Action<VirtualGpioInputEvent> InputEdge;
+        public event Action<VirtualDmaDiagnostic> DiagnosticRaised;
         public IList<string> ElectricalDiagnostics { get; } = new List<string>();
+        public IList<VirtualDmaDiagnostic> DmaDiagnostics => dmaDiagnostics.AsReadOnly();
         public double? NextInputTimestampMilliseconds => scheduledInputs.Count == 0
             ? (double?)null : scheduledInputs[0].Timestamp;
 
@@ -773,15 +796,27 @@ namespace RSMA.Microcontroller.Virtual
         public int DmaSubmit(byte channel, byte buffer, int length)
         {
             if (channel > 3)
+            {
+                RaiseDmaDiagnostic("DMA_INVALID_CHANNEL", "DMA channel must be between 0 and 3");
                 throw new InvalidOperationException("DMA channel must be between 0 and 3");
+            }
             if (length < 1 || length > DmaBufferCapacity)
+            {
+                RaiseDmaDiagnostic("DMA_INVALID_LENGTH", "DMA transfer length must be between 1 and 256 bytes");
                 throw new InvalidOperationException("DMA transfer length must be between 1 and 256 bytes");
+            }
             if (double.IsNaN(DmaByteTimeMilliseconds) || double.IsInfinity(DmaByteTimeMilliseconds) ||
                 DmaByteTimeMilliseconds <= 0)
+            {
+                RaiseDmaDiagnostic("DMA_INVALID_TIMING", "DMA byte time must be a finite positive value");
                 throw new InvalidOperationException("DMA byte time must be a finite positive value");
+            }
 
             if (dmaTransfers.Count >= DmaQueueCapacity)
+            {
+                RaiseDmaDiagnostic("DMA_QUEUE_FULL", "DMA transfer queue contains unreleased tickets");
                 return DmaQueueFull;
+            }
 
             var ticket = AllocateDmaTicket();
             var transmitData = new byte[length];
@@ -807,9 +842,15 @@ namespace RSMA.Microcontroller.Virtual
         {
             var transfer = FindDmaTransfer(ticket);
             if (transfer == null || transfer.Status != VirtualDmaStatus.Complete)
+            {
+                RaiseDmaDiagnostic("DMA_RESULT_NOT_READY", "DMA result is not complete or ticket is invalid");
                 throw new InvalidOperationException("DMA result is not complete or ticket is invalid");
+            }
             if (offset >= transfer.ReceiveData.Length)
+            {
+                RaiseDmaDiagnostic("DMA_RESULT_OFFSET", "DMA result offset is outside the transfer length");
                 throw new InvalidOperationException("DMA result offset is outside the transfer length");
+            }
             return transfer.ReceiveData[offset];
         }
 
@@ -817,7 +858,10 @@ namespace RSMA.Microcontroller.Virtual
         {
             var transfer = FindDmaTransfer(ticket);
             if (transfer == null || transfer.Status != VirtualDmaStatus.Complete)
+            {
+                RaiseDmaDiagnostic("DMA_RELEASE_INVALID", "DMA ticket is invalid or has not completed");
                 return false;
+            }
             dmaTransfers.Remove(transfer);
             return true;
         }
@@ -888,6 +932,8 @@ namespace RSMA.Microcontroller.Virtual
         {
             dmaTransfers.Clear();
             dmaTimeMilliseconds = 0.0;
+            nextDmaTicket = 1;
+            dmaDiagnostics.Clear();
             for (var i = 0; i < dmaBuffers.Length; i++)
                 Array.Clear(dmaBuffers[i], 0, dmaBuffers[i].Length);
         }
@@ -897,6 +943,13 @@ namespace RSMA.Microcontroller.Virtual
             if (buffer >= dmaBuffers.Length)
                 throw new InvalidOperationException("DMA buffer index must be between 0 and 3");
             return dmaBuffers[buffer];
+        }
+
+        private void RaiseDmaDiagnostic(string code, string message)
+        {
+            var diagnostic = new VirtualDmaDiagnostic(code, message, dmaTimeMilliseconds);
+            dmaDiagnostics.Add(diagnostic);
+            DiagnosticRaised?.Invoke(diagnostic);
         }
 
         private int AllocateDmaTicket()

@@ -107,6 +107,7 @@ namespace RSMA.Microcontroller.Virtual
         IVirtualDmaHal, IVirtualAsyncDmaHal, IVirtualEepromHal, IVirtualUartHal,
         IVirtualUartOutputSource, IVirtualUartTransportInput, IVirtualUartDiagnostics,
         IVirtualUartOutputScheduler, IVirtualRegisterBusHal, IVirtualBusDiagnostics,
+        IVirtualDmaDiagnostics,
         IVirtualElectricalModel
     {
         private readonly IVirtualMcuHal gpio;
@@ -208,6 +209,12 @@ namespace RSMA.Microcontroller.Virtual
         public event Action<byte, byte> Received;
         public event Action<VirtualUartDiagnostic> DiagnosticRaised;
         public event Action<VirtualBusDiagnostic> BusDiagnosticRaised;
+        public event Action<VirtualDmaDiagnostic> DmaDiagnosticRaised;
+        event Action<VirtualDmaDiagnostic> IVirtualDmaDiagnostics.DiagnosticRaised
+        {
+            add { DmaDiagnosticRaised += value; }
+            remove { DmaDiagnosticRaised -= value; }
+        }
         public event Action<byte, HitlFrame> PacketReceived;
         public event Action<byte, byte> Transmitted;
 
@@ -393,6 +400,8 @@ namespace RSMA.Microcontroller.Virtual
             if (Has<IVirtualAsyncDmaHal>())
                 Require<IVirtualAsyncDmaHal>().ResetDma();
         }
+        public IList<VirtualDmaDiagnostic> DmaDiagnostics => Has<IVirtualDmaDiagnostics>()
+            ? Require<IVirtualDmaDiagnostics>().DmaDiagnostics : new List<VirtualDmaDiagnostic>();
         public byte EepromRead(byte address) { return Require<IVirtualEepromHal>().EepromRead(address); }
         public void EepromWrite(byte address, byte value) { Require<IVirtualEepromHal>().EepromWrite(address, value); }
         public void Begin(byte port, byte baudRatePreset) { Require<IVirtualUartHal>().Begin(port, baudRatePreset); }
@@ -515,6 +524,9 @@ namespace RSMA.Microcontroller.Virtual
                 var busDiagnostics = component as IVirtualBusDiagnostics;
                 if (busDiagnostics != null)
                     busDiagnostics.BusDiagnosticRaised += diagnostic => BusDiagnosticRaised?.Invoke(diagnostic);
+                var dmaDiagnostics = component as IVirtualDmaDiagnostics;
+                if (dmaDiagnostics != null)
+                    dmaDiagnostics.DiagnosticRaised += diagnostic => DmaDiagnosticRaised?.Invoke(diagnostic);
             }
         }
 
