@@ -361,7 +361,8 @@ namespace RSMA.Microcontroller.Virtual
         {
             var service = ReadU16(operands, 0);
             var value = operands[3];
-            if (service < (ushort)RsmaHalService.PinMode || service > (ushort)RsmaHalService.Micros)
+            if (service < (ushort)RsmaHalService.PinMode ||
+                service > (ushort)RsmaHalService.I2cWriteRegister)
                 throw new RsfwFormatException("HAL_CALL contains an unknown service ID");
             if (service == (ushort)RsmaHalService.PinMode && value > (byte)VirtualPinMode.Output)
                 throw new RsfwFormatException("HAL PinMode value must be Input(0) or Output(1)");
@@ -414,6 +415,17 @@ namespace RSMA.Microcontroller.Virtual
                 throw new RsfwFormatException("HAL DMA ticket operation reserved bytes must be zero");
             if (service == (ushort)RsmaHalService.DmaReadByte && value != 0)
                 throw new RsfwFormatException("HAL DMA read reserved value must be zero");
+            if (service == (ushort)RsmaHalService.SpiReadRegister ||
+                service == (ushort)RsmaHalService.SpiWriteRegister)
+            {
+                var bus = operands[2] >> 4;
+                var chipSelect = operands[2] & 0x0F;
+                if (bus > 15 || chipSelect > 15)
+                    throw new RsfwFormatException("HAL SPI register route is outside the supported range");
+            }
+            if ((service == (ushort)RsmaHalService.I2cReadRegister ||
+                service == (ushort)RsmaHalService.I2cWriteRegister) && operands[2] > 0x7F)
+                throw new RsfwFormatException("HAL I2C register address must be 7-bit");
         }
 
         private static byte[] Slice(byte[] source, int offset, int count)
