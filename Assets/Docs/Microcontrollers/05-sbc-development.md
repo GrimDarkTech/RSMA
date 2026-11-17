@@ -7,6 +7,26 @@
 [фактическом контракте uDTP](../../../../docs/Этап-0-Фактический-контракт-uDTP.md)
 и [uDTP v1 proposal](../../../../docs/Этап-1-Контракт-uDTP-v1.md).
 
+## SBC GPIO boundary
+
+SBC в RSMA рассматривается как контроллер внешней электрической шины. Он не
+исполняет MCU firmware и не дублирует `VirtualMcuBackend`. Компонент
+`SbcGpioPort` маппит логические SBC GPIO на подключённые virtual MCU pins,
+передаёт external drive в authoritative electrical model и читает effective
+line/electrical diagnostics обратно. Поэтому к одной линии могут подключаться
+виртуальный MCU, датчик или actuator без второй независимой копии pin state.
+
+Текущий provider boundary:
+
+- `ISbcGpioBackend` — общий контракт линии;
+- `VirtualMcuSbcGpioBackend` — SITL provider поверх `RSMAVirtualMicrocontroller`;
+- будущий Linux/HITL provider — отдельная реализация для Raspberry Pi GPIO,
+  например через `libgpiod`, с capability discovery, ownership и safe-state.
+
+Транспорт RSMA/uDTP должен переносить semantic commands/telemetry и capability
+discovery. Не следует отправлять каждый быстрый GPIO edge отдельным ZeroMQ
+сообщением; для частых событий нужен bounded batch или HITL stream envelope.
+
 ## SBC — не большой микроконтроллер
 
 Типичный SBC запускает полноценную Linux OS, процессы/threads, драйверы ядра,
@@ -101,6 +121,24 @@ velocity/arm topics. Компонент не создаёт отдельный Z
 NetMQ worker не меняет GameObject. SITL/HITL mode пока является явной частью
 конфигурации и диагностики, но управление VM и Serial-Bridge относятся к этапам
 5–6 и намеренно не входят в этот vertical slice.
+
+Сцена `Assets/Scenes/TestScenes/SBC.unity` содержит импортированную модель
+Raspberry Pi 5 (`raspberry-pi-5.1`) с `SbcDevice` и `SbcSceneTelemetry`. Adapter
+с заданным интервалом публикует `RobotVelocity` из движения `Transform` и
+применяет входящий `ArmCommand` к сценовому состоянию `IsArmed` на Unity main
+thread. Это демонстрационный sensor/command path, а не модель Linux GPIO или
+управление VM.
+
+## SITL baseline
+
+Первый SITL backend использует VirtualBox через `VBoxManage`. Поддерживаются
+guest profiles `Ubuntu 22.04` и `Ubuntu 24.04`; текущая сцена по умолчанию
+настроена на зарегистрированную VM `RSMA-Ubuntu-SITL`, NAT и guest-to-host
+address `10.0.2.2`. `SbcVirtualBoxController` отделяет process execution от
+Unity-компонента через `ISbcVirtualBoxCommandRunner`, валидирует VM state и
+поддерживает явные `StartAsync`/`StopAsync`. Реальную VM нужно зарегистрировать
+и подготовить отдельно; отсутствие `VBoxManage` или VM должно давать понятную
+ошибку, а не переводить сцену в ложное Running состояние.
 
 API клиента следует строить вокруг capabilities и typed operations, а не
 переносить Unity-классы или низкоуровневые OS descriptors через сеть.

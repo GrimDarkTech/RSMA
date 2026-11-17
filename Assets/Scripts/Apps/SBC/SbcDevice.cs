@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using RSMA.NetMQ;
 using RSMA.uDTP;
 using RSMA.uDTP.Topics;
@@ -86,6 +88,9 @@ namespace RSMA.SBC
         [SerializeField]
         private bool startOnEnable;
 
+        [SerializeField]
+        private SbcSitlConfiguration sitl = new SbcSitlConfiguration();
+
         private bool _attachedToServer;
         private bool _ownsServerSession;
         private bool _hasAppliedArmCommand;
@@ -96,6 +101,7 @@ namespace RSMA.SBC
         public string NodeId => nodeId;
         public SbcSimulationMode Mode => mode;
         public SbcEndpointConfiguration Connection => connection;
+        public SbcSitlConfiguration Sitl => sitl;
         public SbcSessionState State => _state;
         public string LastError { get; private set; } = string.Empty;
         public ArmCommand LastArmCommand => _lastArmCommand;
@@ -172,6 +178,22 @@ namespace RSMA.SBC
 
             if (_state != SbcSessionState.Stopped)
                 SetState(SbcSessionState.Stopped);
+        }
+
+        public async Task StartSitlAsync(CancellationToken cancellationToken = default)
+        {
+            if (mode != SbcSimulationMode.Sitl)
+                throw new InvalidOperationException("SITL can only be started when the SBC mode is Sitl.");
+            sitl.Validate();
+            await new SbcVirtualBoxController(sitl).StartAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        public async Task StopSitlAsync(CancellationToken cancellationToken = default)
+        {
+            if (mode != SbcSimulationMode.Sitl)
+                throw new InvalidOperationException("SITL can only be stopped when the SBC mode is Sitl.");
+            sitl.Validate();
+            await new SbcVirtualBoxController(sitl).StopAsync(cancellationToken).ConfigureAwait(false);
         }
 
         public void ValidateConfiguration()

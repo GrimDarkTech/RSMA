@@ -37,6 +37,34 @@ namespace RSMA.Tests
         }
 
         [Test]
+        public void SitlConfigurationSupportsUbuntuProfilesAndVirtualBoxStates()
+        {
+            var configuration = new SbcSitlConfiguration
+            {
+                guestProfile = SbcGuestProfile.Ubuntu2204,
+                virtualMachineName = "RSMA-Ubuntu-SITL"
+            };
+            configuration.Validate();
+            Assert.AreEqual("Ubuntu 22.04", configuration.GuestImageLabel);
+            Assert.AreEqual(SbcVirtualMachineState.PoweredOff,
+                SbcVirtualBoxController.ParseState("VMState=\"poweroff\"\n"));
+            Assert.AreEqual(SbcVirtualMachineState.Running,
+                SbcVirtualBoxController.ParseState("VMState=\"running\"\n"));
+            configuration.guestProfile = SbcGuestProfile.Ubuntu2404;
+            Assert.AreEqual("Ubuntu 24.04", configuration.GuestImageLabel);
+        }
+
+        [Test]
+        public void SitlConfigurationRejectsInvalidVmNameAndAddress()
+        {
+            var configuration = new SbcSitlConfiguration { virtualMachineName = "" };
+            Assert.Throws<ArgumentException>(() => configuration.Validate());
+            configuration.virtualMachineName = "RSMA-Ubuntu-SITL";
+            configuration.guestToHostAddress = "not-an-ip";
+            Assert.Throws<ArgumentException>(() => configuration.Validate());
+        }
+
+        [Test]
         public void InvalidConfigurationDoesNotStartSession()
         {
             var gameObject = new GameObject("SBC invalid test");
@@ -63,6 +91,7 @@ namespace RSMA.Tests
             SubscriberSocket subscriber = null;
             try
             {
+                NetMQServer.Stop();
                 var device = gameObject.AddComponent<SbcDevice>();
                 var commandPort = GetFreePort();
                 var publishPort = GetFreePort();
@@ -92,8 +121,14 @@ namespace RSMA.Tests
 
                 var received = false;
                 var deadline = Time.realtimeSinceStartup + 3f;
+                var nextPublish = Time.realtimeSinceStartup;
                 while (Time.realtimeSinceStartup < deadline && !received)
                 {
+                    if (Time.realtimeSinceStartup >= nextPublish)
+                    {
+                        device.PublishVelocity(velocity);
+                        nextPublish = Time.realtimeSinceStartup + 0.1f;
+                    }
                     var message = new NetMQMessage();
                     if (subscriber.TryReceiveMultipartMessage(TimeSpan.Zero, ref message))
                     {
@@ -129,6 +164,42 @@ namespace RSMA.Tests
             finally
             {
                 subscriber?.Dispose();
+                UnityEngine.Object.DestroyImmediate(gameObject);
+                NetMQServer.Stop();
+            }
+        }
+
+        [Test]
+        public void SceneTelemetryAppliesArmCommandState()
+        {
+            var gameObject = new GameObject("SBC telemetry test");
+            try
+            {
+                NetMQServer.Stop();
+                var device = gameObject.AddComponent<SbcDevice>();
+                var telemetry = gameObject.AddComponent<SbcSceneTelemetry>();
+                var changed = false;
+                telemetry.ArmStateChanged += value => changed = value;
+
+                var command = new ArmCommand { timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), arm = 1 };
+                device.Connection.commandPort = GetFreePort();
+                device.Connection.publishPort = GetFreePort();
+                device.Connection.subscribePort = GetFreePort();
+                device.StartSession();
+                Assert.AreEqual(SbcSessionState.Running, device.State);
+                Assert.IsTrue(WaitForPort(device.Connection.commandPort));
+                Assert.IsTrue(WaitForPort(device.Connection.publishPort));
+                Assert.IsTrue(WaitForPort(device.Connection.subscribePort));
+                DataBroker.UpdateFromNetwork(device.ArmCommandTopic,
+                    new TopicHeader { timestamp = 123, payloadSize = 16, topicTypeId = UdtpV1Codec.ArmCommandTypeId }.EncodeV1(),
+                    UdtpV1Codec.Encode(command));
+                device.ProcessPendingCommands();
+
+                Assert.IsTrue(telemetry.IsArmed);
+                Assert.IsTrue(changed);
+            }
+            finally
+            {
                 UnityEngine.Object.DestroyImmediate(gameObject);
                 NetMQServer.Stop();
             }
