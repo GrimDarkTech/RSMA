@@ -3,6 +3,9 @@ using System.Collections;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using NetMQ;
 using NetMQ.Sockets;
 using NUnit.Framework;
@@ -62,6 +65,76 @@ namespace RSMA.Tests
             configuration.virtualMachineName = "RSMA-Ubuntu-SITL";
             configuration.guestToHostAddress = "not-an-ip";
             Assert.Throws<ArgumentException>(() => configuration.Validate());
+        }
+
+        [Test]
+        public void SitlRejectsUnimplementedBridgedNetworkMode()
+        {
+            var configuration = new SbcSitlConfiguration
+            {
+                networkMode = SbcVirtualBoxNetworkMode.Bridged
+            };
+            Assert.Throws<NotSupportedException>(() => configuration.Validate());
+        }
+
+        [Test]
+        public async Task VirtualBoxStartWaitsUntilGuestIsRunning()
+        {
+            var configuration = new SbcSitlConfiguration { virtualMachineName = "RSMA SITL" };
+            var runner = new FakeVirtualBoxRunner(
+                Result("VMState=\"poweroff\"\n"),
+                Result("VM started"),
+                Result("VMState=\"running\"\n"));
+            var controller = new SbcVirtualBoxController(configuration, runner);
+
+            await controller.StartAsync();
+
+            Assert.AreEqual(3, runner.Arguments.Count);
+            StringAssert.Contains("startvm \"RSMA SITL\" --type headless", runner.Arguments[1]);
+        }
+
+        [Test]
+        public async Task VirtualBoxStopWaitsUntilGuestIsPoweredOff()
+        {
+            var configuration = new SbcSitlConfiguration { virtualMachineName = "RSMA-Ubuntu-SITL" };
+            var runner = new FakeVirtualBoxRunner(
+                Result("VMState=\"running\"\n"),
+                Result("Power button sent"),
+                Result("VMState=\"poweroff\"\n"));
+            var controller = new SbcVirtualBoxController(configuration, runner);
+
+            await controller.StopAsync();
+
+            Assert.AreEqual(3, runner.Arguments.Count);
+            StringAssert.Contains("controlvm \"RSMA-Ubuntu-SITL\" acpipowerbutton", runner.Arguments[1]);
+        }
+
+        [Test]
+        public void VirtualBoxStartTimesOutIfVmNeverReachesRunning()
+        {
+            var configuration = new SbcSitlConfiguration
+            {
+                virtualMachineName = "RSMA-Ubuntu-SITL",
+                startupTimeoutSeconds = 1,
+                commandTimeoutSeconds = 1
+            };
+            var runner = new FakeVirtualBoxRunner(
+                Result("VMState=\"poweroff\"\n"),
+                Result("VM started"),
+                Result("VMState=\"poweroff\"\n"),
+                Result("VMState=\"poweroff\"\n"),
+                Result("VMState=\"poweroff\"\n"),
+                Result("VMState=\"poweroff\"\n"));
+            var controller = new SbcVirtualBoxController(configuration, runner);
+
+            Assert.ThrowsAsync<TimeoutException>(async () => await controller.StartAsync());
+        }
+
+        [Test]
+        public void VirtualBoxStartupTimeoutIsValidated()
+        {
+            var configuration = new SbcSitlConfiguration { startupTimeoutSeconds = 0 };
+            Assert.Throws<ArgumentOutOfRangeException>(() => configuration.Validate());
         }
 
         [Test]
@@ -213,6 +286,33 @@ namespace RSMA.Tests
             var port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
             listener.Stop();
             return port;
+        }
+
+        private static SbcVirtualBoxCommandResult Result(string output, int exitCode = 0, string error = "") =>
+            new SbcVirtualBoxCommandResult(exitCode, output, error);
+
+        private sealed class FakeVirtualBoxRunner : ISbcVirtualBoxCommandRunner
+        {
+            private readonly Queue<SbcVirtualBoxCommandResult> _results;
+
+            public readonly List<string> Arguments = new List<string>();
+
+            public FakeVirtualBoxRunner(params SbcVirtualBoxCommandResult[] results)
+            {
+                _results = new Queue<SbcVirtualBoxCommandResult>(results);
+            }
+
+            public Task<SbcVirtualBoxCommandResult> RunAsync(
+                string executable,
+                string arguments,
+                CancellationToken cancellationToken)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                Arguments.Add(arguments);
+                return Task.FromResult(_results.Count == 0
+                    ? Result("VMState=\"poweroff\"\n")
+                    : _results.Dequeue());
+            }
         }
 
         private static bool WaitForPort(int port)

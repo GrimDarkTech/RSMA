@@ -1,7 +1,7 @@
 using System;
 using System.Diagnostics;
-using System.Threading;
 using System.Threading.Tasks;
+using System.Threading;
 using UnityEngine;
 
 namespace RSMA.SBC
@@ -27,6 +27,15 @@ namespace RSMA.SBC
         Aborted
     }
 
+    public enum SbcSitlOperationState
+    {
+        Stopped,
+        Starting,
+        VmRunning,
+        Stopping,
+        Faulted
+    }
+
     [Serializable]
     public sealed class SbcSitlConfiguration
     {
@@ -40,7 +49,7 @@ namespace RSMA.SBC
 
         public SbcVirtualBoxNetworkMode networkMode = SbcVirtualBoxNetworkMode.Nat;
 
-        [Tooltip("VirtualBox NAT gateway address used by the guest to reach the host.")]
+        [Tooltip("Expected host gateway visible inside the VM when its VirtualBox adapter is preconfigured as NAT.")]
         public string guestToHostAddress = "10.0.2.2";
 
         [Min(1)]
@@ -49,12 +58,21 @@ namespace RSMA.SBC
         [Min(1)]
         public int shutdownTimeoutSeconds = 30;
 
+        [Min(1)]
+        public int commandTimeoutSeconds = 10;
+
         public string GuestImageLabel => guestProfile == SbcGuestProfile.Ubuntu2204
             ? "Ubuntu 22.04"
             : "Ubuntu 24.04";
 
         public void Validate()
         {
+            if (!Enum.IsDefined(typeof(SbcGuestProfile), guestProfile))
+                throw new ArgumentOutOfRangeException(nameof(guestProfile));
+            if (!Enum.IsDefined(typeof(SbcVirtualBoxNetworkMode), networkMode))
+                throw new ArgumentOutOfRangeException(nameof(networkMode));
+            if (networkMode != SbcVirtualBoxNetworkMode.Nat)
+                throw new NotSupportedException("Bridged VirtualBox networking is not implemented yet. Use NAT; the VM must be preconfigured with the expected guest-to-host gateway.");
             if (string.IsNullOrWhiteSpace(virtualMachineName))
                 throw new ArgumentException("VirtualBox VM name must be non-empty.", nameof(virtualMachineName));
             if (virtualMachineName.IndexOfAny(new[] { '\r', '\n', '\0' }) >= 0)
@@ -65,6 +83,8 @@ namespace RSMA.SBC
                 throw new ArgumentOutOfRangeException(nameof(startupTimeoutSeconds));
             if (shutdownTimeoutSeconds < 1)
                 throw new ArgumentOutOfRangeException(nameof(shutdownTimeoutSeconds));
+            if (commandTimeoutSeconds < 1)
+                throw new ArgumentOutOfRangeException(nameof(commandTimeoutSeconds));
         }
     }
 
@@ -96,6 +116,7 @@ namespace RSMA.SBC
             string arguments,
             CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             using (var process = new Process())
             {
                 process.StartInfo = new ProcessStartInfo
@@ -110,7 +131,33 @@ namespace RSMA.SBC
                 process.Start();
                 var outputTask = process.StandardOutput.ReadToEndAsync();
                 var errorTask = process.StandardError.ReadToEndAsync();
-                await Task.Run(() => process.WaitForExit(), cancellationToken).ConfigureAwait(false);
+                using (cancellationToken.Register(() =>
+                {
+                    try
+                    {
+                        if (!process.HasExited)
+                            process.Kill();
+                    }
+                    catch (InvalidOperationException)
+                    {
+                    }
+                    catch (System.ComponentModel.Win32Exception)
+                    {
+                    }
+                }))
+                {
+                    try
+                    {
+                        await Task.Run(() => process.WaitForExit()).ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                        if (!process.HasExited)
+                            process.Kill();
+                        throw;
+                    }
+                }
+                cancellationToken.ThrowIfCancellationRequested();
                 return new SbcVirtualBoxCommandResult(
                     process.ExitCode,
                     await outputTask.ConfigureAwait(false),
@@ -132,7 +179,12 @@ namespace RSMA.SBC
 
         public string GuestImageLabel => _configuration.GuestImageLabel;
 
-        public async Task<SbcVirtualMachineState> GetStateAsync(CancellationToken cancellationToken = default)
+        public Task<SbcVirtualMachineState> GetStateAsync(CancellationToken cancellationToken = default)
+        {
+            return QueryStateAsync(cancellationToken);
+        }
+
+        private async Task<SbcVirtualMachineState> QueryStateAsync(CancellationToken cancellationToken)
         {
             _configuration.Validate();
             var result = await RunVBoxManageAsync(
@@ -157,6 +209,9 @@ namespace RSMA.SBC
                 cancellationToken).ConfigureAwait(false);
             if (!result.Succeeded)
                 throw CreateCommandException("startvm", result);
+
+            await WaitForStateAsync(SbcVirtualMachineState.Running,
+                _configuration.startupTimeoutSeconds, cancellationToken).ConfigureAwait(false);
         }
 
         public async Task StopAsync(CancellationToken cancellationToken = default)
@@ -173,6 +228,46 @@ namespace RSMA.SBC
                 cancellationToken).ConfigureAwait(false);
             if (!result.Succeeded)
                 throw CreateCommandException("controlvm", result);
+
+            await WaitForStateAsync(SbcVirtualMachineState.PoweredOff,
+                _configuration.shutdownTimeoutSeconds, cancellationToken).ConfigureAwait(false);
+        }
+
+        private async Task WaitForStateAsync(
+            SbcVirtualMachineState expected,
+            int timeoutSeconds,
+            CancellationToken cancellationToken)
+        {
+            var stopwatch = Stopwatch.StartNew();
+            using (var waitTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+            {
+                waitTimeout.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
+                try
+                {
+                    while (stopwatch.Elapsed < TimeSpan.FromSeconds(timeoutSeconds))
+                    {
+                        waitTimeout.Token.ThrowIfCancellationRequested();
+                        var state = await GetStateAsync(waitTimeout.Token).ConfigureAwait(false);
+                        if (state == expected)
+                            return;
+                        if (state == SbcVirtualMachineState.Aborted)
+                            throw new InvalidOperationException($"VirtualBox VM '{_configuration.virtualMachineName}' entered Aborted state while waiting for {expected}.");
+
+                        var remaining = TimeSpan.FromSeconds(timeoutSeconds) - stopwatch.Elapsed;
+                        var delay = remaining < TimeSpan.FromMilliseconds(250)
+                            ? remaining
+                            : TimeSpan.FromMilliseconds(250);
+                        if (delay > TimeSpan.Zero)
+                            await Task.Delay(delay, waitTimeout.Token).ConfigureAwait(false);
+                    }
+                }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                {
+                    throw new TimeoutException($"Timed out after {timeoutSeconds}s waiting for VirtualBox VM '{_configuration.virtualMachineName}' to enter {expected} state.");
+                }
+            }
+
+            throw new TimeoutException($"Timed out after {timeoutSeconds}s waiting for VirtualBox VM '{_configuration.virtualMachineName}' to enter {expected} state.");
         }
 
         public static SbcVirtualMachineState ParseState(string machineReadableOutput)
@@ -205,7 +300,26 @@ namespace RSMA.SBC
 
         private Task<SbcVirtualBoxCommandResult> RunVBoxManageAsync(string arguments, CancellationToken cancellationToken)
         {
-            return _runner.RunAsync(BuildExecutablePath(), arguments, cancellationToken);
+            return RunWithTimeoutAsync(arguments, cancellationToken);
+        }
+
+        private async Task<SbcVirtualBoxCommandResult> RunWithTimeoutAsync(
+            string arguments,
+            CancellationToken cancellationToken)
+        {
+            using (var commandTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+            {
+                commandTimeout.CancelAfter(TimeSpan.FromSeconds(_configuration.commandTimeoutSeconds));
+                try
+                {
+                    return await _runner.RunAsync(BuildExecutablePath(), arguments, commandTimeout.Token)
+                        .ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                {
+                    throw new TimeoutException($"VBoxManage command exceeded {_configuration.commandTimeoutSeconds}s: {arguments}");
+                }
+            }
         }
 
         private static string Quote(string value)

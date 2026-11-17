@@ -97,18 +97,22 @@ namespace RSMA.SBC
         private long _lastAppliedArmTimestamp;
         private SbcSessionState _state = SbcSessionState.Stopped;
         private ArmCommand _lastArmCommand;
+        private SbcSitlOperationState _sitlState = SbcSitlOperationState.Stopped;
 
         public string NodeId => nodeId;
         public SbcSimulationMode Mode => mode;
         public SbcEndpointConfiguration Connection => connection;
         public SbcSitlConfiguration Sitl => sitl;
         public SbcSessionState State => _state;
+        public SbcSitlOperationState SitlState => _sitlState;
         public string LastError { get; private set; } = string.Empty;
+        public string LastSitlError { get; private set; } = string.Empty;
         public ArmCommand LastArmCommand => _lastArmCommand;
         public string VelocityTopic => BuildTopic(velocityTopic);
         public string ArmCommandTopic => BuildTopic(armCommandTopic);
 
         public event Action<SbcSessionState> StateChanged;
+        public event Action<SbcSitlOperationState> SitlStateChanged;
         public event Action<ArmCommand> ArmCommandReceived;
 
         private void OnEnable()
@@ -185,7 +189,26 @@ namespace RSMA.SBC
             if (mode != SbcSimulationMode.Sitl)
                 throw new InvalidOperationException("SITL can only be started when the SBC mode is Sitl.");
             sitl.Validate();
-            await new SbcVirtualBoxController(sitl).StartAsync(cancellationToken).ConfigureAwait(false);
+            LastSitlError = string.Empty;
+            SetSitlState(SbcSitlOperationState.Starting);
+            try
+            {
+                StartSession();
+                if (_state != SbcSessionState.Running)
+                    throw new InvalidOperationException(string.IsNullOrEmpty(LastError)
+                        ? "RSMA NetMQ session did not start."
+                        : LastError);
+
+                await new SbcVirtualBoxController(sitl).StartAsync(cancellationToken);
+                SetSitlState(SbcSitlOperationState.VmRunning);
+            }
+            catch (Exception exception)
+            {
+                LastSitlError = exception.Message;
+                SetSitlState(SbcSitlOperationState.Faulted);
+                StopSession();
+                throw;
+            }
         }
 
         public async Task StopSitlAsync(CancellationToken cancellationToken = default)
@@ -193,7 +216,20 @@ namespace RSMA.SBC
             if (mode != SbcSimulationMode.Sitl)
                 throw new InvalidOperationException("SITL can only be stopped when the SBC mode is Sitl.");
             sitl.Validate();
-            await new SbcVirtualBoxController(sitl).StopAsync(cancellationToken).ConfigureAwait(false);
+            LastSitlError = string.Empty;
+            SetSitlState(SbcSitlOperationState.Stopping);
+            try
+            {
+                await new SbcVirtualBoxController(sitl).StopAsync(cancellationToken);
+                StopSession();
+                SetSitlState(SbcSitlOperationState.Stopped);
+            }
+            catch (Exception exception)
+            {
+                LastSitlError = exception.Message;
+                SetSitlState(SbcSitlOperationState.Faulted);
+                throw;
+            }
         }
 
         public void ValidateConfiguration()
@@ -233,6 +269,12 @@ namespace RSMA.SBC
         {
             _state = state;
             StateChanged?.Invoke(state);
+        }
+
+        private void SetSitlState(SbcSitlOperationState state)
+        {
+            _sitlState = state;
+            SitlStateChanged?.Invoke(state);
         }
     }
 }
