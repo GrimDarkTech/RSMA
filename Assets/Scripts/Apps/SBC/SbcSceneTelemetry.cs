@@ -34,15 +34,14 @@ namespace RSMA.SBC
 
         private void Awake()
         {
-            if (device == null)
-                device = GetComponent<SbcDevice>();
+            EnsureSubscription();
             _lastPosition = transform.position;
             _lastRotation = transform.rotation;
         }
 
         private void OnEnable()
         {
-            Subscribe();
+            EnsureSubscription();
             if (publishOnEnable)
                 _nextPublishTime = Time.time;
         }
@@ -54,6 +53,7 @@ namespace RSMA.SBC
 
         private void Update()
         {
+            EnsureSubscription();
             if (device == null || device.State != SbcSessionState.Running || Time.time < _nextPublishTime)
                 return;
 
@@ -82,6 +82,13 @@ namespace RSMA.SBC
                 device.ArmCommandReceived += OnArmCommandReceived;
                 _subscribed = true;
             }
+        }
+
+        public void EnsureSubscription()
+        {
+            if (device == null)
+                device = GetComponent<SbcDevice>();
+            Subscribe();
         }
 
         private void Unsubscribe()

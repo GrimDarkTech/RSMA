@@ -178,6 +178,7 @@ namespace RSMA.Tests
                 NetMQServer.Stop();
                 var device = gameObject.AddComponent<SbcDevice>();
                 var telemetry = gameObject.AddComponent<SbcSceneTelemetry>();
+                telemetry.EnsureSubscription();
                 var changed = false;
                 telemetry.ArmStateChanged += value => changed = value;
 

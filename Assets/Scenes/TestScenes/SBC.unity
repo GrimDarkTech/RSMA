@@ -333,7 +333,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
+  - {fileID: 2100000, guid: ac0db686da132134faee903442429dd0, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -4217,8 +4217,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b9c9995b048a44f46b892da18ea149ad, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   colorBody: {fileID: 0}
   color: {r: 1, g: 0, b: 0, a: 1}
   connectedPin:
@@ -16765,8 +16765,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e5a7a7fabaf09a741ab735526fc7f7a0, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   mass: 0.007
   centerOfMassPosition: {x: 0, y: 0, z: 0}
   isDrawCenterOfMass: 1
@@ -19014,7 +19014,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 47b668f3756b2044f97c305fdab5b8c0, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RSMAGPIO
   ports:
   - name: PC
@@ -19035,7 +19035,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 40e74716e51847f080985786061addcf, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RSMAVirtualMicrocontroller
   firmware: {fileID: 4900000, guid: 9719fee4ddb34b44b6c4a5e4c1e06f19, type: 3}
   gpio: {fileID: 6064054868377645816}
@@ -30262,7 +30262,7 @@ MonoBehaviour:
   sitl:
     guestProfile: 1
     virtualMachineName: RSMA-Ubuntu-SITL
-    vboxManagePath:
+    vboxManagePath: 
     networkMode: 0
     guestToHostAddress: 10.0.2.2
     startupTimeoutSeconds: 60
@@ -30277,7 +30277,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b4a83e0e28ad4d0dbcc5ac4f6db09f52, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RSMA.SBC.SbcSceneTelemetry
   device: {fileID: 8957578042882215487}
   publishIntervalSeconds: 0.1
@@ -30292,7 +30292,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4d8b7a1c5f2e4e3b9d0a6c7f8b1e2d43, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RSMA.SBC.SbcGpioPort
   virtualMcu: {fileID: 6064054868377645817}
   pinBindings:

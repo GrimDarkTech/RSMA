@@ -127,6 +127,16 @@ Raspberry Pi 5 (`raspberry-pi-5.1`) с `SbcDevice` и `SbcSceneTelemetry`. Adapt
 с заданным интервалом публикует `RobotVelocity` из движения `Transform` и
 применяет входящий `ArmCommand` к сценовому состоянию `IsArmed` на Unity main
 thread. Это демонстрационный sensor/command path, а не модель Linux GPIO или
+
+
+`SbcSceneTelemetry.EnsureSubscription()` повторно связывает scene adapter с
+`SbcDevice` после создания/перезагрузки компонентов. Это важно для EditMode
+инструментов и scene reload, где Unity lifecycle callbacks могут быть вызваны не
+в том же порядке, что в обычном Play Mode.
+Scene acceptance test дополнительно продвигает simulated time прошивки
+`blink.rsfw.bytes` и проверяет переходы `PC.13`/virtual pin `13` и состояния
+`Light.enabled`. Это подтверждает путь `.rsfw -> VirtualMcuBackend -> GPIO ->
+LED`, а не только наличие ссылок в YAML сцены.
 управление VM.
 
 ## SITL baseline
