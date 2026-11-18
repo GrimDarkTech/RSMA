@@ -119,14 +119,15 @@ velocity/arm topics. Компонент не создаёт отдельный Z
 
 Командный handler вызывается только из Unity `Update`/`ProcessPendingCommands`;
 NetMQ worker не меняет GameObject. SITL/HITL mode пока является явной частью
-конфигурации и диагностики, но управление VM и Serial-Bridge относятся к этапам
-5–6 и намеренно не входят в этот vertical slice.
+configuration and diagnostics, but управление VM and network-session GUI относятся
+к этапам 5–6 и намеренно не входят в этот vertical slice.
 
 Сцена `Assets/Scenes/TestScenes/SBC.unity` содержит импортированную модель
 Raspberry Pi 5 (`raspberry-pi-5.1`) с `SbcDevice` и `SbcSceneTelemetry`. Adapter
 с заданным интервалом публикует `RobotVelocity` из движения `Transform` и
 применяет входящий `ArmCommand` к сценовому состоянию `IsArmed` на Unity main
 thread. Это демонстрационный sensor/command path, а не модель Linux GPIO или
+управление VM.
 
 
 `SbcSceneTelemetry.EnsureSubscription()` повторно связывает scene adapter с
@@ -137,29 +138,59 @@ Scene acceptance test дополнительно продвигает simulated 
 `blink.rsfw.bytes` и проверяет переходы `PC.13`/virtual pin `13` и состояния
 `Light.enabled`. Это подтверждает путь `.rsfw -> VirtualMcuBackend -> GPIO ->
 LED`, а не только наличие ссылок в YAML сцены.
-управление VM.
 
-## SITL baseline
+## SITL/HITL baseline
 
-Первый SITL backend использует VirtualBox через `VBoxManage`. Поддерживаются
-guest profiles `Ubuntu 22.04` и `Ubuntu 24.04`; текущая сцена по умолчанию
-настроена на зарегистрированную VM `RSMA-Ubuntu-SITL`, NAT и guest-to-host
-address `10.0.2.2`. `SbcVirtualBoxController` отделяет process execution от
-Unity-компонента через `ISbcVirtualBoxCommandRunner`, валидирует VM state и
-поддерживает явные `StartAsync`/`StopAsync`. Реальную VM нужно зарегистрировать
-и подготовить отдельно; отсутствие `VBoxManage` или VM должно давать понятную
-ошибку, а не переводить сцену в ложное Running состояние.
+Целевой первый SITL backend использует VirtualBox через `VBoxManage`.
+Поддерживаются guest profiles `Ubuntu 22.04` и `Ubuntu 24.04`; целевая
+конфигурация сцены использует зарегистрированную VM `RSMA-Ubuntu-SITL` и сетевой адаптер
+VirtualBox в режиме Bridged Adapter. VM получает независимый адрес в общей
+локальной WiFi/Ethernet-сети и подключается к host RSMA по его LAN-адресу; NAT и
+guest-to-host address `10.0.2.2` не используются. `SbcVirtualBoxController`
+отделяет process execution от Unity-компонента через
+`ISbcVirtualBoxCommandRunner`, валидирует VM state и поддерживает явные
+`StartAsync`/`StopAsync`. Текущая реализация ещё требует перехода с NAT на
+Bridged Adapter и подключения Unity GUI. Реальную VM нужно зарегистрировать и подготовить
+отдельно; отсутствие `VBoxManage`, VM или доступного сетевого endpoint должно
+давать понятную ошибку, а не переводить сцену в ложное Running состояние.
+
+Управление SITL является частью Unity GUI, а не обязательным внешним
+host-side script. По паттерну файловых инструментов RSMA, включая
+`RSMA/Assets/Scripts/GUI/MCFirmware.cs`, оператор задаёт имя VM, путь к
+`VBoxManage`, host/SBC адреса, порты и таймауты. Пути к необходимым исполняемым
+файлам, образам, проектам и каталогам выбираются через установленный
+`StandaloneFileBrowser`; GUI обязан валидировать значения до операции Start.
+Запуск VM не выполняется автоматически при загрузке сцены.
 
 До создания выделенной SITL VM можно использовать имеющуюся Ubuntu 22.04 guest
 как ручной development smoke-test. Проверенные в ней Python uDTP unit tests
 (`8/8`) и C++ shared-vector checker не заменяют сквозной запуск Unity-сервера:
-guest должен достигать host listener, а Unity `NetMqServer` должен bind-иться на
-интерфейс, видимый из guest. Репозитории RSMA, Python, C++ и MCU уже клонированы
+guest должен достигать host listener по общей Bridged LAN, а Unity `NetMqServer`
+должен bind-иться на интерфейс, видимый из guest. Репозитории RSMA, Python, C++ и MCU уже клонированы
 в `~/Projects/RSMA`; Python и C++ shared-contract checks проходят. В текущей
 конфигурации ещё не выполнен запуск клиента VM против Unity listener.
 
+Пока VM нестабильна, host-native live smoke-test проверен без перезапуска Unity:
+Python и C++ clients обращаются к `GetServerStatus`, получают
+`sbc-01/sensor/velocity` с type ID `1001`, публикуют typed сообщения, после чего
+Unity регистрирует входящие topics. Полный клиентский CI также проходит:
+Python↔standalone-C# и C++↔standalone-C# integration. Это подтверждает RSMA Unity
+path на host, но не VM isolation или guest-to-host network path.
+
 API клиента следует строить вокруг capabilities и typed operations, а не
 переносить Unity-классы или низкоуровневые OS descriptors через сеть.
+
+### Общий сетевой путь SITL и HITL
+
+HITL использует тот же RSMA/uDTP client path и те же проекты, что и SITL-клиент
+в Ubuntu VM. Отличие состоит только в среде выполнения: в HITL это реальный SBC,
+который пользователь запускает вручную и подключает к RSMA через общую локальную
+WiFi/Ethernet-сеть. RSMA не управляет питанием или запуском физической платы;
+Unity GUI отображает выбранный режим, endpoint, health и состояние reconnect.
+
+Serial/UART bridge не является базовым транспортом HITL в текущей согласованной
+архитектуре. Его можно добавить отдельным hardware adapter по отдельному решению,
+не меняя общий typed LAN-контракт.
 
 Минимальная поверхность:
 
