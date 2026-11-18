@@ -150,6 +150,14 @@ Unity-компонента через `ISbcVirtualBoxCommandRunner`, валид�
 и подготовить отдельно; отсутствие `VBoxManage` или VM должно давать понятную
 ошибку, а не переводить сцену в ложное Running состояние.
 
+До создания выделенной SITL VM можно использовать имеющуюся Ubuntu 22.04 guest
+как ручной development smoke-test. Проверенные в ней Python uDTP unit tests
+(`8/8`) и C++ shared-vector checker не заменяют сквозной запуск Unity-сервера:
+guest должен достигать host listener, а Unity `NetMqServer` должен bind-иться на
+интерфейс, видимый из guest. Репозитории RSMA, Python, C++ и MCU уже клонированы
+в `~/Projects/RSMA`; Python и C++ shared-contract checks проходят. В текущей
+конфигурации ещё не выполнен запуск клиента VM против Unity listener.
+
 API клиента следует строить вокруг capabilities и typed operations, а не
 переносить Unity-классы или низкоуровневые OS descriptors через сеть.
 
