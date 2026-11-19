@@ -1,33 +1,55 @@
 ﻿using NetMQ;
+using NetMQ.Monitoring;
 using NetMQ.Sockets;
 using RSMA.uDTP;
 using RSMA.uDTP.CDR;
 using RSMA.uDTP.Topics;
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Diagnostics;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
+using Debug = UnityEngine.Debug;
 using Pose = RSMA.uDTP.Topics.Pose;
 
 namespace RSMA.NetMQ
 {
     public static class NetMQServer
     {
-        private static volatile bool _isRunning;
         private static readonly object _lifecycleLock = new object();
-        private static Task[] _serverTasks = Array.Empty<Task>();
+        private static volatile ServerSession _session;
         private static readonly Queue<Action> _actionQueue = new Queue<Action>();
         private static readonly object _queueLock = new object();
 
-        private static RouterSocket _routerSocket;
-        private static PublisherSocket _pubSocket;
-        private static SubscriberSocket _subSocket;
+        private static readonly TimeSpan _stopTimeout = TimeSpan.FromSeconds(2);
+        private static readonly TimeSpan _socketTimeout = TimeSpan.FromMilliseconds(100);
         private static uint _globalSequence = 0;
         private static readonly object _publishLock = new object();
 
-        public static bool IsRunning => _isRunning;
+        public static bool IsRunning => _session?.IsRunning == true;
+
+        /// <summary>True once all three endpoints of the active session have bound.</summary>
+        public static bool IsReady => _session?.IsReady == true;
+
+        private sealed class ServerSession
+        {
+            private readonly TaskCompletionSource<bool> _stopping =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            private int _boundEndpoints;
+
+            public Task Stopping => _stopping.Task;
+            public bool IsRunning => !Stopping.IsCompleted;
+            public bool IsReady => Volatile.Read(ref _boundEndpoints) == 3 && IsRunning;
+            public Task Completion { get; set; }
+
+            // Read and written only under _publishLock. Clearing it revokes access before disposal.
+            public PublisherSocket Publisher { get; set; }
+
+            public void EndpointBound() => Interlocked.Increment(ref _boundEndpoints);
+            public void RequestStop() => _stopping.TrySetResult(true);
+        }
 
         static NetMQServer()
         {
@@ -47,132 +69,176 @@ namespace RSMA.NetMQ
         {
             lock (_lifecycleLock)
             {
-                if (_isRunning) return;
-                _isRunning = true;
+                if (_session?.IsRunning == true) return;
+                if (_session != null && !_session.Completion.IsCompleted)
+                    throw new InvalidOperationException("The previous NetMQ server session is still stopping.");
 
-                // Keep task handles so Stop can complete the previous generation before a restart.
-                _serverTasks = new[]
-                {
-                    Task.Run(() => CommandServerLoop(commandPort)),
-                    Task.Run(() => InitPublisher(pubPort)),
-                    Task.Run(() => ReceiverLoop(subPort))
-                };
+                var session = new ServerSession();
+                session.Completion = Task.WhenAll(
+                    StartEndpoint(session, "command", commandPort, () => new RouterSocket(), socket =>
+                    {
+                        CommandServerLoop(session, socket);
+                        return Task.CompletedTask;
+                    }),
+                    StartEndpoint(session, "publish", pubPort, () => new PublisherSocket(),
+                        socket => PublisherLoop(session, socket)),
+                    StartEndpoint(session, "subscribe", subPort, () => new SubscriberSocket(), socket =>
+                    {
+                        ReceiverLoop(session, socket);
+                        return Task.CompletedTask;
+                    }));
+                _session = session;
             }
         }
 
         public static void Stop()
         {
-            Task[] tasks;
+            ServerSession session;
             lock (_lifecycleLock)
             {
-                if (!_isRunning && _serverTasks.Length == 0) return;
-                _isRunning = false;
-                tasks = _serverTasks;
-                _serverTasks = Array.Empty<Task>();
-
-                _routerSocket?.Dispose();
-                _pubSocket?.Dispose();
-                _subSocket?.Dispose();
-                _routerSocket = null;
-                _pubSocket = null;
-                _subSocket = null;
+                session = _session;
+                if (session == null) return;
+                session.RequestStop();
             }
 
-            try
+            // The endpoint tasks own their sockets. Do not tear down the global NetMQ context.
+            if (!session.Completion.Wait(_stopTimeout))
             {
-                Task.WaitAll(tasks, TimeSpan.FromSeconds(2));
+                Debug.LogError("NetMQ server did not stop within two seconds; restart is blocked until its endpoints exit.");
+                return;
             }
-            catch (AggregateException)
+
+            lock (_lifecycleLock)
             {
-                // Socket disposal interrupts receive loops during normal shutdown.
+                if (_session == session)
+                    _session = null;
             }
-            NetMQConfig.Cleanup();
+        }
+
+        private static Task StartEndpoint<TSocket>(ServerSession session, string name, int port,
+            Func<TSocket> createSocket, Func<TSocket, Task> run) where TSocket : NetMQSocket
+        {
+            return Task.Run(async () =>
+            {
+                if (!session.IsRunning) return;
+                try
+                {
+                    AsyncIO.ForceDotNet.Force();
+                    using (var socket = createSocket())
+                    {
+                        socket.Options.Linger = TimeSpan.Zero;
+                        if (socket is PublisherSocket) socket.Options.SendHighWatermark = 1000;
+                        if (socket is SubscriberSocket) socket.Options.ReceiveHighWatermark = 1000;
+
+                        var endpoint = $"tcp://*:{port}";
+                        var monitorEndpoint = $"inproc://rsma-close-{Guid.NewGuid():N}";
+                        socket.Monitor(monitorEndpoint, SocketEvents.Closed | SocketEvents.CloseFailed);
+                        using (var events = new PairSocket())
+                        using (var monitor = new NetMQMonitor(events, monitorEndpoint, false))
+                        {
+                            events.Options.Linger = TimeSpan.Zero;
+                            events.Connect(monitorEndpoint);
+                            var closed = false;
+                            monitor.Closed += (_, args) => closed = true;
+                            monitor.CloseFailed += (_, args) =>
+                                throw new InvalidOperationException($"TCP listener close failed: {args.ErrorCode}");
+
+                            socket.Bind(endpoint);
+                            try
+                            {
+                                await run(socket).ConfigureAwait(false);
+                            }
+                            finally
+                            {
+                                // Dispose only queues reaping. Wait for the listener's Closed event
+                                // before allowing the next session to bind the same port.
+                                socket.Unbind(endpoint);
+                                var timer = Stopwatch.StartNew();
+                                while (!closed && timer.Elapsed < _stopTimeout)
+                                    events.Poll(_socketTimeout);
+                                if (!closed)
+                                    throw new TimeoutException($"TCP listener did not confirm closure of {endpoint}.");
+                            }
+                        }
+                    }
+                }
+                catch (Exception exception)
+                {
+                    session.RequestStop();
+                    Debug.LogError($"NetMQ {name} endpoint on port {port} failed: {exception}");
+                }
+            });
         }
 
         // =========================================================
         // 1. ИНИЦИАЛИЗАЦИЯ И ПУБЛИКАЦИЯ ВЫСОКОЧАСТОТНЫХ ДАННЫХ (PUB)
         // =========================================================
 
-        private static void InitPublisher(int pubPort)
+        private static async Task PublisherLoop(ServerSession session, PublisherSocket socket)
         {
-            AsyncIO.ForceDotNet.Force();
-            var socket = new PublisherSocket();
+            lock (_publishLock)
+            {
+                if (!session.IsRunning) return;
+                session.Publisher = socket;
+                session.EndpointBound();
+            }
+
             try
             {
-                socket.Options.SendHighWatermark = 1000;
-                socket.Options.Linger = TimeSpan.Zero;
-                socket.Bind($"tcp://*:{pubPort}");
-                if (!_isRunning)
-                {
-                    socket.Dispose();
-                    return;
-                }
-                _pubSocket = socket;
+                await session.Stopping.ConfigureAwait(false);
             }
-            catch
+            finally
             {
-                socket.Dispose();
-                if (_isRunning) _isRunning = false;
-                throw;
+                lock (_publishLock)
+                    session.Publisher = null;
             }
         }
 
 
-        private static void ReceiverLoop(int subPort)
+        private static void ReceiverLoop(ServerSession session, SubscriberSocket socket)
         {
-            AsyncIO.ForceDotNet.Force();
-            using (var socket = new SubscriberSocket())
+            socket.Subscribe(""); // Подписка на все топики
+            session.EndpointBound();
+
+            while (session.IsRunning)
             {
-                socket.Options.Linger = TimeSpan.Zero;
-                socket.Options.ReceiveHighWatermark = 1000;
+                NetMQMessage message = new NetMQMessage();
+                if (!socket.TryReceiveMultipartMessage(_socketTimeout, ref message))
+                    continue;
 
-                // ВМЕСТО Connect ДЕЛАЕМ Bind:
-                socket.Bind($"tcp://*:{subPort}");
-                if (!_isRunning)
-                    return;
-                _subSocket = socket;
-                socket.Subscribe(""); // Подписка на все топики
-
-                while (_isRunning)
+                if (message.FrameCount == 3)
                 {
-                    NetMQMessage message = new NetMQMessage();
-                    if (!socket.TryReceiveMultipartMessage(TimeSpan.FromMilliseconds(100), ref message))
-                        continue;
-
-                    if (message.FrameCount == 3)
+                    try
                     {
-                        try
-                        {
-                            string topicName = message[0].ConvertToString();
-                            byte[] headerBytes = message[1].ToByteArray();
-                            byte[] payloadBytes = message[2].ToByteArray();
-                            DataBroker.UpdateFromNetwork(topicName, headerBytes, payloadBytes);
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.LogWarning($"Rejected invalid uDTP packet: {ex.Message}");
-                        }
+                        string topicName = message[0].ConvertToString();
+                        byte[] headerBytes = message[1].ToByteArray();
+                        byte[] payloadBytes = message[2].ToByteArray();
+                        DataBroker.UpdateFromNetwork(topicName, headerBytes, payloadBytes);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogWarning($"Rejected invalid uDTP packet: {ex.Message}");
                     }
                 }
             }
         }
 
         /// <summary>
-        /// <summary>
         /// Быстрая публикация любых blittable/value-структур в CDR через NetMQ
         /// </summary>
         public static void PublishCdrTopic<T>(string topicName, in T data) where T : struct
         {
-            if (!_isRunning || _pubSocket == null) return;
+            var session = _session;
+            if (session?.IsRunning != true) return;
             if (!UdtpV1Codec.TryGetTypeId(typeof(T), out var typeId))
             {
                 // Keep unsupported typed payloads opaque until a stable v1 codec is assigned.
-                PublishOpaque(topicName, data);
+                PublishOpaque(session, topicName, data);
                 return;
             }
 
             byte[] payload = UdtpV1Codec.Encode(data);
-            PublishV1(topicName, typeId, payload, GetPayloadTimestamp(data));
+            PublishV1(session, topicName, typeId, payload, GetPayloadTimestamp(data));
         }
 
         /// <summary>
@@ -180,7 +246,8 @@ namespace RSMA.NetMQ
         /// </summary>
         public static void PublishRaw(string topicName, byte[] rawData, int typeId = 0)
         {
-            if (!_isRunning || _pubSocket == null || rawData == null) return;
+            var session = _session;
+            if (session?.IsRunning != true || rawData == null) return;
             var header = new TopicHeader
             {
                 timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
@@ -188,7 +255,7 @@ namespace RSMA.NetMQ
                 payloadSize = rawData.Length,
                 topicTypeId = typeId
             };
-            SendMultipart(topicName, header.EncodeV1(), rawData);
+            SendMultipart(session, topicName, header.EncodeV1(), rawData);
         }
 
         /// <summary>
@@ -199,7 +266,7 @@ namespace RSMA.NetMQ
             PublishRaw(topicName, rawData, UdtpV1Codec.LegacyCameraTypeId);
         }
 
-        private static void PublishV1(string topicName, int typeId, byte[] payload, long payloadTimestamp)
+        private static void PublishV1(ServerSession session, string topicName, int typeId, byte[] payload, long payloadTimestamp)
         {
             if (payload.Length > int.MaxValue) return;
             var header = new TopicHeader
@@ -209,10 +276,10 @@ namespace RSMA.NetMQ
                 payloadSize = payload.Length,
                 topicTypeId = typeId
             };
-            SendMultipart(topicName, header.EncodeV1(), payload);
+            SendMultipart(session, topicName, header.EncodeV1(), payload);
         }
 
-        private static void PublishOpaque<T>(string topicName, in T data) where T : struct
+        private static void PublishOpaque<T>(ServerSession session, string topicName, in T data) where T : struct
         {
             int payloadSize = System.Runtime.CompilerServices.Unsafe.SizeOf<T>();
             byte[] payload = new byte[payloadSize];
@@ -224,7 +291,7 @@ namespace RSMA.NetMQ
                 payloadSize = payloadSize,
                 topicTypeId = UdtpV1Codec.OpaqueTypeId
             };
-            SendMultipart(topicName, header.EncodeV1(), payload);
+            SendMultipart(session, topicName, header.EncodeV1(), payload);
         }
 
         private static uint NextSequence()
@@ -241,55 +308,44 @@ namespace RSMA.NetMQ
             return 0;
         }
 
-        private static void SendMultipart(string topicName, byte[] header, byte[] payload)
+        private static void SendMultipart(ServerSession session, string topicName, byte[] header, byte[] payload)
         {
             lock (_publishLock)
             {
-                if (!_isRunning || _pubSocket == null) return;
+                if (!session.IsRunning || session.Publisher == null) return;
                 var message = new NetMQMessage();
                 message.Append(topicName);
                 message.Append(header);
                 message.Append(payload);
-                _pubSocket.SendMultipartMessage(message);
+                session.Publisher.TrySendMultipartMessage(TimeSpan.Zero, message);
             }
         }
-
         // =========================================================
         // 2. СЕРВЕР СЛУЖЕБНЫХ КОМАНД (ROUTER SOCKET)
         // =========================================================
-
-        private static void CommandServerLoop(int commandPort)
+        private static void CommandServerLoop(ServerSession session, RouterSocket socket)
         {
-            AsyncIO.ForceDotNet.Force();
-            using (var socket = new RouterSocket())
+            session.EndpointBound();
+            while (session.IsRunning)
             {
-                socket.Bind($"tcp://*:{commandPort}");
-                if (!_isRunning)
-                    return;
-                _routerSocket = socket;
+                NetMQMessage message = new NetMQMessage();
+                if (!socket.TryReceiveMultipartMessage(_socketTimeout, ref message))
+                    continue;
 
-                while (_isRunning)
+                if (message.FrameCount >= 3)
                 {
-                    NetMQMessage message = new NetMQMessage();
-                    if (!socket.TryReceiveMultipartMessage(TimeSpan.FromMilliseconds(100), ref message))
-                        continue;
+                    var clientIdentity = message[0];
+                    byte[] rawBytes = message[2].ToByteArray();
+                    string payload = Encoding.UTF8.GetString(rawBytes).Trim();
+                    string response = ProcessCommand(payload);
+                    byte[] responseBytes = Encoding.UTF8.GetBytes(response);
 
-                    if (message.FrameCount >= 3)
+                    socket.TrySendMultipartMessage(_socketTimeout, new NetMQMessage(new[]
                     {
-                        var clientIdentity = message[0];
-                        byte[] rawBytes = message[2].ToByteArray();
-                        string payload = Encoding.UTF8.GetString(rawBytes).Trim();
-
-                        string response = ProcessCommand(payload);
-                        byte[] responseBytes = Encoding.UTF8.GetBytes(response);
-
-                        socket.SendMultipartMessage(new NetMQMessage(new[]
-                        {
-                            clientIdentity,
-                            NetMQFrame.Empty,
-                            new NetMQFrame(responseBytes)
-                        }));
-                    }
+                        clientIdentity,
+                        NetMQFrame.Empty,
+                        new NetMQFrame(responseBytes)
+                    }));
                 }
             }
         }

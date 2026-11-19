@@ -1,8 +1,9 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using NetMQ;
@@ -14,6 +15,7 @@ using RSMA.uDTP;
 using RSMA.uDTP.CDR;
 using RSMA.uDTP.Topics;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace RSMA.Tests
 {
@@ -107,8 +109,8 @@ namespace RSMA.Tests
             StringAssert.Contains("controlvm \"RSMA-Ubuntu-SITL\" acpipowerbutton", runner.Arguments[1]);
         }
 
-        [Test]
-        public void VirtualBoxStartTimesOutIfVmNeverReachesRunning()
+        [UnityTest]
+        public IEnumerator VirtualBoxStartTimesOutIfVmNeverReachesRunning()
         {
             var configuration = new SbcSitlConfiguration
             {
@@ -125,7 +127,24 @@ namespace RSMA.Tests
                 Result("VMState=\"poweroff\"\n"));
             var controller = new SbcVirtualBoxController(configuration, runner);
 
-            Assert.ThrowsAsync<TimeoutException>(async () => await controller.StartAsync());
+            using (var cancellation = new CancellationTokenSource())
+            {
+                var startup = controller.StartAsync(cancellation.Token);
+                var timer = Stopwatch.StartNew();
+                try
+                {
+                    while (!startup.IsCompleted && timer.Elapsed < TimeSpan.FromSeconds(5))
+                        yield return null;
+
+                    Assert.IsTrue(startup.IsCompleted, "VirtualBox startup did not finish after its one-second deadline.");
+                    Assert.IsTrue(startup.IsFaulted, "VirtualBox startup should fail when the guest stays powered off.");
+                    Assert.IsInstanceOf<TimeoutException>(startup.Exception.GetBaseException());
+                }
+                finally
+                {
+                    cancellation.Cancel();
+                }
+            }
         }
 
         [Test]
@@ -155,8 +174,8 @@ namespace RSMA.Tests
             }
         }
 
-        [Test]
-        public void SessionPublishesVelocityAndDispatchesArmCommandOnUpdate()
+        [UnityTest]
+        public IEnumerator SessionPublishesVelocityAndDispatchesArmCommandOnUpdate()
         {
             var gameObject = new GameObject("SBC integration test");
             SubscriberSocket subscriber = null;
@@ -172,10 +191,8 @@ namespace RSMA.Tests
                 device.Connection.publishPort = publishPort;
                 device.Connection.subscribePort = subscribePort;
                 device.StartSession();
-                Assert.AreEqual(SbcSessionState.Running, device.State);
-                Assert.IsTrue(WaitForPort(commandPort), "SBC command endpoint did not start.");
-                Assert.IsTrue(WaitForPort(publishPort), "SBC publish endpoint did not start.");
-                Assert.IsTrue(WaitForPort(subscribePort), "SBC subscribe endpoint did not start.");
+                Assert.AreEqual(SbcSessionState.Running, device.State, device.LastError);
+                yield return WaitForServerReady("SBC session startup", ports);
 
                 subscriber = new SubscriberSocket();
                 subscriber.Options.Linger = TimeSpan.Zero;
@@ -188,8 +205,6 @@ namespace RSMA.Tests
                     linearVelocity = 1.25f,
                     angularVelocity = -0.5f
                 };
-                device.PublishVelocity(velocity);
-
                 var received = false;
                 var deadline = Stopwatch.StartNew();
                 var nextPublish = TimeSpan.Zero;
@@ -207,13 +222,15 @@ namespace RSMA.Tests
                         Assert.AreEqual(device.VelocityTopic, message[0].ConvertToString());
                         var header = TopicHeader.DecodeV1(message[1].ToByteArray());
                         Assert.AreEqual(UdtpV1Codec.RobotVelocityTypeId, header.topicTypeId);
-                        Assert.AreEqual(velocity.timestamp, UdtpV1Codec.TryDecode(header.topicTypeId, message[2].ToByteArray(), out var decoded)
-                            ? ((RobotVelocity)decoded).timestamp
-                            : -1);
+                        Assert.IsTrue(UdtpV1Codec.TryDecode(header.topicTypeId, message[2].ToByteArray(), out var decoded));
+                        var actual = (RobotVelocity)decoded;
+                        Assert.AreEqual(velocity.timestamp, actual.timestamp);
+                        Assert.AreEqual(velocity.linearVelocity, actual.linearVelocity);
+                        Assert.AreEqual(velocity.angularVelocity, actual.angularVelocity);
                         received = true;
                     }
                     if (!received)
-                        Thread.Sleep(10);
+                        yield return null;
                 }
                 Assert.IsTrue(received, "SBC velocity topic was not published by the Unity server.");
 
@@ -255,16 +272,14 @@ namespace RSMA.Tests
                 telemetry.ArmStateChanged += value => changed = value;
 
                 var command = new ArmCommand { timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), arm = 1 };
-                device.Connection.commandPort = GetFreePort();
-                device.Connection.publishPort = GetFreePort();
-                device.Connection.subscribePort = GetFreePort();
+                var ports = GetUniqueFreePorts(3);
+                device.Connection.commandPort = ports[0];
+                device.Connection.publishPort = ports[1];
+                device.Connection.subscribePort = ports[2];
                 device.StartSession();
                 Assert.AreEqual(SbcSessionState.Running, device.State);
-                Assert.IsTrue(WaitForPort(device.Connection.commandPort));
-                Assert.IsTrue(WaitForPort(device.Connection.publishPort));
-                Assert.IsTrue(WaitForPort(device.Connection.subscribePort));
                 DataBroker.UpdateFromNetwork(device.ArmCommandTopic,
-                    new TopicHeader { timestamp = 123, payloadSize = 16, topicTypeId = UdtpV1Codec.ArmCommandTypeId }.EncodeV1(),
+                    new TopicHeader { timestamp = command.timestamp, payloadSize = 16, topicTypeId = UdtpV1Codec.ArmCommandTypeId }.EncodeV1(),
                     UdtpV1Codec.Encode(command));
                 device.ProcessPendingCommands();
 
@@ -278,21 +293,64 @@ namespace RSMA.Tests
             }
         }
 
-        private static int GetFreePort()
+        [UnityTest]
+        public IEnumerator ServerCanRestartOnTheSamePortsAfterImmediateStop()
         {
-            var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
-            listener.Start();
-            var port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
-            listener.Stop();
-            return port;
+            const int iterations = 20;
+            var ports = GetUniqueFreePorts(3);
+            NetMQServer.Stop();
+            try
+            {
+                for (var iteration = 1; iteration <= iterations; iteration++)
+                {
+                    NetMQServer.Run(ports[0], ports[1], ports[2]);
+                    // Do not wait for Bind before stopping: startup may still be in progress.
+                    NetMQServer.Stop();
+                    Assert.IsFalse(NetMQServer.IsRunning, $"Immediate stop {iteration} did not stop the server.");
+                    Assert.IsFalse(NetMQServer.IsReady);
+
+                    NetMQServer.Run(ports[0], ports[1], ports[2]);
+                    yield return WaitForServerReady($"Restart {iteration}/{iterations}", ports);
+                    NetMQServer.Stop();
+                    Assert.IsFalse(NetMQServer.IsRunning, $"Shutdown {iteration} did not stop the server.");
+                }
+            }
+            finally
+            {
+                NetMQServer.Stop();
+            }
         }
 
         private static int[] GetUniqueFreePorts(int count)
         {
-            var ports = new HashSet<int>();
-            while (ports.Count < count)
-                ports.Add(GetFreePort());
-            return new List<int>(ports).ToArray();
+            var listeners = new TcpListener[count];
+            var ports = new int[count];
+            try
+            {
+                for (var i = 0; i < count; i++)
+                {
+                    var listener = new TcpListener(IPAddress.Loopback, 0);
+                    listeners[i] = listener;
+                    listener.Start();
+                    ports[i] = ((IPEndPoint)listener.LocalEndpoint).Port;
+                }
+                return ports;
+            }
+            finally
+            {
+                foreach (var listener in listeners)
+                    listener?.Stop();
+            }
+        }
+
+        private static IEnumerator WaitForServerReady(string operation, int[] ports)
+        {
+            var timer = Stopwatch.StartNew();
+            while (NetMQServer.IsRunning && !NetMQServer.IsReady && timer.Elapsed < TimeSpan.FromSeconds(5))
+                yield return null;
+
+            Assert.IsTrue(NetMQServer.IsReady,
+                $"{operation}: NetMQ did not bind all endpoints (command {ports[0]}, publish {ports[1]}, subscribe {ports[2]}).");
         }
 
         private static SbcVirtualBoxCommandResult Result(string output, int exitCode = 0, string error = "") =>
@@ -320,31 +378,6 @@ namespace RSMA.Tests
                     ? Result("VMState=\"poweroff\"\n")
                     : _results.Dequeue());
             }
-        }
-
-        private static bool WaitForPort(int port)
-        {
-            var deadline = Stopwatch.StartNew();
-            while (deadline.Elapsed < TimeSpan.FromSeconds(5))
-            {
-                using (var client = new TcpClient())
-                {
-                    try
-                    {
-                        var task = client.ConnectAsync(IPAddress.Loopback, port);
-                        if (task.Wait(100) && client.Connected)
-                            return true;
-                    }
-                    catch (SocketException)
-                    {
-                    }
-                    catch (AggregateException exception) when (exception.InnerException is SocketException)
-                    {
-                    }
-                }
-                Thread.Sleep(10);
-            }
-            return false;
         }
     }
 }
