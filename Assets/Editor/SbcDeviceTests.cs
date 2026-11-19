@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
@@ -15,7 +14,6 @@ using RSMA.uDTP;
 using RSMA.uDTP.CDR;
 using RSMA.uDTP.Topics;
 using UnityEngine;
-using UnityEngine.TestTools;
 
 namespace RSMA.Tests
 {
@@ -157,8 +155,8 @@ namespace RSMA.Tests
             }
         }
 
-        [UnityTest]
-        public IEnumerator SessionPublishesVelocityAndDispatchesArmCommandOnUpdate()
+        [Test]
+        public void SessionPublishesVelocityAndDispatchesArmCommandOnUpdate()
         {
             var gameObject = new GameObject("SBC integration test");
             SubscriberSocket subscriber = null;
@@ -166,9 +164,10 @@ namespace RSMA.Tests
             {
                 NetMQServer.Stop();
                 var device = gameObject.AddComponent<SbcDevice>();
-                var commandPort = GetFreePort();
-                var publishPort = GetFreePort();
-                var subscribePort = GetFreePort();
+                var ports = GetUniqueFreePorts(3);
+                var commandPort = ports[0];
+                var publishPort = ports[1];
+                var subscribePort = ports[2];
                 device.Connection.commandPort = commandPort;
                 device.Connection.publishPort = publishPort;
                 device.Connection.subscribePort = subscribePort;
@@ -182,7 +181,6 @@ namespace RSMA.Tests
                 subscriber.Options.Linger = TimeSpan.Zero;
                 subscriber.Connect($"tcp://127.0.0.1:{publishPort}");
                 subscriber.Subscribe(device.VelocityTopic);
-                yield return new UnityEngine.WaitForSeconds(0.25f);
 
                 var velocity = new RobotVelocity
                 {
@@ -193,14 +191,14 @@ namespace RSMA.Tests
                 device.PublishVelocity(velocity);
 
                 var received = false;
-                var deadline = Time.realtimeSinceStartup + 3f;
-                var nextPublish = Time.realtimeSinceStartup;
-                while (Time.realtimeSinceStartup < deadline && !received)
+                var deadline = Stopwatch.StartNew();
+                var nextPublish = TimeSpan.Zero;
+                while (deadline.Elapsed < TimeSpan.FromSeconds(3) && !received)
                 {
-                    if (Time.realtimeSinceStartup >= nextPublish)
+                    if (deadline.Elapsed >= nextPublish)
                     {
                         device.PublishVelocity(velocity);
-                        nextPublish = Time.realtimeSinceStartup + 0.1f;
+                        nextPublish = deadline.Elapsed + TimeSpan.FromMilliseconds(100);
                     }
                     var message = new NetMQMessage();
                     if (subscriber.TryReceiveMultipartMessage(TimeSpan.Zero, ref message))
@@ -214,7 +212,8 @@ namespace RSMA.Tests
                             : -1);
                         received = true;
                     }
-                    yield return null;
+                    if (!received)
+                        Thread.Sleep(10);
                 }
                 Assert.IsTrue(received, "SBC velocity topic was not published by the Unity server.");
 
@@ -288,6 +287,14 @@ namespace RSMA.Tests
             return port;
         }
 
+        private static int[] GetUniqueFreePorts(int count)
+        {
+            var ports = new HashSet<int>();
+            while (ports.Count < count)
+                ports.Add(GetFreePort());
+            return new List<int>(ports).ToArray();
+        }
+
         private static SbcVirtualBoxCommandResult Result(string output, int exitCode = 0, string error = "") =>
             new SbcVirtualBoxCommandResult(exitCode, output, error);
 
@@ -331,7 +338,11 @@ namespace RSMA.Tests
                     catch (SocketException)
                     {
                     }
+                    catch (AggregateException exception) when (exception.InnerException is SocketException)
+                    {
+                    }
                 }
+                Thread.Sleep(10);
             }
             return false;
         }
