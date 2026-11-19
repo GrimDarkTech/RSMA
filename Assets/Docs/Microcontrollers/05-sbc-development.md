@@ -190,13 +190,15 @@ Ubuntu guest используется как среда разработки: Py
 против Unity listener по LAN не подтверждён. Host должен быть доступен из guest
 по LAN, а порты listener должны быть разрешены firewall.
 
-Пока VM нестабильна, host-native live smoke-test проверен без перезапуска Unity:
-Python и C++ clients обращаются к `GetServerStatus`, получают
-`sbc-01/sensor/velocity` с type ID `1001`, публикуют typed сообщения, после чего
-Unity регистрирует входящие topics. Полный клиентский CI также проходит:
-Python↔standalone-C# и C++↔standalone-C# integration. Это подтверждает host-side
-RSMA Unity path, но не VM isolation, Bridged guest-to-host path или подключение
-физического SBC через LAN.
+В статусных записях сообщается о host-native Python/C++ ↔ Unity live smoke-test
+для `GetServerStatus`, получения `sbc-01/sensor/velocity` (type ID `1001`) и
+typed publish. В проверенных исходниках воспроизводимый сценарий запуска именно
+Python/C++ clients против Unity `NetMqServer` не найден: Unity Play Mode fixture
+использует собственные NetMQ sockets, а Python↔C# и C++↔C# integration tests
+направлены на standalone C# server. Эти проверки нельзя считать взаимозаменяемыми.
+Отдельно в отчётах указан проходящий Python↔standalone-C# и C++↔standalone-C# CI;
+это не подтверждает Unity interop, VM isolation, Bridged guest-to-host path или
+подключение физического SBC через LAN.
 
 API клиента следует строить вокруг capabilities и typed operations, а не
 переносить Unity-классы или низкоуровневые OS descriptors через сеть.
