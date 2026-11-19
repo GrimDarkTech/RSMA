@@ -1,11 +1,13 @@
 # Следующее направление: одноплатные компьютеры (SBC)
 
-Этот документ задаёт инженерные границы следующего этапа, а не объявляет
-готовыми Linux GPIO API, SBC runtime, C# client или сетевые capabilities, которых
-нет в текущем RSMA MCU runtime. Подробный roadmap и выводы исследования uDTP
-находятся в [общем SBC плане](../../../../docs/План-разработки-SBC.md),
+Целевой и единственный транспорт SBC↔RSMA для SITL и HITL в этой задаче — локальная
+сеть WiFi/Ethernet. SBC рассматривается как отдельное сетевое устройство со своим
+адресом. Этот документ различает реализованный Unity-side
+вертикальный срез, host-side проверки и ещё не завершённую проверку LAN-доступа
+из VM/физического SBC. Подробный roadmap и выводы исследования uDTP находятся в
+[общем SBC плане](../../../../docs/План-разработки-SBC.md),
 [фактическом контракте uDTP](../../../../docs/Этап-0-Фактический-контракт-uDTP.md)
-и [uDTP v1 proposal](../../../../docs/Этап-1-Контракт-uDTP-v1.md).
+[uDTP v1 wire-контракт](../../../../docs/Этап-1-Контракт-uDTP-v1.md).
 
 ## SBC GPIO boundary
 
@@ -20,7 +22,7 @@ line/electrical diagnostics обратно. Поэтому к одной лин�
 
 - `ISbcGpioBackend` — общий контракт линии;
 - `VirtualMcuSbcGpioBackend` — SITL provider поверх `RSMAVirtualMicrocontroller`;
-- будущий Linux/HITL provider — отдельная реализация для Raspberry Pi GPIO,
+- будущий Linux/HITL provider — отдельная реализация для GPIO SBC,
   например через `libgpiod`, с capability discovery, ownership и safe-state.
 
 Транспорт RSMA/uDTP должен переносить semantic commands/telemetry и capability
@@ -31,14 +33,18 @@ discovery. Не следует отправлять каждый быстрый 
 
 Типичный SBC запускает полноценную Linux OS, процессы/threads, драйверы ядра,
 userspace services и сетевой stack. Его нельзя моделировать как ещё один набор
-пинов или запускать на нём `.rsfw`.
+пинов или запускать на нём `.rsfw`. Для этой задачи RSMA взаимодействует с
+приложением SBC через LAN; аппаратные периферийные линии являются отдельным
+локальным hardware provider boundary.
 
 Разделяйте два сценария:
 
-- **SITL/Software integration**: Linux process, контейнер или VM взаимодействует
-  с RSMA через сетевой API; логика устройства работает как process/service.
-- **HITL**: физический SBC подключён к внешним GPIO/peripheral линиям и сети;
-  аппаратный adapter связывает реальные сигналы с RSMA transport.
+- **SITL**: Linux-приложение выполняется в Ubuntu VM VirtualBox с адаптером
+  Bridged. VM имеет собственный адрес общей локальной сети и подключается к
+  LAN-адресу host RSMA через тот же сетевой RSMA/uDTP client API, что и HITL.
+- **HITL**: Linux-приложение выполняется на физическом SBC, который пользователь
+  вручную запускает и подключает к общей WiFi/Ethernet-сети как отдельное
+  устройство. SBC подключается к LAN-адресу host RSMA по тому же client API.
 
 Если необходимо точное выполнение MCU firmware на SBC-проекте, это отдельный
 MCU/co-processor target с отдельной VM/прошивкой, а не SBC API.
@@ -52,16 +58,17 @@ Linux SBC application / device service
         |     topics, commands, session, timeouts
         |
         +-- transport adapter (uDTP over existing ZeroMQ endpoints)
+        |     LAN address of RSMA host; never localhost for a remote SBC
         |
         +-- optional OS hardware providers
-              GPIO / I2C / SPI / UART / PWM / ADC
+              GPIO / I2C / SPI / PWM / ADC
         |
         +-- health, reconnect, permissions, diagnostics
 ```
 
 В RSMA Unity-side уже есть NetMQ server path и `DataBroker`, но это не доказывает
-production readiness межъязыкового протокола или готовность SBC device
-management. Путь должен оставаться layered: transport не должен знать Unity
+завершённую LAN SITL/HITL интеграцию или готовность SBC device management. Путь
+должен оставаться layered: transport не должен знать Unity
 GameObject, а RSMA scene actuator/sensor не должен напрямую управлять Linux
 device files.
 
@@ -75,28 +82,38 @@ device files.
 | 5556 | PUB для топиков RSMA -> клиент | SUB |
 | 5560 | SUB для топиков клиент -> RSMA | PUB |
 
+RSMA сокеты bind-ятся на `tcp://*:<port>`, поэтому удалённый клиент должен
+использовать реальный LAN-адрес host, а не `127.0.0.1`. Нужно разрешить входящие
+порты 5555, 5556 и 5560 в firewall и проверить доступность listener из VM/сети.
+Loopback пригоден только для host-local тестов. Клиентская конфигурация
+`SbcDevice` сейчас имеет `tcp://127.0.0.1` по умолчанию — для отдельного SBC/VM
+её обязательно задавать LAN-адресом host.
+
+RSMA bind-ит сокеты на `tcp://*:<port>`, то есть принимает соединения на сетевых
+интерфейсах host. На клиенте нужно указать LAN-адрес host; `127.0.0.1` подходит
+только для host-local проверки. Для отдельной VM/SBC должны быть доступны через
+маршрутизацию и firewall порты 5555, 5556 и 5560.
+
 Роли и порты можно настроить при запуске сервера. Команды в исходниках включают
 `GetTopics`, `GetServerStatus`, `RestartLevel`, `PrintMessage:<text>`; список
 команд и ограничения доступа нужно перепроверять в текущем `NetMqServer.cs` до
 изменения публичного API.
 
 Текущий topic transport формирует multipart из трёх кадров: UTF-8 topic name,
-20-byte header и payload. `TopicHeader.EncodeV1/DecodeV1` использует
-little-endian поля:
-`timestamp:int64`, `sequence:uint32`, `payloadSize:int32`, `topicTypeId:int32`.
-Стабильные uDTP v1 codecs и shared vectors реализованы только для начального
-набора типов. Сам Unity server пока сохраняет legacy ограничения: типизированная
-публикация использует runtime hash для большинства type IDs и копирует payload
-из managed layout; входной путь принимает не менее трёх кадров и сохраняет raw
-payload без полной проверки v1 header/type/size. Совпадение C#/C++ codec-ов для
-начальных типов не означает завершённую Python↔Unity интеграцию или миграцию
-всех publisher-ов. Не используйте managed struct layout как стабильный wire ABI.
+20-byte uDTP v1 header и payload. Заголовок кодируется little-endian: `timestamp`
+(int64), `sequence` (uint32), `payloadSize` (int32), `topicTypeId` (int32).
+Unity использует явные codecs и стабильный registry IDs (типизированные типы
+начинаются с `1001`); известные typed входящие сообщения проверяются по размеру,
+декодируются до обновления `DataBroker` и затем доступны приложению. Opaque режим
+ограничен ID `0` и legacy camera ID `2`; неизвестные типизированные IDs
+отклоняются. Не считайте произвольный managed struct layout wire ABI: контракт
+задаётся codecs и общими vectors в
+[`docs/Этап-1-Контракт-uDTP-v1.md`](../../../../docs/Этап-1-Контракт-uDTP-v1.md).
 
-В Unity `DataBroker` хранит typed latest values для локальных публикаций и raw
-network buffers/headers/type IDs для входящих сообщений. Входящий topic не
-валидируется полностью и не применяется автоматически к объекту симуляции:
-для каждого типа нужны decoder, validation, routing и handler на Unity main
-thread.
+Не всякий сетевой topic автоматически управляет объектом сцены. Для этого
+необходимы typed decoder, validation, явная маршрутизация и handler на Unity main
+thread. Текущая Unity сцена демонстрирует такой путь для `RobotVelocity` и
+`ArmCommand`.
 
 ## Требуемый SBC developer API (предложение)
 
@@ -141,18 +158,20 @@ LED`, а не только наличие ссылок в YAML сцены.
 
 ## SITL/HITL baseline
 
-Целевой первый SITL backend использует VirtualBox через `VBoxManage`.
-Поддерживаются guest profiles `Ubuntu 22.04` и `Ubuntu 24.04`; целевая
-конфигурация сцены использует зарегистрированную VM `RSMA-Ubuntu-SITL` и сетевой адаптер
-VirtualBox в режиме Bridged Adapter. VM получает независимый адрес в общей
-локальной WiFi/Ethernet-сети и подключается к host RSMA по его LAN-адресу; NAT и
-guest-to-host address `10.0.2.2` не используются. `SbcVirtualBoxController`
-отделяет process execution от Unity-компонента через
-`ISbcVirtualBoxCommandRunner`, валидирует VM state и поддерживает явные
-`StartAsync`/`StopAsync`. Текущая реализация ещё требует перехода с NAT на
-Bridged Adapter и подключения Unity GUI. Реальную VM нужно зарегистрировать и подготовить
-отдельно; отсутствие `VBoxManage`, VM или доступного сетевого endpoint должно
-давать понятную ошибку, а не переводить сцену в ложное Running состояние.
+Целевая первая SITL-схема использует VirtualBox через `VBoxManage` и сетевой
+адаптер Bridged. Guest profiles — `Ubuntu 22.04` и `Ubuntu 24.04`; целевая VM
+называется `RSMA-Ubuntu-SITL`, получает собственный адрес в общей локальной
+WiFi/Ethernet-сети и подключается к host RSMA по его LAN-адресу. NAT и
+`10.0.2.2` не являются частью целевой схемы. `SbcVirtualBoxController` уже
+отделяет запуск процесса от Unity-компонента через
+`ISbcVirtualBoxCommandRunner`, проверяет состояние VM и предоставляет явные
+`StartAsync`/`StopAsync`. Однако текущая `SbcSitlConfiguration.Validate()`
+отклоняет режим Bridged и требует NAT с guest gateway `10.0.2.2`; следовательно,
+целевая конфигурация Bridged пока **не реализована**. Unity GUI управления SITL
+также остаётся работой следующих этапов. Реальную VM нужно зарегистрировать и
+подготовить отдельно; отсутствие `VBoxManage`, VM или доступного сетевого
+endpoint должно давать понятную ошибку, а не переводить сцену в ложное Running
+состояние.
 
 Управление SITL является частью Unity GUI, а не обязательным внешним
 host-side script. По паттерну файловых инструментов RSMA, включая
@@ -160,22 +179,24 @@ host-side script. По паттерну файловых инструменто�
 `VBoxManage`, host/SBC адреса, порты и таймауты. Пути к необходимым исполняемым
 файлам, образам, проектам и каталогам выбираются через установленный
 `StandaloneFileBrowser`; GUI обязан валидировать значения до операции Start.
-Запуск VM не выполняется автоматически при загрузке сцены.
+Для удалённого guest client указывается достижимый LAN-адрес host RSMA; loopback
+`127.0.0.1` применим только для локальных тестов. Запуск VM не выполняется
+автоматически при загрузке сцены.
 
-До создания выделенной SITL VM можно использовать имеющуюся Ubuntu 22.04 guest
-как ручной development smoke-test. Проверенные в ней Python uDTP unit tests
-(`8/8`) и C++ shared-vector checker не заменяют сквозной запуск Unity-сервера:
-guest должен достигать host listener по общей Bridged LAN, а Unity `NetMqServer`
-должен bind-иться на интерфейс, видимый из guest. Репозитории RSMA, Python, C++ и MCU уже клонированы
-в `~/Projects/RSMA`; Python и C++ shared-contract checks проходят. В текущей
-конфигурации ещё не выполнен запуск клиента VM против Unity listener.
+Ubuntu guest используется как среда разработки: Python uDTP unit tests (`8/8`)
+и C++ shared-vector checker проходят; четыре репозитория клонированы в
+`~/Projects/RSMA`. Ранее проверенная VM `PX4-Autopilot` по Bridged LAN была
+нестабильна и выключалась. Полноценный сквозной запуск клиента отдельной VM
+против Unity listener по LAN не подтверждён. Host должен быть доступен из guest
+по LAN, а порты listener должны быть разрешены firewall.
 
 Пока VM нестабильна, host-native live smoke-test проверен без перезапуска Unity:
 Python и C++ clients обращаются к `GetServerStatus`, получают
 `sbc-01/sensor/velocity` с type ID `1001`, публикуют typed сообщения, после чего
 Unity регистрирует входящие topics. Полный клиентский CI также проходит:
-Python↔standalone-C# и C++↔standalone-C# integration. Это подтверждает RSMA Unity
-path на host, но не VM isolation или guest-to-host network path.
+Python↔standalone-C# и C++↔standalone-C# integration. Это подтверждает host-side
+RSMA Unity path, но не VM isolation, Bridged guest-to-host path или подключение
+физического SBC через LAN.
 
 API клиента следует строить вокруг capabilities и typed operations, а не
 переносить Unity-классы или низкоуровневые OS descriptors через сеть.
@@ -188,9 +209,9 @@ HITL использует тот же RSMA/uDTP client path и те же про�
 WiFi/Ethernet-сеть. RSMA не управляет питанием или запуском физической платы;
 Unity GUI отображает выбранный режим, endpoint, health и состояние reconnect.
 
-Serial/UART bridge не является базовым транспортом HITL в текущей согласованной
-архитектуре. Его можно добавить отдельным hardware adapter по отдельному решению,
-не меняя общий typed LAN-контракт.
+Для обоих режимов используется только общий сетевой RSMA/uDTP client path.
+Подключение к RSMA выполняется по LAN-адресу host; ни для SITL, ни для HITL не
+предполагается отдельный проводной transport.
 
 Минимальная поверхность:
 
@@ -220,7 +241,6 @@ providers с capability discovery и injected interfaces:
 | GPIO | Chip/line identity, direction, bias, active level, edge events, line ownership, contention и cleanup. Linux GPIO line names не являются устойчивым переносимым pin numbering. |
 | I2C | Adapter index, 7-bit address, register/combined transfer semantics, repeated-start support, per-operation timeout и errno/NACK mapping. |
 | SPI | Controller/device route, chip-select ownership, mode `0..3`, bit order, max clock, transfer framing и full-duplex result. Не имитировать arbitrary GPIO CS, если backend этого не гарантирует. |
-| UART | Device path/identity, baud/data/parity/stop bits, flow control, framing, buffering и disconnect semantics. |
 | PWM | Chip/channel route, frequency/duty range, polarity, enabled/disabled state и cleanup. |
 | ADC | Channel/scale/reference, sample timing, raw units, calibration, missing-device errors. Не обещать ADC на плате без аппаратного канала/внешнего adapter. |
 
@@ -257,7 +277,7 @@ timeouts, rate limits и safe-state, прежде чем включать ком
    интеграцию с Unity NetMQ server.
 5. Добавить typed sensor-to-RSMA и command-to-device сценарий с explicit Unity
    dispatch, bounds, reconnect и diagnostics.
-6. Выбрать первую SBC/OS и только затем реализовать GPIO/I2C/SPI/UART/PWM/ADC
+6. Выбрать первую SBC/OS и только затем реализовать GPIO/I2C/SPI/PWM/ADC
    providers по реальным capability discovery, permissions и hardware tests.
 7. Разделить CI на обычные unit/protocol jobs, Unity integration, optional VM/SITL
    и hardware HITL; hardware отсутствие не должно блокировать protocol CI.
