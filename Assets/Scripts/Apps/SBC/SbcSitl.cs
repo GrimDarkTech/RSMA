@@ -14,7 +14,6 @@ namespace RSMA.SBC
 
     public enum SbcVirtualBoxNetworkMode
     {
-        Nat,
         Bridged
     }
 
@@ -47,10 +46,10 @@ namespace RSMA.SBC
         [Tooltip("Path to VBoxManage.exe. Leave empty to resolve it from the default VirtualBox installation.")]
         public string vboxManagePath = string.Empty;
 
-        public SbcVirtualBoxNetworkMode networkMode = SbcVirtualBoxNetworkMode.Nat;
+        public SbcVirtualBoxNetworkMode networkMode = SbcVirtualBoxNetworkMode.Bridged;
 
-        [Tooltip("Expected host gateway visible inside the VM when its VirtualBox adapter is preconfigured as NAT.")]
-        public string guestToHostAddress = "10.0.2.2";
+        [Tooltip("Host-only identity of the bridged adapter selected in VirtualBox.")]
+        public string bridgeAdapterName = "AIC8800D80 USB WiFi";
 
         [Min(1)]
         public int startupTimeoutSeconds = 60;
@@ -71,14 +70,14 @@ namespace RSMA.SBC
                 throw new ArgumentOutOfRangeException(nameof(guestProfile));
             if (!Enum.IsDefined(typeof(SbcVirtualBoxNetworkMode), networkMode))
                 throw new ArgumentOutOfRangeException(nameof(networkMode));
-            if (networkMode != SbcVirtualBoxNetworkMode.Nat)
-                throw new NotSupportedException("Bridged VirtualBox networking is not implemented yet. Use NAT; the VM must be preconfigured with the expected guest-to-host gateway.");
+            if (networkMode != SbcVirtualBoxNetworkMode.Bridged)
+                throw new NotSupportedException("SITL requires VirtualBox Bridged networking.");
             if (string.IsNullOrWhiteSpace(virtualMachineName))
                 throw new ArgumentException("VirtualBox VM name must be non-empty.", nameof(virtualMachineName));
             if (virtualMachineName.IndexOfAny(new[] { '\r', '\n', '\0' }) >= 0)
                 throw new ArgumentException("VirtualBox VM name contains an invalid character.", nameof(virtualMachineName));
-            if (!System.Net.IPAddress.TryParse(guestToHostAddress, out _))
-                throw new ArgumentException("SITL guestToHostAddress must be an IPv4/IPv6 address.", nameof(guestToHostAddress));
+            if (string.IsNullOrWhiteSpace(bridgeAdapterName) || bridgeAdapterName.IndexOfAny(new[] { '\r', '\n', '\0' }) >= 0)
+                throw new ArgumentException("A valid VirtualBox bridge adapter name is required.", nameof(bridgeAdapterName));
             if (startupTimeoutSeconds < 1)
                 throw new ArgumentOutOfRangeException(nameof(startupTimeoutSeconds));
             if (shutdownTimeoutSeconds < 1)
@@ -203,6 +202,21 @@ namespace RSMA.SBC
                 return;
             if (state != SbcVirtualMachineState.PoweredOff && state != SbcVirtualMachineState.Saved)
                 throw new InvalidOperationException($"VirtualBox VM '{_configuration.virtualMachineName}' is in state {state} and cannot be started.");
+
+            if (state == SbcVirtualMachineState.Saved)
+            {
+                var discardResult = await RunVBoxManageAsync(
+                    $"discardstate {Quote(_configuration.virtualMachineName)}",
+                    cancellationToken).ConfigureAwait(false);
+                if (!discardResult.Succeeded)
+                    throw CreateCommandException("discardstate", discardResult);
+            }
+
+            var networkResult = await RunVBoxManageAsync(
+                $"modifyvm {Quote(_configuration.virtualMachineName)} --nic1 bridged --bridgeadapter1 {Quote(_configuration.bridgeAdapterName)}",
+                cancellationToken).ConfigureAwait(false);
+            if (!networkResult.Succeeded)
+                throw CreateCommandException("configure bridged adapter", networkResult);
 
             var result = await RunVBoxManageAsync(
                 $"startvm {Quote(_configuration.virtualMachineName)} --type headless",

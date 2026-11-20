@@ -30251,7 +30251,7 @@ MonoBehaviour:
   nodeId: sbc-01
   mode: 0
   connection:
-    endpoint: tcp://127.0.0.1
+    endpoint: tcp://0.0.0.0
     commandPort: 5555
     publishPort: 5556
     subscribePort: 5560
@@ -30264,9 +30264,10 @@ MonoBehaviour:
     virtualMachineName: RSMA-Ubuntu-SITL
     vboxManagePath: 
     networkMode: 0
-    guestToHostAddress: 10.0.2.2
+    bridgeAdapterName: AIC8800D80 USB WiFi
     startupTimeoutSeconds: 60
     shutdownTimeoutSeconds: 30
+    commandTimeoutSeconds: 10
 --- !u!114 &8957578042882215488
 MonoBehaviour:
   m_ObjectHideFlags: 0

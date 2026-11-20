@@ -66,8 +66,9 @@ Linux SBC application / device service
         +-- health, reconnect, permissions, diagnostics
 ```
 
-В RSMA Unity-side уже есть NetMQ server path и `DataBroker`, но это не доказывает
-завершённую LAN SITL/HITL интеграцию или готовность SBC device management. Путь
+В RSMA Unity-side уже есть NetMQ server path и `DataBroker`; guest-to-Unity
+Bridged LAN smoke-test подтверждён, но это не доказывает завершённую автоматизацию
+VM lifecycle, физический HITL или готовность SBC device management. Путь
 должен оставаться layered: transport не должен знать Unity
 GameObject, а RSMA scene actuator/sensor не должен напрямую управлять Linux
 device files.
@@ -86,8 +87,9 @@ RSMA сокеты bind-ятся на `tcp://*:<port>`, поэтому удалё
 использовать реальный LAN-адрес host, а не `127.0.0.1`. Нужно разрешить входящие
 порты 5555, 5556 и 5560 в firewall и проверить доступность listener из VM/сети.
 Loopback пригоден только для host-local тестов. Клиентская конфигурация
-`SbcDevice` сейчас имеет `tcp://127.0.0.1` по умолчанию — для отдельного SBC/VM
-её обязательно задавать LAN-адресом host.
+`SbcDevice` в стендовой конфигурации использует LAN endpoint `tcp://192.168.2.91`;
+для другого host укажите его достижимый LAN-адрес. Не используйте `0.0.0.0` как
+адрес назначения клиента: это wildcard bind address.
 
 RSMA bind-ит сокеты на `tcp://*:<port>`, то есть принимает соединения на сетевых
 интерфейсах host. На клиенте нужно указать LAN-адрес host; `127.0.0.1` подходит
@@ -159,19 +161,13 @@ LED`, а не только наличие ссылок в YAML сцены.
 ## SITL/HITL baseline
 
 Целевая первая SITL-схема использует VirtualBox через `VBoxManage` и сетевой
-адаптер Bridged. Guest profiles — `Ubuntu 22.04` и `Ubuntu 24.04`; целевая VM
-называется `RSMA-Ubuntu-SITL`, получает собственный адрес в общей локальной
-WiFi/Ethernet-сети и подключается к host RSMA по его LAN-адресу. NAT и
-`10.0.2.2` не являются частью целевой схемы. `SbcVirtualBoxController` уже
-отделяет запуск процесса от Unity-компонента через
-`ISbcVirtualBoxCommandRunner`, проверяет состояние VM и предоставляет явные
-`StartAsync`/`StopAsync`. Однако текущая `SbcSitlConfiguration.Validate()`
-отклоняет режим Bridged и требует NAT с guest gateway `10.0.2.2`; следовательно,
-целевая конфигурация Bridged пока **не реализована**. Unity GUI управления SITL
-также остаётся работой следующих этапов. Реальную VM нужно зарегистрировать и
-подготовить отдельно; отсутствие `VBoxManage`, VM или доступного сетевого
-endpoint должно давать понятную ошибку, а не переводить сцену в ложное Running
-состояние.
+адаптер Bridged. Guest profiles — `Ubuntu 22.04` и `Ubuntu 24.04`; VM получает
+собственный адрес в общей локальной WiFi/Ethernet-сети и подключается к host RSMA
+по его LAN-адресу. NAT и `10.0.2.2` не являются частью целевой схемы.
+`SbcSitlConfiguration` требует Bridged, а `SbcVirtualBoxController` перед стартом
+выключенной VM применяет bridge adapter; сохранённое состояние сбрасывается перед
+изменением адаптера. Unity GUI управления SITL, автоматизация VM lifecycle и
+регистрация целевой `RSMA-Ubuntu-SITL` остаются следующими работами.
 
 Управление SITL является частью Unity GUI, а не обязательным внешним
 host-side script. По паттерну файловых инструментов RSMA, включая
@@ -183,22 +179,37 @@ host-side script. По паттерну файловых инструменто�
 `127.0.0.1` применим только для локальных тестов. Запуск VM не выполняется
 автоматически при загрузке сцены.
 
-Ubuntu guest используется как среда разработки: Python uDTP unit tests (`8/8`)
-и C++ shared-vector checker проходят; четыре репозитория клонированы в
-`~/Projects/RSMA`. Ранее проверенная VM `PX4-Autopilot` по Bridged LAN была
-нестабильна и выключалась. Полноценный сквозной запуск клиента отдельной VM
-против Unity listener по LAN не подтверждён. Host должен быть доступен из guest
-по LAN, а порты listener должны быть разрешены firewall.
+Ubuntu guest `192.168.2.128/24` работает через Bridged LAN и подключается к host
+`192.168.2.91`. Python client checkout находится в
+`/home/rsma-vm/Projects/rsma-python` на ревизии `66b52f1`; зависимости установлены
+в `.venv`, включая `pyzmq 27.1.0`. Shared vectors находятся в
+`/home/rsma-vm/Projects/docs/uDTP-v1-test-vectors.json`. Python unit tests прошли
+`8/8`, guest-side smoke-test проходит `py_compile`.
 
-В статусных записях сообщается о host-native Python/C++ ↔ Unity live smoke-test
-для `GetServerStatus`, получения `sbc-01/sensor/velocity` (type ID `1001`) и
-typed publish. В проверенных исходниках воспроизводимый сценарий запуска именно
-Python/C++ clients против Unity `NetMqServer` не найден: Unity Play Mode fixture
-использует собственные NetMQ sockets, а Python↔C# и C++↔C# integration tests
-направлены на standalone C# server. Эти проверки нельзя считать взаимозаменяемыми.
-Отдельно в отчётах указан проходящий Python↔standalone-C# и C++↔standalone-C# CI;
-это не подтверждает Unity interop, VM isolation, Bridged guest-to-host path или
-подключение физического SBC через LAN.
+21.11.2026 выполнен guest-to-Unity smoke-test с Unity Play Mode scene SBC:
+
+- Команда: `.venv/bin/python Tests/integration_sitl_unity.py --host 192.168.2.91 --timeout-ms 5000 --test-reconnect`.
+- Endpoint: host `192.168.2.91`, VM `192.168.2.128`; TCP `5555` (REQ/ROUTER),
+  `5556` (SUB/PUB), `5560` (PUB/SUB).
+- Все три порта доступны из VM; Unity listener привязан к `0.0.0.0`.
+- `GetServerStatus` успешен; `GetTopics` вернул список Unity topics; получен
+  typed `sbc-01/sensor/velocity`, `RobotVelocity`, type ID `1001`.
+- Guest опубликовал typed `RobotVelocity` и `ArmCommand` (`arm=1`); оба topic
+  появились в Unity topic registry.
+- После закрытия и повторного создания `RSMAClient` `GetServerStatus` снова
+  прошёл. Python unit tests в VM: `8/8`.
+- Во время диагностики Windows Defender/firewall блокировал входящие TCP,
+  несмотря на работающие ping и SSH host-to-guest. После отключения Defender
+  guest smoke-test прошёл. Не оставляйте firewall отключённым как штатное решение:
+  используйте узкие inbound rules или изолированную доверенную LAN.
+
+Reconnect проверен пересозданием клиента, а не остановкой Unity сервера или
+потерей LAN. Входной `ArmCommand` принят и зарегистрирован, но применение его
+scene handler/физическим actuator в этом прогоне отдельно не подтверждалось.
+VM stop lifecycle и HITL не проверялись. Воспроизводимый клиентский сценарий:
+`rsma-python/Tests/integration_sitl_unity.py`; Unity Play Mode tests с собственными
+NetMQ sockets и Python/C++ tests против standalone C# server остаются отдельными
+уровнями проверки.
 
 API клиента следует строить вокруг capabilities и typed operations, а не
 переносить Unity-классы или низкоуровневые OS descriptors через сеть.

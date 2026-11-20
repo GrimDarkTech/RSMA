@@ -56,23 +56,23 @@ namespace RSMA.Tests
         }
 
         [Test]
-        public void SitlConfigurationRejectsInvalidVmNameAndAddress()
+        public void SitlConfigurationRejectsInvalidVmNameAndBridgeAdapter()
         {
             var configuration = new SbcSitlConfiguration { virtualMachineName = "" };
             Assert.Throws<ArgumentException>(() => configuration.Validate());
             configuration.virtualMachineName = "RSMA-Ubuntu-SITL";
-            configuration.guestToHostAddress = "not-an-ip";
+            configuration.bridgeAdapterName = "";
             Assert.Throws<ArgumentException>(() => configuration.Validate());
         }
 
         [Test]
-        public void SitlRejectsUnimplementedBridgedNetworkMode()
+        public void SitlRequiresBridgedNetworkMode()
         {
             var configuration = new SbcSitlConfiguration
             {
                 networkMode = SbcVirtualBoxNetworkMode.Bridged
             };
-            Assert.Throws<NotSupportedException>(() => configuration.Validate());
+            configuration.Validate();
         }
 
         [Test]
@@ -81,14 +81,36 @@ namespace RSMA.Tests
             var configuration = new SbcSitlConfiguration { virtualMachineName = "RSMA SITL" };
             var runner = new FakeVirtualBoxRunner(
                 Result("VMState=\"poweroff\"\n"),
+                Result("VM configured"),
                 Result("VM started"),
                 Result("VMState=\"running\"\n"));
             var controller = new SbcVirtualBoxController(configuration, runner);
 
             await controller.StartAsync();
 
-            Assert.AreEqual(3, runner.Arguments.Count);
-            StringAssert.Contains("startvm \"RSMA SITL\" --type headless", runner.Arguments[1]);
+            Assert.AreEqual(4, runner.Arguments.Count);
+            StringAssert.Contains("modifyvm \"RSMA SITL\" --nic1 bridged --bridgeadapter1", runner.Arguments[1]);
+            StringAssert.Contains("startvm \"RSMA SITL\" --type headless", runner.Arguments[2]);
+        }
+
+        [Test]
+        public async Task VirtualBoxDiscardsSavedStateBeforeApplyingBridge()
+        {
+            var configuration = new SbcSitlConfiguration { virtualMachineName = "RSMA SITL" };
+            var runner = new FakeVirtualBoxRunner(
+                Result("VMState=\"saved\"\n"),
+                Result("Saved state discarded"),
+                Result("VM configured"),
+                Result("VM started"),
+                Result("VMState=\"running\"\n"));
+            var controller = new SbcVirtualBoxController(configuration, runner);
+
+            await controller.StartAsync();
+
+            Assert.AreEqual(5, runner.Arguments.Count);
+            StringAssert.Contains("discardstate \"RSMA SITL\"", runner.Arguments[1]);
+            StringAssert.Contains("modifyvm \"RSMA SITL\"", runner.Arguments[2]);
+            StringAssert.Contains("startvm \"RSMA SITL\"", runner.Arguments[3]);
         }
 
         [Test]
@@ -118,6 +140,7 @@ namespace RSMA.Tests
             };
             var runner = new FakeVirtualBoxRunner(
                 Result("VMState=\"poweroff\"\n"),
+                Result("VM configured"),
                 Result("VM started"),
                 Result("VMState=\"poweroff\"\n"),
                 Result("VMState=\"poweroff\"\n"),
@@ -164,6 +187,7 @@ namespace RSMA.Tests
             {
                 NetMQServer.Stop();
                 var device = gameObject.AddComponent<SbcDevice>();
+                device.Connection.endpoint = "tcp://127.0.0.1";
                 var ports = GetUniqueFreePorts(3);
                 var commandPort = ports[0];
                 var publishPort = ports[1];
@@ -249,6 +273,7 @@ namespace RSMA.Tests
             {
                 NetMQServer.Stop();
                 var device = gameObject.AddComponent<SbcDevice>();
+                device.Connection.endpoint = "tcp://127.0.0.1";
                 var telemetry = gameObject.AddComponent<SbcSceneTelemetry>();
                 telemetry.EnsureSubscription();
                 var changed = false;

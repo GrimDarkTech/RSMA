@@ -27,7 +27,7 @@ namespace RSMA.SBC
     public sealed class SbcEndpointConfiguration
     {
         [Tooltip("Address advertised to the SITL/HITL client. Unity binds the configured ports through NetMqServer.")]
-        public string endpoint = "tcp://127.0.0.1";
+        public string endpoint = "tcp://192.168.2.91";
 
         [Min(1)]
         public int commandPort = 5555;
@@ -47,7 +47,7 @@ namespace RSMA.SBC
                 !string.Equals(uri.Scheme, "tcp", StringComparison.OrdinalIgnoreCase) ||
                 string.IsNullOrWhiteSpace(uri.Host) || uri.AbsolutePath != "/" ||
                 uri.Query.Length != 0 || uri.Fragment.Length != 0)
-                throw new ArgumentException("SBC endpoint must be a tcp URI such as tcp://127.0.0.1.", nameof(endpoint));
+                throw new ArgumentException("SBC endpoint must be a tcp URI such as tcp://192.168.2.91.", nameof(endpoint));
 
             ValidatePort(commandPort, nameof(commandPort));
             ValidatePort(publishPort, nameof(publishPort));
@@ -151,19 +151,22 @@ namespace RSMA.SBC
             if (_state == SbcSessionState.Running)
                 return;
 
+            var serverWasRunning = NetMQServer.IsRunning;
             try
             {
                 ValidateConfiguration();
                 LastError = string.Empty;
                 SetState(SbcSessionState.Starting);
-                var serverWasRunning = NetMQServer.IsRunning;
                 NetMQServer.Run(connection.commandPort, connection.publishPort, connection.subscribePort);
+                WaitForServerEndpoint(connection);
                 _attachedToServer = NetMQServer.IsRunning;
                 _ownsServerSession = _attachedToServer && !serverWasRunning;
                 SetState(SbcSessionState.Running);
             }
             catch (Exception exception)
             {
+                if (!serverWasRunning && NetMQServer.IsRunning)
+                    NetMQServer.Stop();
                 _attachedToServer = false;
                 _ownsServerSession = false;
                 LastError = exception.Message;
@@ -263,6 +266,44 @@ namespace RSMA.SBC
         {
             if (_state != SbcSessionState.Running || !_attachedToServer || !NetMQServer.IsRunning)
                 throw new InvalidOperationException("SBC session is not running.");
+        }
+
+        private static void WaitForServerEndpoint(SbcEndpointConfiguration configuration)
+        {
+            if (!Uri.TryCreate(configuration.endpoint, UriKind.Absolute, out var uri))
+                throw new InvalidOperationException("SBC endpoint is invalid.");
+
+            var deadline = DateTime.UtcNow + TimeSpan.FromMilliseconds(configuration.requestTimeoutMilliseconds);
+            while (DateTime.UtcNow < deadline)
+            {
+                if (CanConnect(uri.Host, configuration.commandPort) &&
+                    CanConnect(uri.Host, configuration.publishPort) &&
+                    CanConnect(uri.Host, configuration.subscribePort))
+                    return;
+                Thread.Sleep(10);
+            }
+
+            throw new InvalidOperationException($"RSMA NetMQServer is not reachable at {configuration.endpoint} on ports {configuration.commandPort}, {configuration.publishPort}, {configuration.subscribePort}.");
+        }
+
+        private static bool CanConnect(string host, int port)
+        {
+            using (var client = new System.Net.Sockets.TcpClient())
+            {
+                try
+                {
+                    var task = client.ConnectAsync(host, port);
+                    return task.Wait(100) && client.Connected;
+                }
+                catch (System.Net.Sockets.SocketException)
+                {
+                    return false;
+                }
+                catch (AggregateException exception) when (exception.InnerException is System.Net.Sockets.SocketException)
+                {
+                    return false;
+                }
+            }
         }
 
         private void SetState(SbcSessionState state)
