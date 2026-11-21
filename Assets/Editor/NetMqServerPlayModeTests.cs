@@ -20,6 +20,9 @@ namespace RSMA.Tests
 {
     public class NetMqServerPlayModeTests
     {
+        private GameObject _sbcArmTestObject;
+        private PublisherSocket _sbcArmPublisher;
+
         [UnitySetUp]
         public IEnumerator EnterPlayMode()
         {
@@ -29,6 +32,21 @@ namespace RSMA.Tests
         [UnityTearDown]
         public IEnumerator ExitPlayMode()
         {
+            if (_sbcArmPublisher != null)
+            {
+                yield return DisposePublisherWithoutBlocking(_sbcArmPublisher);
+                _sbcArmPublisher = null;
+            }
+
+            if (NetMQServer.IsRunning)
+                yield return StopServerWithoutBlocking();
+
+            if (_sbcArmTestObject != null)
+            {
+                UnityEngine.Object.DestroyImmediate(_sbcArmTestObject);
+                _sbcArmTestObject = null;
+            }
+
             if (Application.isPlaying)
                 yield return new ExitPlayMode();
         }
@@ -128,65 +146,81 @@ namespace RSMA.Tests
         [UnityTest]
         public IEnumerator SbcArmCommandReachesSceneTelemetryAndServerLossDisarms()
         {
-            var gameObject = new GameObject("SBC ArmCommand PlayMode test");
-            PublisherSocket publisher = null;
-            try
+            if (NetMQServer.IsRunning)
+                yield return StopServerWithoutBlocking();
+
+            _sbcArmTestObject = new GameObject("SBC ArmCommand PlayMode test");
+            var device = _sbcArmTestObject.AddComponent<SbcDevice>();
+            device.Connection.endpoint = "tcp://127.0.0.1";
+            var ports = new[] { GetFreePort(), GetFreePort(), GetFreePort() };
+            device.Connection.commandPort = ports[0];
+            device.Connection.publishPort = ports[1];
+            device.Connection.subscribePort = ports[2];
+            var telemetry = _sbcArmTestObject.AddComponent<SbcSceneTelemetry>();
+            var mainThreadId = System.Threading.Thread.CurrentThread.ManagedThreadId;
+            var receivedOnMainThread = false;
+            telemetry.ArmStateChanged += armed =>
             {
-                NetMQServer.Stop();
-                var device = gameObject.AddComponent<SbcDevice>();
-                device.Connection.endpoint = "tcp://127.0.0.1";
-                var ports = new[] { GetFreePort(), GetFreePort(), GetFreePort() };
-                device.Connection.commandPort = ports[0];
-                device.Connection.publishPort = ports[1];
-                device.Connection.subscribePort = ports[2];
-                var telemetry = gameObject.AddComponent<SbcSceneTelemetry>();
-                var mainThreadId = System.Threading.Thread.CurrentThread.ManagedThreadId;
-                var receivedOnMainThread = false;
-                telemetry.ArmStateChanged += armed =>
-                {
-                    if (armed)
-                        receivedOnMainThread = System.Threading.Thread.CurrentThread.ManagedThreadId == mainThreadId;
-                };
+                if (armed)
+                    receivedOnMainThread = System.Threading.Thread.CurrentThread.ManagedThreadId == mainThreadId;
+            };
 
-                device.StartSession();
-                Assert.AreEqual(SbcSessionState.Running, device.State);
-                publisher = new PublisherSocket();
-                publisher.Options.Linger = TimeSpan.Zero;
-                publisher.Connect($"tcp://127.0.0.1:{device.Connection.subscribePort}");
-                yield return new WaitForSeconds(0.25f);
-                var command = new ArmCommand
-                {
-                    timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                    arm = 1
-                };
-                publisher.SendMultipartMessage(CreateArmFrame(device.ArmCommandTopic, command));
+            device.StartSession();
+            Assert.AreEqual(SbcSessionState.Running, device.State);
+            _sbcArmPublisher = new PublisherSocket();
+            _sbcArmPublisher.Options.Linger = TimeSpan.Zero;
+            _sbcArmPublisher.Connect($"tcp://127.0.0.1:{device.Connection.subscribePort}");
+            yield return new WaitForSeconds(0.25f);
+            var command = new ArmCommand
+            {
+                timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                arm = 1
+            };
+            _sbcArmPublisher.SendMultipartMessage(CreateArmFrame(device.ArmCommandTopic, command));
 
-                var receiveDeadline = Time.realtimeSinceStartup + 5f;
-                while (Time.realtimeSinceStartup < receiveDeadline && !telemetry.IsArmed)
-                    yield return null;
-
-                Assert.IsTrue(telemetry.IsArmed, "Typed ArmCommand was not applied by SbcSceneTelemetry.");
-                Assert.IsTrue(receivedOnMainThread, "ArmCommand scene handler must execute on Unity main thread.");
-
-                NetMQServer.Stop();
+            var receiveDeadline = Time.realtimeSinceStartup + 5f;
+            while (Time.realtimeSinceStartup < receiveDeadline && !telemetry.IsArmed)
                 yield return null;
-                Assert.AreEqual(SbcSessionState.Faulted, device.State);
-                Assert.IsFalse(telemetry.IsArmed, "Server loss must transition scene telemetry to disarmed.");
-                Assert.IsNotEmpty(device.LastError);
 
-                NetMQServer.Run(device.Connection.commandPort, device.Connection.publishPort, device.Connection.subscribePort);
-                var reconnectDeadline = Time.realtimeSinceStartup + 5f;
-                while (Time.realtimeSinceStartup < reconnectDeadline && device.State != SbcSessionState.Running)
-                    yield return null;
-                Assert.AreEqual(SbcSessionState.Running, device.State, "SBC session did not reconnect after NetMQServer restart.");
-                Assert.IsFalse(telemetry.IsArmed, "Stale ArmCommand must not be replayed after reconnect.");
-            }
-            finally
-            {
-                publisher?.Dispose();
-                UnityEngine.Object.DestroyImmediate(gameObject);
-                NetMQServer.Stop();
-            }
+            Assert.IsTrue(telemetry.IsArmed, "Typed ArmCommand was not applied by SbcSceneTelemetry.");
+            Assert.IsTrue(receivedOnMainThread, "ArmCommand scene handler must execute on Unity main thread.");
+
+            yield return StopServerWithoutBlocking();
+            Assert.AreEqual(SbcSessionState.Faulted, device.State);
+            Assert.IsFalse(telemetry.IsArmed, "Server loss must transition scene telemetry to disarmed.");
+            Assert.IsNotEmpty(device.LastError);
+
+            NetMQServer.Run(device.Connection.commandPort, device.Connection.publishPort, device.Connection.subscribePort);
+            var reconnectDeadline = Time.realtimeSinceStartup + 5f;
+            while (Time.realtimeSinceStartup < reconnectDeadline && device.State != SbcSessionState.Running)
+                yield return null;
+            Assert.AreEqual(SbcSessionState.Running, device.State, "SBC session did not reconnect after NetMQServer restart.");
+            Assert.IsFalse(telemetry.IsArmed, "Stale ArmCommand must not be replayed after reconnect.");
+        }
+
+        private static IEnumerator StopServerWithoutBlocking()
+        {
+            var stopTask = System.Threading.Tasks.Task.Run(NetMQServer.Stop);
+            var deadline = Time.realtimeSinceStartup + 5f;
+            while (!stopTask.IsCompleted && Time.realtimeSinceStartup < deadline)
+                yield return null;
+
+            Assert.IsTrue(stopTask.IsCompleted, "NetMQServer.Stop exceeded the 5-second test timeout.");
+            if (stopTask.IsFaulted)
+                Assert.Fail($"NetMQServer.Stop failed: {stopTask.Exception?.GetBaseException()}");
+        }
+
+        private static IEnumerator DisposePublisherWithoutBlocking(PublisherSocket publisher)
+        {
+            var disposeTask = System.Threading.Tasks.Task.Run(publisher.Dispose);
+            var deadline = Time.realtimeSinceStartup + 5f;
+            while (!disposeTask.IsCompleted && Time.realtimeSinceStartup < deadline)
+                yield return null;
+
+            if (!disposeTask.IsCompleted)
+                Debug.LogError("SBC test publisher disposal exceeded the 5-second timeout.");
+            else if (disposeTask.IsFaulted)
+                Debug.LogError($"SBC test publisher disposal failed: {disposeTask.Exception?.GetBaseException()}");
         }
 
         private static NetMQMessage CreateArmFrame(string topic, ArmCommand command)
