@@ -65,77 +65,74 @@ namespace RSMA.Tests
             var subPort = GetFreePort();
             Assert.That(new HashSet<int> { commandPort, pubPort, subPort }.Count, Is.EqualTo(3));
 
-            try
+            NetMQServer.Run(commandPort, pubPort, subPort);
+            Assert.IsTrue(WaitForPort(commandPort), "Unity command socket did not start.");
+            Assert.IsTrue(WaitForPort(pubPort), "Unity publisher socket did not start.");
+            Assert.IsTrue(WaitForPort(subPort), "Unity subscriber socket did not start.");
+
+            _serverCommand = new RequestSocket();
+            _serverCommand.Options.Linger = TimeSpan.Zero;
+            _serverCommand.Connect($"tcp://127.0.0.1:{commandPort}");
+            Assert.AreEqual("OK: Server is running", SendCommand(_serverCommand, "GetServerStatus"));
+
+            _serverSubscriber = new SubscriberSocket();
+            _serverSubscriber.Options.Linger = TimeSpan.Zero;
+            _serverSubscriber.Connect($"tcp://127.0.0.1:{pubPort}");
+            _serverSubscriber.Subscribe("");
+
+            _serverPublisher = new PublisherSocket();
+            _serverPublisher.Options.Linger = TimeSpan.Zero;
+            _serverPublisher.Connect($"tcp://127.0.0.1:{subPort}");
+            yield return new UnityEngine.WaitForSeconds(0.25f);
+
+            var velocity = new RobotVelocity
             {
-                NetMQServer.Run(commandPort, pubPort, subPort);
-                Assert.IsTrue(WaitForPort(commandPort), "Unity command socket did not start.");
-                Assert.IsTrue(WaitForPort(pubPort), "Unity publisher socket did not start.");
-                Assert.IsTrue(WaitForPort(subPort), "Unity subscriber socket did not start.");
+                timestamp = 1700000000123,
+                linearVelocity = 1.5f,
+                angularVelocity = -2.25f
+            };
+            var pose = new Pose
+            {
+                timestamp = 1700000000123,
+                position = new UnityEngine.Vector3(1f, -2f, 0.5f),
+                rotation = new UnityEngine.Quaternion(0f, 0f, 0.70710677f, 0.70710677f)
+            };
+            var scan = CreateSharedScan();
 
-                _serverCommand = new RequestSocket();
-                _serverCommand.Options.Linger = TimeSpan.Zero;
-                _serverCommand.Connect($"tcp://127.0.0.1:{commandPort}");
-                Assert.AreEqual("OK: Server is running", SendCommand(_serverCommand, "GetServerStatus"));
+            DataBroker.Publish("e2e/RobotVelocity", velocity);
+            DataBroker.Publish("e2e/Pose", pose);
+            DataBroker.Publish("e2e/LaserScan128", scan);
 
-                _serverSubscriber = new SubscriberSocket();
-                _serverSubscriber.Options.Linger = TimeSpan.Zero;
-                _serverSubscriber.Connect($"tcp://127.0.0.1:{pubPort}");
-                _serverSubscriber.Subscribe("");
+            var expected = new Dictionary<string, byte[]>
+            {
+                ["e2e/RobotVelocity"] = UdtpV1Codec.Encode(velocity),
+                ["e2e/Pose"] = UdtpV1Codec.Encode(pose),
+                ["e2e/LaserScan128"] = UdtpV1Codec.Encode(scan)
+            };
+            var expectedIds = new Dictionary<string, int>
+            {
+                ["e2e/RobotVelocity"] = UdtpV1Codec.RobotVelocityTypeId,
+                ["e2e/Pose"] = UdtpV1Codec.PoseTypeId,
+                ["e2e/LaserScan128"] = UdtpV1Codec.LaserScan128TypeId
+            };
+            yield return ReceivePublishedVectors(_serverSubscriber, expected, expectedIds);
 
-                _serverPublisher = new PublisherSocket();
-                _serverPublisher.Options.Linger = TimeSpan.Zero;
-                _serverPublisher.Connect($"tcp://127.0.0.1:{subPort}");
-                yield return new UnityEngine.WaitForSeconds(0.25f);
+            var topics = SendCommand(_serverCommand, "GetTopics");
+            StringAssert.Contains("e2e/RobotVelocity", topics);
+            StringAssert.Contains("e2e/Pose", topics);
+            StringAssert.Contains("e2e/LaserScan128", topics);
+            SendFrame(_serverPublisher, "e2e/in/RobotVelocity", 1001, UdtpV1Codec.Encode(velocity), 11);
+            SendFrame(_serverPublisher, "e2e/in/Pose", 1002, UdtpV1Codec.Encode(pose), 12);
+            SendFrame(_serverPublisher, "e2e/in/LaserScan128", 1003, UdtpV1Codec.Encode(scan), 13);
+            SendFrame(_serverPublisher, "e2e/in/Camera", 2, new byte[] { 1, 2, 3, 4 }, 14);
+            SendFrame(_serverPublisher, "e2e/in/Unknown", 42, new byte[] { 9, 8, 7, 6 }, 14);
+            SendFrame(_serverPublisher, "e2e/in/RobotVelocity", 1001, new byte[] { 1, 2, 3 }, 15);
 
-                var velocity = new RobotVelocity
-                {
-                    timestamp = 1700000000123,
-                    linearVelocity = 1.5f,
-                    angularVelocity = -2.25f
-                };
-                var pose = new Pose
-                {
-                    timestamp = 1700000000123,
-                    position = new UnityEngine.Vector3(1f, -2f, 0.5f),
-                    rotation = new UnityEngine.Quaternion(0f, 0f, 0.70710677f, 0.70710677f)
-                };
-                var scan = CreateSharedScan();
+            yield return WaitForIncomingState(velocity, pose, scan);
 
-                DataBroker.Publish("e2e/RobotVelocity", velocity);
-                DataBroker.Publish("e2e/Pose", pose);
-                DataBroker.Publish("e2e/LaserScan128", scan);
-
-                var expected = new Dictionary<string, byte[]>
-                {
-                    ["e2e/RobotVelocity"] = UdtpV1Codec.Encode(velocity),
-                    ["e2e/Pose"] = UdtpV1Codec.Encode(pose),
-                    ["e2e/LaserScan128"] = UdtpV1Codec.Encode(scan)
-                };
-                var expectedIds = new Dictionary<string, int>
-                {
-                    ["e2e/RobotVelocity"] = UdtpV1Codec.RobotVelocityTypeId,
-                    ["e2e/Pose"] = UdtpV1Codec.PoseTypeId,
-                    ["e2e/LaserScan128"] = UdtpV1Codec.LaserScan128TypeId
-                };
-                yield return ReceivePublishedVectors(_serverSubscriber, expected, expectedIds);
-
-                var topics = SendCommand(_serverCommand, "GetTopics");
-                StringAssert.Contains("e2e/RobotVelocity", topics);
-                StringAssert.Contains("e2e/Pose", topics);
-                StringAssert.Contains("e2e/LaserScan128", topics);
-                SendFrame(_serverPublisher, "e2e/in/RobotVelocity", 1001, UdtpV1Codec.Encode(velocity), 11);
-                SendFrame(_serverPublisher, "e2e/in/Pose", 1002, UdtpV1Codec.Encode(pose), 12);
-                SendFrame(_serverPublisher, "e2e/in/LaserScan128", 1003, UdtpV1Codec.Encode(scan), 13);
-                SendFrame(_serverPublisher, "e2e/in/Camera", 2, new byte[] { 1, 2, 3, 4 }, 14);
-                SendFrame(_serverPublisher, "e2e/in/Unknown", 42, new byte[] { 9, 8, 7, 6 }, 14);
-                SendFrame(_serverPublisher, "e2e/in/RobotVelocity", 1001, new byte[] { 1, 2, 3 }, 15);
-
-                yield return WaitForIncomingState(velocity, pose, scan);
-
-                var camera = DataBroker.GetRawState("e2e/in/Camera") as byte[];
-                CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4 }, camera);
-                Assert.IsNull(DataBroker.GetRawState("e2e/in/Unknown"));
-            }
+            var camera = DataBroker.GetRawState("e2e/in/Camera") as byte[];
+            CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4 }, camera);
+            Assert.IsNull(DataBroker.GetRawState("e2e/in/Unknown"));
         }
 
         [UnityTest]
