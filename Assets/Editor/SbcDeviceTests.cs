@@ -180,8 +180,8 @@ namespace RSMA.Tests
             }
             finally
             {
+                StopServerWithTimeout();
                 UnityEngine.Object.DestroyImmediate(gameObject);
-                NetMQServer.Stop();
             }
         }
 
@@ -192,7 +192,7 @@ namespace RSMA.Tests
             SubscriberSocket subscriber = null;
             try
             {
-                NetMQServer.Stop();
+                StopServerWithTimeout();
                 var device = gameObject.AddComponent<SbcDevice>();
                 device.Connection.endpoint = "tcp://127.0.0.1";
                 var ports = GetUniqueFreePorts(3);
@@ -266,9 +266,9 @@ namespace RSMA.Tests
             }
             finally
             {
-                subscriber?.Dispose();
+                StopServerWithTimeout();
+                DisposeSocketWithTimeout(subscriber);
                 UnityEngine.Object.DestroyImmediate(gameObject);
-                NetMQServer.Stop();
             }
         }
 
@@ -278,7 +278,7 @@ namespace RSMA.Tests
             var gameObject = new GameObject("SBC telemetry test");
             try
             {
-                NetMQServer.Stop();
+                StopServerWithTimeout();
                 var device = gameObject.AddComponent<SbcDevice>();
                 device.Connection.endpoint = "tcp://127.0.0.1";
                 var telemetry = gameObject.AddComponent<SbcSceneTelemetry>();
@@ -305,8 +305,8 @@ namespace RSMA.Tests
             }
             finally
             {
+                StopServerWithTimeout();
                 UnityEngine.Object.DestroyImmediate(gameObject);
-                NetMQServer.Stop();
             }
         }
 
@@ -317,6 +317,27 @@ namespace RSMA.Tests
             var port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
             listener.Stop();
             return port;
+        }
+
+        private static void StopServerWithTimeout()
+        {
+            var stopTask = Task.Run(NetMQServer.Stop);
+            if (!stopTask.Wait(TimeSpan.FromSeconds(5)))
+                Assert.Fail("NetMQServer.Stop exceeded the 5-second test timeout.");
+            if (stopTask.IsFaulted)
+                Assert.Fail($"NetMQServer.Stop failed: {stopTask.Exception?.GetBaseException()}");
+        }
+
+        private static void DisposeSocketWithTimeout(IDisposable socket)
+        {
+            if (socket == null)
+                return;
+
+            var disposeTask = Task.Run(socket.Dispose);
+            if (!disposeTask.Wait(TimeSpan.FromSeconds(5)))
+                Assert.Fail("NetMQ test socket disposal exceeded the 5-second timeout.");
+            if (disposeTask.IsFaulted)
+                Assert.Fail($"NetMQ test socket disposal failed: {disposeTask.Exception?.GetBaseException()}");
         }
 
         private static int[] GetUniqueFreePorts(int count)

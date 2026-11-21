@@ -22,6 +22,9 @@ namespace RSMA.Tests
     {
         private GameObject _sbcArmTestObject;
         private PublisherSocket _sbcArmPublisher;
+        private PublisherSocket _serverPublisher;
+        private SubscriberSocket _serverSubscriber;
+        private RequestSocket _serverCommand;
 
         [UnitySetUp]
         public IEnumerator EnterPlayMode()
@@ -32,11 +35,14 @@ namespace RSMA.Tests
         [UnityTearDown]
         public IEnumerator ExitPlayMode()
         {
-            if (_sbcArmPublisher != null)
-            {
-                yield return DisposePublisherWithoutBlocking(_sbcArmPublisher);
-                _sbcArmPublisher = null;
-            }
+            yield return DisposeSocketWithoutBlocking(_sbcArmPublisher);
+            _sbcArmPublisher = null;
+            yield return DisposeSocketWithoutBlocking(_serverPublisher);
+            _serverPublisher = null;
+            yield return DisposeSocketWithoutBlocking(_serverSubscriber);
+            _serverSubscriber = null;
+            yield return DisposeSocketWithoutBlocking(_serverCommand);
+            _serverCommand = null;
 
             if (NetMQServer.IsRunning)
                 yield return StopServerWithoutBlocking();
@@ -59,9 +65,6 @@ namespace RSMA.Tests
             var subPort = GetFreePort();
             Assert.That(new HashSet<int> { commandPort, pubPort, subPort }.Count, Is.EqualTo(3));
 
-            RequestSocket command = null;
-            SubscriberSocket subscriber = null;
-            PublisherSocket publisher = null;
             try
             {
                 NetMQServer.Run(commandPort, pubPort, subPort);
@@ -69,19 +72,19 @@ namespace RSMA.Tests
                 Assert.IsTrue(WaitForPort(pubPort), "Unity publisher socket did not start.");
                 Assert.IsTrue(WaitForPort(subPort), "Unity subscriber socket did not start.");
 
-                command = new RequestSocket();
-                command.Options.Linger = TimeSpan.Zero;
-                command.Connect($"tcp://127.0.0.1:{commandPort}");
-                Assert.AreEqual("OK: Server is running", SendCommand(command, "GetServerStatus"));
+                _serverCommand = new RequestSocket();
+                _serverCommand.Options.Linger = TimeSpan.Zero;
+                _serverCommand.Connect($"tcp://127.0.0.1:{commandPort}");
+                Assert.AreEqual("OK: Server is running", SendCommand(_serverCommand, "GetServerStatus"));
 
-                subscriber = new SubscriberSocket();
-                subscriber.Options.Linger = TimeSpan.Zero;
-                subscriber.Connect($"tcp://127.0.0.1:{pubPort}");
-                subscriber.Subscribe("");
+                _serverSubscriber = new SubscriberSocket();
+                _serverSubscriber.Options.Linger = TimeSpan.Zero;
+                _serverSubscriber.Connect($"tcp://127.0.0.1:{pubPort}");
+                _serverSubscriber.Subscribe("");
 
-                publisher = new PublisherSocket();
-                publisher.Options.Linger = TimeSpan.Zero;
-                publisher.Connect($"tcp://127.0.0.1:{subPort}");
+                _serverPublisher = new PublisherSocket();
+                _serverPublisher.Options.Linger = TimeSpan.Zero;
+                _serverPublisher.Connect($"tcp://127.0.0.1:{subPort}");
                 yield return new UnityEngine.WaitForSeconds(0.25f);
 
                 var velocity = new RobotVelocity
@@ -114,32 +117,24 @@ namespace RSMA.Tests
                     ["e2e/Pose"] = UdtpV1Codec.PoseTypeId,
                     ["e2e/LaserScan128"] = UdtpV1Codec.LaserScan128TypeId
                 };
-                yield return ReceivePublishedVectors(subscriber, expected, expectedIds);
+                yield return ReceivePublishedVectors(_serverSubscriber, expected, expectedIds);
 
-                var topics = SendCommand(command, "GetTopics");
+                var topics = SendCommand(_serverCommand, "GetTopics");
                 StringAssert.Contains("e2e/RobotVelocity", topics);
                 StringAssert.Contains("e2e/Pose", topics);
                 StringAssert.Contains("e2e/LaserScan128", topics);
-
-                SendFrame(publisher, "e2e/in/RobotVelocity", 1001, UdtpV1Codec.Encode(velocity), 10);
-                SendFrame(publisher, "e2e/in/Pose", 1002, UdtpV1Codec.Encode(pose), 11);
-                SendFrame(publisher, "e2e/in/LaserScan128", 1003, UdtpV1Codec.Encode(scan), 12);
-                SendFrame(publisher, "e2e/in/Camera", UdtpV1Codec.LegacyCameraTypeId, new byte[] { 1, 2, 3, 4 }, 13);
-                SendFrame(publisher, "e2e/in/Unknown", 42, new byte[] { 9, 8, 7, 6 }, 14);
-                SendFrame(publisher, "e2e/in/RobotVelocity", 1001, new byte[] { 1, 2, 3 }, 15);
+                SendFrame(_serverPublisher, "e2e/in/RobotVelocity", 1001, UdtpV1Codec.Encode(velocity), 11);
+                SendFrame(_serverPublisher, "e2e/in/Pose", 1002, UdtpV1Codec.Encode(pose), 12);
+                SendFrame(_serverPublisher, "e2e/in/LaserScan128", 1003, UdtpV1Codec.Encode(scan), 13);
+                SendFrame(_serverPublisher, "e2e/in/Camera", 2, new byte[] { 1, 2, 3, 4 }, 14);
+                SendFrame(_serverPublisher, "e2e/in/Unknown", 42, new byte[] { 9, 8, 7, 6 }, 14);
+                SendFrame(_serverPublisher, "e2e/in/RobotVelocity", 1001, new byte[] { 1, 2, 3 }, 15);
 
                 yield return WaitForIncomingState(velocity, pose, scan);
 
                 var camera = DataBroker.GetRawState("e2e/in/Camera") as byte[];
                 CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4 }, camera);
                 Assert.IsNull(DataBroker.GetRawState("e2e/in/Unknown"));
-            }
-            finally
-            {
-                publisher?.Dispose();
-                subscriber?.Dispose();
-                command?.Dispose();
-                NetMQServer.Stop();
             }
         }
 
@@ -210,17 +205,20 @@ namespace RSMA.Tests
                 Assert.Fail($"NetMQServer.Stop failed: {stopTask.Exception?.GetBaseException()}");
         }
 
-        private static IEnumerator DisposePublisherWithoutBlocking(PublisherSocket publisher)
+        private static IEnumerator DisposeSocketWithoutBlocking(IDisposable socket)
         {
-            var disposeTask = System.Threading.Tasks.Task.Run(publisher.Dispose);
+            if (socket == null)
+                yield break;
+
+            var disposeTask = System.Threading.Tasks.Task.Run(socket.Dispose);
             var deadline = Time.realtimeSinceStartup + 5f;
             while (!disposeTask.IsCompleted && Time.realtimeSinceStartup < deadline)
                 yield return null;
 
             if (!disposeTask.IsCompleted)
-                Debug.LogError("SBC test publisher disposal exceeded the 5-second timeout.");
+                UnityEngine.Debug.LogError("NetMQ test socket disposal exceeded the 5-second timeout.");
             else if (disposeTask.IsFaulted)
-                Debug.LogError($"SBC test publisher disposal failed: {disposeTask.Exception?.GetBaseException()}");
+                UnityEngine.Debug.LogError($"NetMQ test socket disposal failed: {disposeTask.Exception?.GetBaseException()}");
         }
 
         private static NetMQMessage CreateArmFrame(string topic, ArmCommand command)
@@ -245,22 +243,15 @@ namespace RSMA.Tests
             var commandPort = GetFreePort();
             var pubPort = GetFreePort();
             var subPort = GetFreePort();
-            try
-            {
-                NetMQServer.Run(commandPort, pubPort, subPort);
-                Assert.IsTrue(WaitForPort(commandPort), "First server start failed.");
-                NetMQServer.Stop();
-                Assert.IsFalse(NetMQServer.IsRunning);
+            NetMQServer.Run(commandPort, pubPort, subPort);
+            Assert.IsTrue(WaitForPort(commandPort), "First server start failed.");
+            yield return StopServerWithoutBlocking();
+            Assert.IsFalse(NetMQServer.IsRunning);
 
-                NetMQServer.Run(commandPort, pubPort, subPort);
-                Assert.IsTrue(WaitForPort(commandPort), "Server did not restart after Stop.");
-                Assert.IsTrue(NetMQServer.IsRunning);
-                yield return null;
-            }
-            finally
-            {
-                NetMQServer.Stop();
-            }
+            NetMQServer.Run(commandPort, pubPort, subPort);
+            Assert.IsTrue(WaitForPort(commandPort), "Server did not restart after Stop.");
+            Assert.IsTrue(NetMQServer.IsRunning);
+            yield return null;
         }
 
         private static IEnumerator ReceivePublishedVectors(
