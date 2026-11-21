@@ -410,19 +410,14 @@ namespace RSMA.Tests
         }
 
         [Test]
-        public async Task ServerBindFailureDoesNotLeaveARunningGeneration()
+        public async Task ServerRejectsInvalidPortWithoutStartingGeneration()
         {
-            var occupiedPort = GetFreePort();
-            var commandListener = new TcpListener(IPAddress.Loopback, occupiedPort);
-            commandListener.Start();
             var ports = GetUniqueFreePorts(2);
             try
             {
-                NetMQServer.Run(occupiedPort, ports[0], ports[1]);
-                var stateDeadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
-                while (NetMQServer.IsRunning && DateTime.UtcNow < stateDeadline)
-                    await Task.Delay(10);
-                Assert.IsFalse(NetMQServer.IsRunning, "A failed command bind must not report a running server.");
+                Assert.Throws<ArgumentOutOfRangeException>(() =>
+                    NetMQServer.Run(0, ports[0], ports[1]));
+                Assert.IsFalse(NetMQServer.IsRunning, "Invalid port configuration must not start a server generation.");
 
                 var stopTask = NetMQServer.StopInBackground();
                 Assert.IsTrue(await Task.WhenAny(stopTask, Task.Delay(TimeSpan.FromSeconds(5))) == stopTask,
@@ -431,7 +426,6 @@ namespace RSMA.Tests
             }
             finally
             {
-                commandListener.Stop();
                 if (NetMQServer.IsRunning)
                     NetMQServer.Stop();
             }

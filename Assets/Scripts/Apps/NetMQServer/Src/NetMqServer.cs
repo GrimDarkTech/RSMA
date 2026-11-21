@@ -65,6 +65,12 @@ namespace RSMA.NetMQ
 
         public static void Run(int commandPort = 5555, int pubPort = 5556, int subPort = 5560)
         {
+            ValidatePort(commandPort, nameof(commandPort));
+            ValidatePort(pubPort, nameof(pubPort));
+            ValidatePort(subPort, nameof(subPort));
+            if (commandPort == pubPort || commandPort == subPort || pubPort == subPort)
+                throw new ArgumentException("NetMQ server ports must be different.");
+
             lock (_lifecycleLock)
             {
                 if (_isRunning) return;
@@ -91,6 +97,12 @@ namespace RSMA.NetMQ
                     Task.Run(() => RunWorker(() => ReceiverLoop(subPort)))
                 };
             }
+        }
+
+        private static void ValidatePort(int port, string parameterName)
+        {
+            if (port < 1 || port > 65535)
+                throw new ArgumentOutOfRangeException(parameterName, port, "NetMQ server ports must be between 1 and 65535.");
         }
 
         private static void RunWorker(Action worker)
