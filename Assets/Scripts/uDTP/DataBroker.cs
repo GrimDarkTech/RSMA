@@ -233,6 +233,15 @@ namespace RSMA.uDTP
             return new List<string>(activeTopics);
         }
 
+        public static void ClearTopicState(string topicName)
+        {
+            _topics.TryRemove(topicName, out _);
+            _rawTopics.TryRemove(topicName, out _);
+            _rawHeaders.TryRemove(topicName, out _);
+            _networkTypeIds.TryRemove(topicName, out _);
+            _topicRegistry.TryRemove(topicName, out _);
+        }
+
         /// <summary>
         /// Извлекает объект состояния топика (для рефлексии в Editor Window)
         /// </summary>

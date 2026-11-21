@@ -211,6 +211,29 @@ VM stop lifecycle и HITL не проверялись. Воспроизводи�
 NetMQ sockets и Python/C++ tests против standalone C# server остаются отдельными
 уровнями проверки.
 
+### Следующий SITL increment: пункты 1–4
+
+В текущую реализацию добавлены:
+
+- Unity PlayMode fixture для typed `ArmCommand`, проверки scene handler на main
+  thread и `Running -> Faulted/disarmed -> Running` при остановке и повторном
+  запуске `NetMQServer`.
+- `SbcDevice` отслеживает server loss, очищает stale command topic, переводит
+  telemetry в disarmed и автоматически присоединяется к восстановленному серверу
+  только когда его три endpoint снова доступны.
+- Python smoke-test имеет `--expect-outage` для внешне управляемого server outage
+  и восстановления; `--test-reconnect` проверяет только reconnect клиента.
+- Editor window `RSMA/SBC SITL` предоставляет Start/Stop/Refresh status,
+  редактирование VM/bridge/host/ports, выбор `VBoxManage.exe` через
+  StandaloneFileBrowser, validation и отображение ошибок. VM запускается только
+  явной кнопкой в Play Mode.
+
+Эти изменения требуют успешной перекомпиляции и ограниченного Unity PlayMode
+прогона после refresh открытого Editor; server-outage сценарий и GUI-driven VM
+lifecycle ещё не считаются проверенными до этого прогона. После изменения
+клиентский endpoint должен оставаться LAN-адресом host, например
+`tcp://192.168.2.91`, а не `0.0.0.0`.
+
 API клиента следует строить вокруг capabilities и typed operations, а не
 переносить Unity-классы или низкоуровневые OS descriptors через сеть.
 

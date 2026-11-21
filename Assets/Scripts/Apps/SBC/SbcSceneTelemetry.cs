@@ -80,6 +80,7 @@ namespace RSMA.SBC
             if (!_subscribed && device != null)
             {
                 device.ArmCommandReceived += OnArmCommandReceived;
+                device.ConnectionLost += OnConnectionLost;
                 _subscribed = true;
             }
         }
@@ -94,8 +95,16 @@ namespace RSMA.SBC
         private void Unsubscribe()
         {
             if (_subscribed && device != null)
+            {
                 device.ArmCommandReceived -= OnArmCommandReceived;
+                device.ConnectionLost -= OnConnectionLost;
+            }
             _subscribed = false;
+        }
+
+        private void OnConnectionLost()
+        {
+            SetArmed(false);
         }
 
         private void OnArmCommandReceived(ArmCommand command)

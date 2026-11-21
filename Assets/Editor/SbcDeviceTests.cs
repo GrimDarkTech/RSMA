@@ -66,6 +66,13 @@ namespace RSMA.Tests
         }
 
         [Test]
+        public void ClientEndpointRejectsWildcardBindAddress()
+        {
+            var configuration = new SbcEndpointConfiguration { endpoint = "tcp://0.0.0.0" };
+            Assert.Throws<ArgumentException>(() => configuration.Validate());
+        }
+
+        [Test]
         public void SitlRequiresBridgedNetworkMode()
         {
             var configuration = new SbcSitlConfiguration

@@ -48,6 +48,9 @@ namespace RSMA.SBC
                 string.IsNullOrWhiteSpace(uri.Host) || uri.AbsolutePath != "/" ||
                 uri.Query.Length != 0 || uri.Fragment.Length != 0)
                 throw new ArgumentException("SBC endpoint must be a tcp URI such as tcp://192.168.2.91.", nameof(endpoint));
+            if (string.Equals(uri.Host, "0.0.0.0", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(uri.Host, "::", StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("SBC client endpoint must be a reachable host address, not a wildcard bind address.", nameof(endpoint));
 
             ValidatePort(commandPort, nameof(commandPort));
             ValidatePort(publishPort, nameof(publishPort));
@@ -114,6 +117,7 @@ namespace RSMA.SBC
         public event Action<SbcSessionState> StateChanged;
         public event Action<SbcSitlOperationState> SitlStateChanged;
         public event Action<ArmCommand> ArmCommandReceived;
+        public event Action ConnectionLost;
 
         private void OnEnable()
         {
@@ -128,11 +132,28 @@ namespace RSMA.SBC
 
         public void ProcessPendingCommands()
         {
-            if (_state != SbcSessionState.Running || !_attachedToServer || !NetMQServer.IsRunning)
+            if (_state == SbcSessionState.Faulted && !_attachedToServer && NetMQServer.IsRunning &&
+                IsServerEndpointReachable(connection))
+            {
+                LastError = string.Empty;
+                _attachedToServer = true;
+                SetState(SbcSessionState.Running);
+            }
+
+            if (_state != SbcSessionState.Running || !_attachedToServer)
                 return;
 
+            if (!NetMQServer.IsRunning)
+            {
+                _attachedToServer = false;
+                LastError = "RSMA NetMQServer stopped while the SBC session was active.";
+                SetState(SbcSessionState.Faulted);
+                NotifyConnectionLost();
+                return;
+            }
+
             var command = DataBroker.GetState<ArmCommand>(ArmCommandTopic);
-            if (!_hasAppliedArmCommand || command.timestamp > _lastAppliedArmTimestamp)
+            if (command.timestamp > 0 && (!_hasAppliedArmCommand || command.timestamp > _lastAppliedArmTimestamp))
             {
                 _hasAppliedArmCommand = true;
                 _lastAppliedArmTimestamp = command.timestamp;
@@ -182,9 +203,20 @@ namespace RSMA.SBC
             }
             _attachedToServer = false;
             _ownsServerSession = false;
+            NotifyConnectionLost();
 
             if (_state != SbcSessionState.Stopped)
                 SetState(SbcSessionState.Stopped);
+        }
+
+        private void NotifyConnectionLost()
+        {
+            if (_hasAppliedArmCommand)
+                ConnectionLost?.Invoke();
+            DataBroker.ClearTopicState(ArmCommandTopic);
+            _hasAppliedArmCommand = false;
+            _lastAppliedArmTimestamp = 0;
+            _lastArmCommand = default;
         }
 
         public async Task StartSitlAsync(CancellationToken cancellationToken = default)
@@ -231,6 +263,21 @@ namespace RSMA.SBC
             {
                 LastSitlError = exception.Message;
                 SetSitlState(SbcSitlOperationState.Faulted);
+                throw;
+            }
+        }
+
+        public async Task<SbcVirtualMachineState> RefreshSitlStateAsync(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var state = await new SbcVirtualBoxController(sitl).GetStateAsync(cancellationToken);
+                LastSitlError = string.Empty;
+                return state;
+            }
+            catch (Exception exception)
+            {
+                LastSitlError = exception.Message;
                 throw;
             }
         }
@@ -284,6 +331,16 @@ namespace RSMA.SBC
             }
 
             throw new InvalidOperationException($"RSMA NetMQServer is not reachable at {configuration.endpoint} on ports {configuration.commandPort}, {configuration.publishPort}, {configuration.subscribePort}.");
+        }
+
+        private static bool IsServerEndpointReachable(SbcEndpointConfiguration configuration)
+        {
+            if (!Uri.TryCreate(configuration.endpoint, UriKind.Absolute, out var uri))
+                return false;
+
+            return CanConnect(uri.Host, configuration.commandPort) &&
+                CanConnect(uri.Host, configuration.publishPort) &&
+                CanConnect(uri.Host, configuration.subscribePort);
         }
 
         private static bool CanConnect(string host, int port)
