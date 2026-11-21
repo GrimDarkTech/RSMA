@@ -255,19 +255,27 @@ namespace RSMA.SBC
             var stopwatch = Stopwatch.StartNew();
             using (var waitTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
             {
-                waitTimeout.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
                 try
                 {
                     while (stopwatch.Elapsed < TimeSpan.FromSeconds(timeoutSeconds))
                     {
                         waitTimeout.Token.ThrowIfCancellationRequested();
-                        var state = await GetStateAsync(waitTimeout.Token).ConfigureAwait(false);
+                        var remaining = TimeSpan.FromSeconds(timeoutSeconds) - stopwatch.Elapsed;
+                        var stateTask = GetStateAsync(waitTimeout.Token);
+                        var completed = await Task.WhenAny(stateTask, Task.Delay(remaining)).ConfigureAwait(false);
+                        if (completed != stateTask)
+                        {
+                            waitTimeout.Cancel();
+                            ObserveTaskFailure(stateTask);
+                            throw new TimeoutException($"Timed out after {timeoutSeconds}s waiting for VirtualBox VM '{_configuration.virtualMachineName}' to enter {expected} state.");
+                        }
+
+                        var state = await stateTask.ConfigureAwait(false);
                         if (state == expected)
                             return;
                         if (state == SbcVirtualMachineState.Aborted)
                             throw new InvalidOperationException($"VirtualBox VM '{_configuration.virtualMachineName}' entered Aborted state while waiting for {expected}.");
 
-                        var remaining = TimeSpan.FromSeconds(timeoutSeconds) - stopwatch.Elapsed;
                         var delay = remaining < TimeSpan.FromMilliseconds(250)
                             ? remaining
                             : TimeSpan.FromMilliseconds(250);
@@ -282,6 +290,16 @@ namespace RSMA.SBC
             }
 
             throw new TimeoutException($"Timed out after {timeoutSeconds}s waiting for VirtualBox VM '{_configuration.virtualMachineName}' to enter {expected} state.");
+        }
+
+        private static void ObserveTaskFailure(Task task)
+        {
+            task.ContinueWith(
+                completedTask =>
+                {
+                    var ignored = completedTask.Exception;
+                },
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously);
         }
 
         public static SbcVirtualMachineState ParseState(string machineReadableOutput)
@@ -323,11 +341,20 @@ namespace RSMA.SBC
         {
             using (var commandTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
             {
-                commandTimeout.CancelAfter(TimeSpan.FromSeconds(_configuration.commandTimeoutSeconds));
                 try
                 {
-                    return await _runner.RunAsync(BuildExecutablePath(), arguments, commandTimeout.Token)
-                        .ConfigureAwait(false);
+                    var commandTask = Task.Run(() => _runner.RunAsync(
+                        BuildExecutablePath(), arguments, commandTimeout.Token));
+                    var timeoutTask = Task.Delay(TimeSpan.FromSeconds(_configuration.commandTimeoutSeconds));
+                    var completed = await Task.WhenAny(commandTask, timeoutTask).ConfigureAwait(false);
+                    if (completed != commandTask)
+                    {
+                        commandTimeout.Cancel();
+                        ObserveTaskFailure(commandTask);
+                        throw new TimeoutException($"VBoxManage command exceeded {_configuration.commandTimeoutSeconds}s: {arguments}");
+                    }
+
+                    return await commandTask.ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
                 {

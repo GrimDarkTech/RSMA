@@ -137,7 +137,7 @@ namespace RSMA.Tests
         }
 
         [Test]
-        public void VirtualBoxStartTimesOutIfVmNeverReachesRunning()
+        public async Task VirtualBoxStartTimesOutVMNeverReachesRunning()
         {
             var configuration = new SbcSitlConfiguration
             {
@@ -149,13 +149,47 @@ namespace RSMA.Tests
                 Result("VMState=\"poweroff\"\n"),
                 Result("VM configured"),
                 Result("VM started"),
-                Result("VMState=\"poweroff\"\n"),
-                Result("VMState=\"poweroff\"\n"),
-                Result("VMState=\"poweroff\"\n"),
                 Result("VMState=\"poweroff\"\n"));
             var controller = new SbcVirtualBoxController(configuration, runner);
 
-            Assert.ThrowsAsync<TimeoutException>(async () => await controller.StartAsync());
+            var startTask = controller.StartAsync();
+            var completed = await Task.WhenAny(startTask, Task.Delay(TimeSpan.FromSeconds(5)));
+            Assert.AreSame(startTask, completed, "VirtualBox start exceeded the 5-second test watchdog.");
+
+            try
+            {
+                await startTask;
+                Assert.Fail("VirtualBox start should fail with TimeoutException when the VM never reaches Running.");
+            }
+            catch (TimeoutException)
+            {
+                Assert.GreaterOrEqual(runner.Arguments.Count, 4,
+                    "The timeout test must reach repeated VM state polling before timing out.");
+            }
+        }
+
+        [Test]
+        public async Task VirtualBoxCommandTimeoutDoesNotHangWhenRunnerIgnoresCancellation()
+        {
+            var configuration = new SbcSitlConfiguration
+            {
+                virtualMachineName = "RSMA-Ubuntu-SITL",
+                startupTimeoutSeconds = 1,
+                commandTimeoutSeconds = 1
+            };
+            var controller = new SbcVirtualBoxController(configuration, new HangingVirtualBoxRunner());
+            var startTask = controller.StartAsync();
+            var completed = await Task.WhenAny(startTask, Task.Delay(TimeSpan.FromSeconds(4)));
+            Assert.AreSame(startTask, completed, "VBoxManage command timeout did not complete the start operation.");
+
+            try
+            {
+                await startTask;
+                Assert.Fail("A non-terminating VBoxManage command must produce TimeoutException.");
+            }
+            catch (TimeoutException)
+            {
+            }
         }
 
         [Test]
@@ -385,7 +419,9 @@ namespace RSMA.Tests
             try
             {
                 NetMQServer.Run(occupiedPort, ports[0], ports[1]);
-                await Task.Delay(100);
+                var stateDeadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+                while (NetMQServer.IsRunning && DateTime.UtcNow < stateDeadline)
+                    await Task.Delay(10);
                 Assert.IsFalse(NetMQServer.IsRunning, "A failed command bind must not report a running server.");
 
                 var stopTask = NetMQServer.StopInBackground();
@@ -466,6 +502,17 @@ namespace RSMA.Tests
                 return Task.FromResult(_results.Count == 0
                     ? Result("VMState=\"poweroff\"\n")
                     : _results.Dequeue());
+            }
+        }
+
+        private sealed class HangingVirtualBoxRunner : ISbcVirtualBoxCommandRunner
+        {
+            public Task<SbcVirtualBoxCommandResult> RunAsync(
+                string executable,
+                string arguments,
+                CancellationToken cancellationToken)
+            {
+                return new TaskCompletionSource<SbcVirtualBoxCommandResult>().Task;
             }
         }
 
