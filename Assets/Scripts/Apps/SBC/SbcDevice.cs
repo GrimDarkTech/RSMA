@@ -187,7 +187,7 @@ namespace RSMA.SBC
             catch (Exception exception)
             {
                 if (!serverWasRunning && NetMQServer.IsRunning)
-                    NetMQServer.Stop();
+                    NetMQServer.StopInBackground();
                 _attachedToServer = false;
                 _ownsServerSession = false;
                 LastError = exception.Message;
@@ -199,7 +199,7 @@ namespace RSMA.SBC
         {
             if (_ownsServerSession)
             {
-                NetMQServer.Stop();
+                NetMQServer.StopInBackground();
             }
             _attachedToServer = false;
             _ownsServerSession = false;

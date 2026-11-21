@@ -166,7 +166,7 @@ namespace RSMA.Tests
         }
 
         [Test]
-        public void InvalidConfigurationDoesNotStartSession()
+        public async Task InvalidSessionConfigurationNeverStartsNetMqServer()
         {
             var gameObject = new GameObject("SBC invalid test");
             try
@@ -180,19 +180,19 @@ namespace RSMA.Tests
             }
             finally
             {
-                StopServerWithTimeout();
+                await StopServerWithTimeoutAsync();
                 UnityEngine.Object.DestroyImmediate(gameObject);
             }
         }
 
         [Test]
-        public void SessionPublishesVelocityAndDispatchesArmCommandOnUpdate()
+        public async Task SessionPublishesVelocityAndDispatchesArmCommandOnUpdate()
         {
             var gameObject = new GameObject("SBC integration test");
             SubscriberSocket subscriber = null;
             try
             {
-                StopServerWithTimeout();
+                await StopServerWithTimeoutAsync();
                 var device = gameObject.AddComponent<SbcDevice>();
                 device.Connection.endpoint = "tcp://127.0.0.1";
                 var ports = GetUniqueFreePorts(3);
@@ -204,9 +204,9 @@ namespace RSMA.Tests
                 device.Connection.subscribePort = subscribePort;
                 device.StartSession();
                 Assert.AreEqual(SbcSessionState.Running, device.State);
-                Assert.IsTrue(WaitForPort(commandPort), "SBC command endpoint did not start.");
-                Assert.IsTrue(WaitForPort(publishPort), "SBC publish endpoint did not start.");
-                Assert.IsTrue(WaitForPort(subscribePort), "SBC subscribe endpoint did not start.");
+                Assert.IsTrue(await WaitForPortAsync(commandPort), "SBC command endpoint did not start.");
+                Assert.IsTrue(await WaitForPortAsync(publishPort), "SBC publish endpoint did not start.");
+                Assert.IsTrue(await WaitForPortAsync(subscribePort), "SBC subscribe endpoint did not start.");
 
                 subscriber = new SubscriberSocket();
                 subscriber.Options.Linger = TimeSpan.Zero;
@@ -266,19 +266,19 @@ namespace RSMA.Tests
             }
             finally
             {
-                DisposeSocketWithTimeout(subscriber);
-                StopServerWithTimeout();
+                await DisposeSocketWithTimeoutAsync(subscriber);
+                await StopServerWithTimeoutAsync();
                 UnityEngine.Object.DestroyImmediate(gameObject);
             }
         }
 
         [Test]
-        public void SceneTelemetryAppliesArmCommandState()
+        public async Task SceneTelemetryAppliesArmCommandState()
         {
             var gameObject = new GameObject("SBC telemetry test");
             try
             {
-                StopServerWithTimeout();
+                await StopServerWithTimeoutAsync();
                 var device = gameObject.AddComponent<SbcDevice>();
                 device.Connection.endpoint = "tcp://127.0.0.1";
                 var telemetry = gameObject.AddComponent<SbcSceneTelemetry>();
@@ -292,9 +292,9 @@ namespace RSMA.Tests
                 device.Connection.subscribePort = GetFreePort();
                 device.StartSession();
                 Assert.AreEqual(SbcSessionState.Running, device.State);
-                Assert.IsTrue(WaitForPort(device.Connection.commandPort));
-                Assert.IsTrue(WaitForPort(device.Connection.publishPort));
-                Assert.IsTrue(WaitForPort(device.Connection.subscribePort));
+                Assert.IsTrue(await WaitForPortAsync(device.Connection.commandPort));
+                Assert.IsTrue(await WaitForPortAsync(device.Connection.publishPort));
+                Assert.IsTrue(await WaitForPortAsync(device.Connection.subscribePort));
                 DataBroker.UpdateFromNetwork(device.ArmCommandTopic,
                     new TopicHeader { timestamp = 123, payloadSize = 16, topicTypeId = UdtpV1Codec.ArmCommandTypeId }.EncodeV1(),
                     UdtpV1Codec.Encode(command));
@@ -305,8 +305,99 @@ namespace RSMA.Tests
             }
             finally
             {
-                StopServerWithTimeout();
+                await StopServerWithTimeoutAsync();
                 UnityEngine.Object.DestroyImmediate(gameObject);
+            }
+        }
+
+        [Test]
+        public async Task ServerStopCompletesWithoutConnectedClients()
+        {
+            var ports = GetUniqueFreePorts(3);
+            NetMQServer.Run(ports[0], ports[1], ports[2]);
+            try
+            {
+                Assert.IsTrue(await WaitForPortAsync(ports[0]), "Command endpoint did not start before shutdown test.");
+                var stopTask = NetMQServer.StopInBackground();
+                Assert.IsTrue(await Task.WhenAny(stopTask, Task.Delay(TimeSpan.FromSeconds(5))) == stopTask, "Server stop did not complete within 5 seconds.");
+                await stopTask;
+                Assert.IsFalse(NetMQServer.IsRunning);
+            }
+            finally
+            {
+                if (NetMQServer.IsRunning)
+                    NetMQServer.Stop();
+            }
+        }
+
+        [Test]
+        public async Task ServerCanRestartAfterWorkerOwnedSocketShutdown()
+        {
+            var ports = GetUniqueFreePorts(3);
+            try
+            {
+                NetMQServer.Run(ports[0], ports[1], ports[2]);
+                Assert.IsTrue(await WaitForPortAsync(ports[0]), "First command endpoint did not start.");
+                var firstStop = NetMQServer.StopInBackground();
+                Assert.IsTrue(await Task.WhenAny(firstStop, Task.Delay(TimeSpan.FromSeconds(5))) == firstStop, "First server stop timed out.");
+                await firstStop;
+
+                NetMQServer.Run(ports[0], ports[1], ports[2]);
+                Assert.IsTrue(await WaitForPortAsync(ports[0]), "Server did not restart after worker shutdown.");
+            }
+            finally
+            {
+                if (NetMQServer.IsRunning)
+                    NetMQServer.Stop();
+            }
+        }
+
+        [Test]
+        public async Task ServerStopIsIdempotentAfterWorkersExit()
+        {
+            var ports = GetUniqueFreePorts(3);
+            NetMQServer.Run(ports[0], ports[1], ports[2]);
+            try
+            {
+                Assert.IsTrue(await WaitForPortAsync(ports[0]));
+                var stopTask = NetMQServer.StopInBackground();
+                Assert.IsTrue(await Task.WhenAny(stopTask, Task.Delay(TimeSpan.FromSeconds(5))) == stopTask);
+                await stopTask;
+                Assert.IsFalse(NetMQServer.IsRunning);
+                var secondStop = NetMQServer.StopInBackground();
+                Assert.IsTrue(await Task.WhenAny(secondStop, Task.Delay(TimeSpan.FromSeconds(5))) == secondStop);
+                await secondStop;
+            }
+            finally
+            {
+                if (NetMQServer.IsRunning)
+                    NetMQServer.Stop();
+            }
+        }
+
+        [Test]
+        public async Task ServerBindFailureDoesNotLeaveARunningGeneration()
+        {
+            var occupiedPort = GetFreePort();
+            var commandListener = new TcpListener(IPAddress.Loopback, occupiedPort);
+            commandListener.Start();
+            var ports = GetUniqueFreePorts(2);
+            try
+            {
+                NetMQServer.Run(occupiedPort, ports[0], ports[1]);
+                await Task.Delay(100);
+                Assert.IsFalse(NetMQServer.IsRunning, "A failed command bind must not report a running server.");
+
+                var stopTask = NetMQServer.StopInBackground();
+                Assert.IsTrue(await Task.WhenAny(stopTask, Task.Delay(TimeSpan.FromSeconds(5))) == stopTask,
+                    "Cleanup after a partial server start timed out.");
+                await stopTask;
+            }
+            finally
+            {
+                commandListener.Stop();
+                if (NetMQServer.IsRunning)
+                    NetMQServer.Stop();
             }
         }
 
@@ -319,22 +410,22 @@ namespace RSMA.Tests
             return port;
         }
 
-        private static void StopServerWithTimeout()
+        private static async Task StopServerWithTimeoutAsync()
         {
-            var stopTask = Task.Run(NetMQServer.Stop);
-            if (!stopTask.Wait(TimeSpan.FromSeconds(5)))
+            var stopTask = NetMQServer.StopInBackground();
+            if (await Task.WhenAny(stopTask, Task.Delay(TimeSpan.FromSeconds(5))) != stopTask)
                 UnityEngine.Debug.LogError("NetMQServer.Stop exceeded the 5-second test timeout.");
             if (stopTask.IsFaulted)
                 UnityEngine.Debug.LogError($"NetMQServer.Stop failed: {stopTask.Exception?.GetBaseException()}");
         }
 
-        private static void DisposeSocketWithTimeout(IDisposable socket)
+        private static async Task DisposeSocketWithTimeoutAsync(IDisposable socket)
         {
             if (socket == null)
                 return;
 
             var disposeTask = Task.Run(socket.Dispose);
-            if (!disposeTask.Wait(TimeSpan.FromSeconds(5)))
+            if (await Task.WhenAny(disposeTask, Task.Delay(TimeSpan.FromSeconds(5))) != disposeTask)
                 UnityEngine.Debug.LogError("NetMQ test socket disposal exceeded the 5-second timeout.");
             if (disposeTask.IsFaulted)
                 UnityEngine.Debug.LogError($"NetMQ test socket disposal failed: {disposeTask.Exception?.GetBaseException()}");
@@ -378,17 +469,18 @@ namespace RSMA.Tests
             }
         }
 
-        private static bool WaitForPort(int port)
+        private static async Task<bool> WaitForPortAsync(int port)
         {
-            var deadline = Stopwatch.StartNew();
-            while (deadline.Elapsed < TimeSpan.FromSeconds(5))
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+            while (DateTime.UtcNow < deadline)
             {
                 using (var client = new TcpClient())
                 {
                     try
                     {
-                        var task = client.ConnectAsync(IPAddress.Loopback, port);
-                        if (task.Wait(100) && client.Connected)
+                        var connectTask = client.ConnectAsync(IPAddress.Loopback, port);
+                        var completed = await Task.WhenAny(connectTask, Task.Delay(100));
+                        if (completed == connectTask && client.Connected)
                             return true;
                     }
                     catch (SocketException)
@@ -398,7 +490,7 @@ namespace RSMA.Tests
                     {
                     }
                 }
-                Thread.Sleep(10);
+                await Task.Delay(10);
             }
             return false;
         }

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading.Tasks;
 using NetMQ;
 using NetMQ.Sockets;
 using NUnit.Framework;
@@ -66,9 +67,9 @@ namespace RSMA.Tests
             Assert.That(new HashSet<int> { commandPort, pubPort, subPort }.Count, Is.EqualTo(3));
 
             NetMQServer.Run(commandPort, pubPort, subPort);
-            Assert.IsTrue(WaitForPort(commandPort), "Unity command socket did not start.");
-            Assert.IsTrue(WaitForPort(pubPort), "Unity publisher socket did not start.");
-            Assert.IsTrue(WaitForPort(subPort), "Unity subscriber socket did not start.");
+            yield return WaitForPort(commandPort, reachable => Assert.IsTrue(reachable, "Unity command socket did not start."));
+            yield return WaitForPort(pubPort, reachable => Assert.IsTrue(reachable, "Unity publisher socket did not start."));
+            yield return WaitForPort(subPort, reachable => Assert.IsTrue(reachable, "Unity subscriber socket did not start."));
 
             _serverCommand = new RequestSocket();
             _serverCommand.Options.Linger = TimeSpan.Zero;
@@ -176,7 +177,9 @@ namespace RSMA.Tests
                 timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 arm = 1
             };
-            _sbcArmPublisher.SendMultipartMessage(CreateArmFrame(device.ArmCommandTopic, command));
+            Assert.IsTrue(_sbcArmPublisher.TrySendMultipartMessage(
+                TimeSpan.FromSeconds(2), CreateArmFrame(device.ArmCommandTopic, command)),
+                "ArmCommand publisher could not send within the test timeout.");
 
             var receiveDeadline = Time.realtimeSinceStartup + 5f;
             while (Time.realtimeSinceStartup < receiveDeadline && !telemetry.IsArmed)
@@ -202,7 +205,7 @@ namespace RSMA.Tests
 
         private static IEnumerator StopServerWithoutBlocking(bool failOnTimeout = true)
         {
-            var stopTask = System.Threading.Tasks.Task.Run(NetMQServer.Stop);
+            var stopTask = NetMQServer.StopInBackground();
             var deadline = Time.realtimeSinceStartup + 5f;
             while (!stopTask.IsCompleted && Time.realtimeSinceStartup < deadline)
                 yield return null;
@@ -223,6 +226,9 @@ namespace RSMA.Tests
                 else
                     UnityEngine.Debug.LogError(message);
             }
+
+            if (stopTask.IsCompleted && stopTask.IsFaulted)
+                stopTask.Exception?.Handle(_ => true);
         }
 
         private static IEnumerator DisposeSocketWithoutBlocking(IDisposable socket)
@@ -264,12 +270,12 @@ namespace RSMA.Tests
             var pubPort = GetFreePort();
             var subPort = GetFreePort();
             NetMQServer.Run(commandPort, pubPort, subPort);
-            Assert.IsTrue(WaitForPort(commandPort), "First server start failed.");
+            yield return WaitForPort(commandPort, reachable => Assert.IsTrue(reachable, "First server start failed."));
             yield return StopServerWithoutBlocking();
             Assert.IsFalse(NetMQServer.IsRunning);
 
             NetMQServer.Run(commandPort, pubPort, subPort);
-            Assert.IsTrue(WaitForPort(commandPort), "Server did not restart after Stop.");
+            yield return WaitForPort(commandPort, reachable => Assert.IsTrue(reachable, "Server did not restart after Stop."));
             Assert.IsTrue(NetMQServer.IsRunning);
             yield return null;
         }
@@ -345,7 +351,8 @@ namespace RSMA.Tests
             message.Append(topic);
             message.Append(header.EncodeV1());
             message.Append(payload);
-            publisher.SendMultipartMessage(message);
+            Assert.IsTrue(publisher.TrySendMultipartMessage(TimeSpan.FromSeconds(2), message),
+                $"Publisher could not send topic '{topic}' within the test timeout.");
         }
 
         private static LaserScan128 CreateSharedScan()
@@ -373,25 +380,31 @@ namespace RSMA.Tests
             return port;
         }
 
-        private static bool WaitForPort(int port)
+        private static IEnumerator WaitForPort(int port, Action<bool> completed)
         {
-            var deadline = Stopwatch.StartNew();
-            while (deadline.Elapsed < TimeSpan.FromSeconds(5))
+            var deadline = Time.realtimeSinceStartup + 5f;
+            while (Time.realtimeSinceStartup < deadline)
             {
                 using (var client = new TcpClient())
                 {
-                    try
+                    var connectTask = client.ConnectAsync(IPAddress.Loopback, port);
+
+                    while (!connectTask.IsCompleted && Time.realtimeSinceStartup < deadline)
+                        yield return null;
+
+                    if (connectTask.IsCompleted && client.Connected)
                     {
-                        var task = client.ConnectAsync(IPAddress.Loopback, port);
-                        if (task.Wait(100) && client.Connected)
-                            return true;
+                        completed(true);
+                        yield break;
                     }
-                    catch (SocketException)
-                    {
-                    }
+                    if (connectTask.IsFaulted || connectTask.IsCanceled)
+                        connectTask.Exception?.Handle(_ => true);
                 }
+
+                yield return null;
             }
-            return false;
+
+            completed(false);
         }
     }
 }

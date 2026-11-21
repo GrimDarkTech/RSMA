@@ -97,7 +97,7 @@ namespace RSMA.GUI
         void OnApplicationQuit()
         {
             if (_instance == this)
-                NetMQServer.Stop();
+                NetMQServer.StopInBackground();
         }
 
         private void OnDestroy()
@@ -105,14 +105,14 @@ namespace RSMA.GUI
             if (_instance != this)
                 return;
             _instance = null;
-            NetMQServer.Stop();
+            NetMQServer.StopInBackground();
         }
 
         public void SwitchState() 
         {
             if (NetMQServer.IsRunning) 
             {
-                NetMQServer.Stop();
+                NetMQServer.StopInBackground();
                 Debug.Log("Stopping NetMQServer");
                 SetServerState("Offline", Color.red);
                 return;
