@@ -18,6 +18,7 @@ namespace RSMA.NetMQ
         private static volatile bool _isRunning;
         private static readonly object _lifecycleLock = new object();
         private static Task[] _serverTasks = Array.Empty<Task>();
+        private static bool _shutdownTimedOut;
         private static readonly Queue<Action> _actionQueue = new Queue<Action>();
         private static readonly object _queueLock = new object();
 
@@ -48,6 +49,13 @@ namespace RSMA.NetMQ
             lock (_lifecycleLock)
             {
                 if (_isRunning) return;
+                if (_shutdownTimedOut)
+                {
+                    if (Array.Exists(_serverTasks, task => !task.IsCompleted))
+                        throw new InvalidOperationException("Previous NetMQServer generation has not stopped; refusing to bind a second generation.");
+
+                    _shutdownTimedOut = false;
+                }
                 _isRunning = true;
 
                 // Keep task handles so Stop can complete the previous generation before a restart.
@@ -78,15 +86,24 @@ namespace RSMA.NetMQ
                 _subSocket = null;
             }
 
+            var allTasksStopped = false;
             try
             {
-                Task.WaitAll(tasks, TimeSpan.FromSeconds(2));
+                allTasksStopped = Task.WaitAll(tasks, TimeSpan.FromSeconds(2));
             }
             catch (AggregateException)
             {
-                // Socket disposal interrupts receive loops during normal shutdown.
+                allTasksStopped = Array.TrueForAll(tasks, task => task.IsCompleted);
             }
-            NetMQConfig.Cleanup();
+
+            if (!allTasksStopped)
+            {
+                lock (_lifecycleLock)
+                {
+                    _serverTasks = tasks;
+                    _shutdownTimedOut = true;
+                }
+            }
         }
 
         // =========================================================

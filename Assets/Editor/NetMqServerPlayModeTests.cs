@@ -45,7 +45,7 @@ namespace RSMA.Tests
             _serverCommand = null;
 
             if (NetMQServer.IsRunning)
-                yield return StopServerWithoutBlocking();
+                yield return StopServerWithoutBlocking(false);
 
             if (_sbcArmTestObject != null)
             {
@@ -133,6 +133,14 @@ namespace RSMA.Tests
             var camera = DataBroker.GetRawState("e2e/in/Camera") as byte[];
             CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4 }, camera);
             Assert.IsNull(DataBroker.GetRawState("e2e/in/Unknown"));
+
+            yield return DisposeSocketWithoutBlocking(_serverPublisher);
+            _serverPublisher = null;
+            yield return DisposeSocketWithoutBlocking(_serverSubscriber);
+            _serverSubscriber = null;
+            yield return DisposeSocketWithoutBlocking(_serverCommand);
+            _serverCommand = null;
+            yield return StopServerWithoutBlocking();
         }
 
         [UnityTest]
@@ -177,6 +185,8 @@ namespace RSMA.Tests
             Assert.IsTrue(telemetry.IsArmed, "Typed ArmCommand was not applied by SbcSceneTelemetry.");
             Assert.IsTrue(receivedOnMainThread, "ArmCommand scene handler must execute on Unity main thread.");
 
+            yield return DisposeSocketWithoutBlocking(_sbcArmPublisher);
+            _sbcArmPublisher = null;
             yield return StopServerWithoutBlocking();
             Assert.AreEqual(SbcSessionState.Faulted, device.State);
             Assert.IsFalse(telemetry.IsArmed, "Server loss must transition scene telemetry to disarmed.");
@@ -190,16 +200,29 @@ namespace RSMA.Tests
             Assert.IsFalse(telemetry.IsArmed, "Stale ArmCommand must not be replayed after reconnect.");
         }
 
-        private static IEnumerator StopServerWithoutBlocking()
+        private static IEnumerator StopServerWithoutBlocking(bool failOnTimeout = true)
         {
             var stopTask = System.Threading.Tasks.Task.Run(NetMQServer.Stop);
             var deadline = Time.realtimeSinceStartup + 5f;
             while (!stopTask.IsCompleted && Time.realtimeSinceStartup < deadline)
                 yield return null;
 
-            Assert.IsTrue(stopTask.IsCompleted, "NetMQServer.Stop exceeded the 5-second test timeout.");
-            if (stopTask.IsFaulted)
-                Assert.Fail($"NetMQServer.Stop failed: {stopTask.Exception?.GetBaseException()}");
+            if (!stopTask.IsCompleted)
+            {
+                const string message = "NetMQServer.Stop exceeded the 5-second test timeout.";
+                if (failOnTimeout)
+                    Assert.Fail(message);
+                else
+                    UnityEngine.Debug.LogError(message);
+            }
+            else if (stopTask.IsFaulted)
+            {
+                var message = $"NetMQServer.Stop failed: {stopTask.Exception?.GetBaseException()}";
+                if (failOnTimeout)
+                    Assert.Fail(message);
+                else
+                    UnityEngine.Debug.LogError(message);
+            }
         }
 
         private static IEnumerator DisposeSocketWithoutBlocking(IDisposable socket)

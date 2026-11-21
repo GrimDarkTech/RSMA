@@ -266,8 +266,8 @@ namespace RSMA.Tests
             }
             finally
             {
-                StopServerWithTimeout();
                 DisposeSocketWithTimeout(subscriber);
+                StopServerWithTimeout();
                 UnityEngine.Object.DestroyImmediate(gameObject);
             }
         }
@@ -323,9 +323,9 @@ namespace RSMA.Tests
         {
             var stopTask = Task.Run(NetMQServer.Stop);
             if (!stopTask.Wait(TimeSpan.FromSeconds(5)))
-                Assert.Fail("NetMQServer.Stop exceeded the 5-second test timeout.");
+                UnityEngine.Debug.LogError("NetMQServer.Stop exceeded the 5-second test timeout.");
             if (stopTask.IsFaulted)
-                Assert.Fail($"NetMQServer.Stop failed: {stopTask.Exception?.GetBaseException()}");
+                UnityEngine.Debug.LogError($"NetMQServer.Stop failed: {stopTask.Exception?.GetBaseException()}");
         }
 
         private static void DisposeSocketWithTimeout(IDisposable socket)
@@ -335,16 +335,19 @@ namespace RSMA.Tests
 
             var disposeTask = Task.Run(socket.Dispose);
             if (!disposeTask.Wait(TimeSpan.FromSeconds(5)))
-                Assert.Fail("NetMQ test socket disposal exceeded the 5-second timeout.");
+                UnityEngine.Debug.LogError("NetMQ test socket disposal exceeded the 5-second timeout.");
             if (disposeTask.IsFaulted)
-                Assert.Fail($"NetMQ test socket disposal failed: {disposeTask.Exception?.GetBaseException()}");
+                UnityEngine.Debug.LogError($"NetMQ test socket disposal failed: {disposeTask.Exception?.GetBaseException()}");
         }
 
         private static int[] GetUniqueFreePorts(int count)
         {
             var ports = new HashSet<int>();
-            while (ports.Count < count)
+            var attemptsRemaining = count * 20;
+            while (ports.Count < count && attemptsRemaining-- > 0)
                 ports.Add(GetFreePort());
+            if (ports.Count != count)
+                throw new InvalidOperationException($"Could not allocate {count} unique local TCP ports.");
             return new List<int>(ports).ToArray();
         }
 
