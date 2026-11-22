@@ -483,6 +483,7 @@ namespace RSMA.Tests
         [Test]
         public async Task ServerRejectsInvalidPortWithoutStartingGeneration()
         {
+            await StopServerWithTimeoutAsync();
             var ports = GetUniqueFreePorts(2);
             try
             {
