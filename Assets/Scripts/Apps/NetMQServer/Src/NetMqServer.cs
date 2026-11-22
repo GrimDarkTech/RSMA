@@ -19,21 +19,16 @@ namespace RSMA.NetMQ
     public static class NetMQServer
     {
         private static readonly object _lifecycleLock = new object();
-        private static Task[] _serverTasks = Array.Empty<Task>();
+        private static volatile ServerSession _session;
         private static Task _stopTask;
-        private static bool _shutdownTimedOut;
-        private static bool _stopInProgress;
         private static readonly Queue<Action> _actionQueue = new Queue<Action>();
         private static readonly object _queueLock = new object();
-
-        private static PublisherSocket _pubSocket;
-        private static uint _globalSequence = 0;
+        private static readonly TimeSpan _stopTimeout = TimeSpan.FromSeconds(2);
+        private static readonly TimeSpan _socketTimeout = TimeSpan.FromMilliseconds(100);
+        private static uint _globalSequence;
         private static readonly object _publishLock = new object();
-        private static readonly Queue<NetMQMessage> _publishQueue = new Queue<NetMQMessage>();
 
         public static bool IsRunning => _session?.IsRunning == true;
-
-        /// <summary>True once all three endpoints of the active session have bound.</summary>
         public static bool IsReady => _session?.IsReady == true;
 
         private sealed class ServerSession
@@ -46,8 +41,6 @@ namespace RSMA.NetMQ
             public bool IsRunning => !Stopping.IsCompleted;
             public bool IsReady => Volatile.Read(ref _boundEndpoints) == 3 && IsRunning;
             public Task Completion { get; set; }
-
-            // Read and written only under _publishLock. Clearing it revokes access before disposal.
             public PublisherSocket Publisher { get; set; }
 
             public void EndpointBound() => Interlocked.Increment(ref _boundEndpoints);
@@ -57,7 +50,7 @@ namespace RSMA.NetMQ
         static NetMQServer()
         {
 #if UNITY_EDITOR
-            UnityEditor.EditorApplication.playModeStateChanged += (state) =>
+            UnityEditor.EditorApplication.playModeStateChanged += state =>
             {
                 if (state == UnityEditor.PlayModeStateChange.ExitingPlayMode)
                     RequestStopInBackground();
@@ -66,21 +59,19 @@ namespace RSMA.NetMQ
             Application.quitting += RequestStopInBackground;
         }
 
-        private static void RequestStopInBackground()
-        {
-            StopInBackground();
-        }
+        private static void RequestStopInBackground() => StopInBackground();
 
         public static Task StopInBackground()
         {
             lock (_lifecycleLock)
             {
+                var session = _session;
+                if (session == null)
+                    return Task.CompletedTask;
+                session.RequestStop();
                 if (_stopTask != null && !_stopTask.IsCompleted)
                     return _stopTask;
-                if (!_isRunning && _serverTasks.Length == 0)
-                    return Task.CompletedTask;
-                _isRunning = false;
-                _stopTask = Task.Run(Stop);
+                _stopTask = StopSession(session);
                 return _stopTask;
             }
         }
@@ -95,29 +86,25 @@ namespace RSMA.NetMQ
 
             lock (_lifecycleLock)
             {
-                if (_isRunning) return;
-                if (_stopInProgress)
-                    throw new InvalidOperationException("NetMQServer is still stopping; refusing to bind a second generation.");
-                if (Array.Exists(_serverTasks, task => !task.IsCompleted))
-                    throw new InvalidOperationException("Previous NetMQServer workers are still active; refusing to bind a second generation.");
-                if (_shutdownTimedOut)
-                {
-                    _serverTasks = Array.Empty<Task>();
-                    _shutdownTimedOut = false;
-                }
-                else if (_serverTasks.Length > 0)
-                {
-                    _serverTasks = Array.Empty<Task>();
-                }
-                _isRunning = true;
+                if (_session?.IsRunning == true)
+                    return;
+                if (_session != null && !_session.Completion.IsCompleted)
+                    throw new InvalidOperationException("The previous NetMQ server session is still stopping; refusing to bind another generation.");
 
-                // Keep task handles so Stop can complete the previous generation before a restart.
-                _serverTasks = new[]
-                {
-                    Task.Run(() => RunWorker(() => CommandServerLoop(commandPort))),
-                    Task.Run(() => RunWorker(() => InitPublisher(pubPort))),
-                    Task.Run(() => RunWorker(() => ReceiverLoop(subPort)))
-                };
+                var session = new ServerSession();
+                _session = session;
+                session.Completion = Task.WhenAll(
+                    StartEndpoint(session, "command", commandPort, () => new RouterSocket(), socket =>
+                    {
+                        CommandServerLoop(session, socket);
+                        return Task.CompletedTask;
+                    }),
+                    StartEndpoint(session, "publish", pubPort, () => new PublisherSocket(), socket => PublisherLoop(session, socket)),
+                    StartEndpoint(session, "subscribe", subPort, () => new SubscriberSocket(), socket =>
+                    {
+                        ReceiverLoop(session, socket);
+                        return Task.CompletedTask;
+                    }));
             }
         }
 
@@ -127,56 +114,90 @@ namespace RSMA.NetMQ
                 throw new ArgumentOutOfRangeException(parameterName, port, "NetMQ server ports must be between 1 and 65535.");
         }
 
-        private static void RunWorker(Action worker)
-        {
-            try
-            {
-                worker();
-            }
-            catch (Exception exception)
-            {
-                Debug.LogError($"NetMQ server worker failed: {exception}");
-                _isRunning = false;
-            }
-        }
-
         public static void Stop()
         {
             ServerSession session;
             lock (_lifecycleLock)
             {
-                if (_stopInProgress) return;
-                if (!_isRunning && _serverTasks.Length == 0) return;
-                _isRunning = false;
-                tasks = _serverTasks;
-                _stopInProgress = true;
+                session = _session;
+                if (session == null)
+                    return;
+                session.RequestStop();
             }
+            StopSessionCore(session);
+        }
 
-            var allTasksStopped = false;
-            try
+        private static Task StopSession(ServerSession session)
+        {
+            return Task.Run(() => StopSessionCore(session));
+        }
+
+        private static void StopSessionCore(ServerSession session)
+        {
+            if (!session.Completion.Wait(_stopTimeout))
             {
-                allTasksStopped = Task.WaitAll(tasks, TimeSpan.FromSeconds(2));
+                Debug.LogError("NetMQ server did not stop within two seconds; restart is blocked until its endpoints exit.");
+                return;
             }
-
             lock (_lifecycleLock)
             {
-                allTasksStopped = Array.TrueForAll(tasks, task => task.IsCompleted);
+                if (_session == session)
+                    _session = null;
             }
+        }
 
-            lock (_lifecycleLock)
+        private static Task StartEndpoint<TSocket>(ServerSession session, string name, int port,
+            Func<TSocket> createSocket, Func<TSocket, Task> run) where TSocket : NetMQSocket
+        {
+            return Task.Run(async () =>
             {
-                _stopInProgress = false;
-                if (allTasksStopped)
+                if (!session.IsRunning)
+                    return;
+                try
                 {
-                    _serverTasks = Array.Empty<Task>();
-                    _shutdownTimedOut = false;
+                    AsyncIO.ForceDotNet.Force();
+                    using (var socket = createSocket())
+                    {
+                        socket.Options.Linger = TimeSpan.Zero;
+                        if (socket is PublisherSocket) socket.Options.SendHighWatermark = 1000;
+                        if (socket is SubscriberSocket) socket.Options.ReceiveHighWatermark = 1000;
+
+                        var endpoint = $"tcp://*:{port}";
+                        var monitorEndpoint = $"inproc://rsma-close-{Guid.NewGuid():N}";
+                        socket.Monitor(monitorEndpoint, SocketEvents.Closed | SocketEvents.CloseFailed);
+                        using (var events = new PairSocket())
+                        using (var monitor = new NetMQMonitor(events, monitorEndpoint, false))
+                        {
+                            events.Options.Linger = TimeSpan.Zero;
+                            events.Connect(monitorEndpoint);
+                            var closed = false;
+                            monitor.Closed += (_, __) => closed = true;
+                            monitor.CloseFailed += (_, args) =>
+                                throw new InvalidOperationException($"TCP listener close failed: {args.ErrorCode}");
+
+                            socket.Bind(endpoint);
+                            try
+                            {
+                                await run(socket).ConfigureAwait(false);
+                            }
+                            finally
+                            {
+                                socket.Unbind(endpoint);
+                                var timer = Stopwatch.StartNew();
+                                while (!closed && timer.Elapsed < _stopTimeout)
+                                    events.Poll(_socketTimeout);
+                                if (!closed)
+                                    throw new TimeoutException($"TCP listener did not confirm closure of {endpoint}.");
+                            }
+                        }
+                    }
                 }
-                else
+                catch (Exception exception)
                 {
-                    _serverTasks = tasks;
-                    _shutdownTimedOut = true;
+                    session.RequestStop();
+                    Debug.LogError($"NetMQ {name} endpoint on port {port} failed: {exception}");
                 }
-            }
+            });
         }
 
         // =========================================================
@@ -185,37 +206,18 @@ namespace RSMA.NetMQ
 
         private static async Task PublisherLoop(ServerSession session, PublisherSocket socket)
         {
-            AsyncIO.ForceDotNet.Force();
-            using (var socket = new PublisherSocket())
+            lock (_publishLock)
             {
-                socket.Options.SendHighWatermark = 1000;
-                socket.Options.Linger = TimeSpan.Zero;
-                socket.Bind($"tcp://*:{pubPort}");
-                if (!_isRunning)
+                if (!session.IsRunning)
                     return;
-                _pubSocket = socket;
-
-                while (_isRunning)
-                {
-                    NetMQMessage message = null;
-                    lock (_publishLock)
-                    {
-                        if (_publishQueue.Count > 0)
-                            message = _publishQueue.Dequeue();
-                    }
-
-                    if (message != null)
-                        socket.TrySendMultipartMessage(TimeSpan.FromMilliseconds(100), message);
-                    else
-                        Thread.Sleep(10);
-                }
-
-                lock (_publishLock)
-                {
-                    _publishQueue.Clear();
-                    _pubSocket = null;
-                }
+                session.Publisher = socket;
+                session.EndpointBound();
             }
+
+            await session.Stopping.ConfigureAwait(false);
+
+            lock (_publishLock)
+                session.Publisher = null;
         }
 
 
@@ -230,13 +232,7 @@ namespace RSMA.NetMQ
                 if (!socket.TryReceiveMultipartMessage(_socketTimeout, ref message))
                     continue;
 
-                // ВМЕСТО Connect ДЕЛАЕМ Bind:
-                socket.Bind($"tcp://*:{subPort}");
-                if (!_isRunning)
-                    return;
-                socket.Subscribe(""); // Подписка на все топики
-
-                while (_isRunning)
+                if (message.FrameCount == 3)
                 {
                     try
                     {
@@ -342,14 +338,12 @@ namespace RSMA.NetMQ
         {
             lock (_publishLock)
             {
-                if (!_isRunning || _pubSocket == null) return;
-                if (_publishQueue.Count >= 1000)
-                    _publishQueue.Dequeue();
+                if (!session.IsRunning || session.Publisher == null) return;
                 var message = new NetMQMessage();
                 message.Append(topicName);
                 message.Append(header);
                 message.Append(payload);
-                _publishQueue.Enqueue(message);
+                session.Publisher.TrySendMultipartMessage(TimeSpan.Zero, message);
             }
         }
         // =========================================================
@@ -360,11 +354,11 @@ namespace RSMA.NetMQ
             session.EndpointBound();
             while (session.IsRunning)
             {
-                socket.Options.Linger = TimeSpan.Zero;
-                socket.Bind($"tcp://*:{commandPort}");
-                if (!_isRunning)
-                    return;
-                while (_isRunning)
+                NetMQMessage message = new NetMQMessage();
+                if (!socket.TryReceiveMultipartMessage(_socketTimeout, ref message))
+                    continue;
+
+                if (message.FrameCount >= 3)
                 {
                     var clientIdentity = message[0];
                     byte[] rawBytes = message[2].ToByteArray();
@@ -374,20 +368,10 @@ namespace RSMA.NetMQ
 
                     socket.TrySendMultipartMessage(_socketTimeout, new NetMQMessage(new[]
                     {
-                        var clientIdentity = message[0];
-                        byte[] rawBytes = message[2].ToByteArray();
-                        string payload = Encoding.UTF8.GetString(rawBytes).Trim();
-
-                        string response = ProcessCommand(payload);
-                        byte[] responseBytes = Encoding.UTF8.GetBytes(response);
-
-                        socket.TrySendMultipartMessage(TimeSpan.FromMilliseconds(100), new NetMQMessage(new[]
-                        {
-                            clientIdentity,
-                            NetMQFrame.Empty,
-                            new NetMQFrame(responseBytes)
-                        }));
-                    }
+                        clientIdentity,
+                        NetMQFrame.Empty,
+                        new NetMQFrame(responseBytes)
+                    }));
                 }
             }
         }

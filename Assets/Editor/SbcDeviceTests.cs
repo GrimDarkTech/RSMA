@@ -348,7 +348,7 @@ namespace RSMA.Tests
                         received = true;
                     }
                     if (!received)
-                        yield return null;
+                        await Task.Delay(10);
                 }
                 Assert.IsTrue(received, "SBC velocity topic was not published by the Unity server.");
 
@@ -431,7 +431,7 @@ namespace RSMA.Tests
             finally
             {
                 if (NetMQServer.IsRunning)
-                    NetMQServer.Stop();
+                    await StopServerWithTimeoutAsync();
             }
         }
 
@@ -453,7 +453,7 @@ namespace RSMA.Tests
             finally
             {
                 if (NetMQServer.IsRunning)
-                    NetMQServer.Stop();
+                    await StopServerWithTimeoutAsync();
             }
         }
 
@@ -476,7 +476,7 @@ namespace RSMA.Tests
             finally
             {
                 if (NetMQServer.IsRunning)
-                    NetMQServer.Stop();
+                    await StopServerWithTimeoutAsync();
             }
         }
 
@@ -486,8 +486,7 @@ namespace RSMA.Tests
             var ports = GetUniqueFreePorts(2);
             try
             {
-                Assert.Throws<ArgumentOutOfRangeException>(() =>
-                    NetMQServer.Run(0, ports[0], ports[1]));
+                Assert.Throws<ArgumentOutOfRangeException>(() => NetMQServer.Run(0, ports[0], ports[1]));
                 Assert.IsFalse(NetMQServer.IsRunning, "Invalid port configuration must not start a server generation.");
 
                 var stopTask = NetMQServer.StopInBackground();
@@ -497,8 +496,7 @@ namespace RSMA.Tests
             }
             finally
             {
-                if (NetMQServer.IsRunning)
-                    NetMQServer.Stop();
+                await StopServerWithTimeoutAsync();
             }
         }
 
@@ -507,36 +505,41 @@ namespace RSMA.Tests
         {
             const int iterations = 20;
             var ports = GetUniqueFreePorts(3);
-            NetMQServer.Stop();
-            try
-            {
-                for (var iteration = 1; iteration <= iterations; iteration++)
-                {
-                    NetMQServer.Run(ports[0], ports[1], ports[2]);
-                    // Do not wait for Bind before stopping: startup may still be in progress.
-                    NetMQServer.Stop();
-                    Assert.IsFalse(NetMQServer.IsRunning, $"Immediate stop {iteration} did not stop the server.");
-                    Assert.IsFalse(NetMQServer.IsReady);
+            yield return StopServerCoroutine("Initial cleanup");
 
-                    NetMQServer.Run(ports[0], ports[1], ports[2]);
-                    yield return WaitForServerReady($"Restart {iteration}/{iterations}", ports);
-                    NetMQServer.Stop();
-                    Assert.IsFalse(NetMQServer.IsRunning, $"Shutdown {iteration} did not stop the server.");
-                }
-            }
-            finally
+            for (var iteration = 1; iteration <= iterations; iteration++)
             {
-                NetMQServer.Stop();
+                NetMQServer.Run(ports[0], ports[1], ports[2]);
+                yield return StopServerCoroutine($"Immediate stop {iteration}");
+                Assert.IsFalse(NetMQServer.IsRunning, $"Immediate stop {iteration} did not stop the server.");
+                Assert.IsFalse(NetMQServer.IsReady);
+
+                NetMQServer.Run(ports[0], ports[1], ports[2]);
+                yield return WaitForServerReady($"Restart {iteration}/{iterations}", ports);
+                yield return StopServerCoroutine($"Shutdown {iteration}");
+                Assert.IsFalse(NetMQServer.IsRunning, $"Shutdown {iteration} did not stop the server.");
             }
+        }
+
+        private static IEnumerator StopServerCoroutine(string operation)
+        {
+            var stopTask = NetMQServer.StopInBackground();
+            var deadline = Time.realtimeSinceStartup + 5f;
+            while (!stopTask.IsCompleted && Time.realtimeSinceStartup < deadline)
+                yield return null;
+
+            Assert.IsTrue(stopTask.IsCompleted, $"{operation}: NetMQServer.Stop exceeded the 5-second test timeout.");
+            Assert.IsFalse(stopTask.IsFaulted, $"{operation}: {stopTask.Exception?.GetBaseException()}");
         }
 
         private static async Task StopServerWithTimeoutAsync()
         {
             var stopTask = NetMQServer.StopInBackground();
             if (await Task.WhenAny(stopTask, Task.Delay(TimeSpan.FromSeconds(5))) != stopTask)
-                UnityEngine.Debug.LogError("NetMQServer.Stop exceeded the 5-second test timeout.");
+                Assert.Fail("NetMQServer.Stop exceeded the 5-second test timeout.");
+            await stopTask;
             if (stopTask.IsFaulted)
-                UnityEngine.Debug.LogError($"NetMQServer.Stop failed: {stopTask.Exception?.GetBaseException()}");
+                Assert.Fail($"NetMQServer.Stop failed: {stopTask.Exception?.GetBaseException()}");
         }
 
         private static async Task DisposeSocketWithTimeoutAsync(IDisposable socket)
@@ -560,6 +563,25 @@ namespace RSMA.Tests
             if (ports.Count != count)
                 throw new InvalidOperationException($"Could not allocate {count} unique local TCP ports.");
             return new List<int>(ports).ToArray();
+        }
+
+        private static int GetFreePort()
+        {
+            var listener = new TcpListener(IPAddress.Loopback, 0);
+            listener.Start();
+            var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+            listener.Stop();
+            return port;
+        }
+
+        private static IEnumerator WaitForServerReady(string operation, int[] ports)
+        {
+            var timer = Stopwatch.StartNew();
+            while (NetMQServer.IsRunning && !NetMQServer.IsReady && timer.Elapsed < TimeSpan.FromSeconds(5))
+                yield return null;
+
+            Assert.IsTrue(NetMQServer.IsReady,
+                $"{operation}: NetMQ did not bind all endpoints (command {ports[0]}, publish {ports[1]}, subscribe {ports[2]}).");
         }
 
         private static SbcVirtualBoxCommandResult Result(string output, int exitCode = 0, string error = "") =>
