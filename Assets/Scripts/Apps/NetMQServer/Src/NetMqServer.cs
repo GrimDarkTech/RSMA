@@ -170,10 +170,11 @@ namespace RSMA.NetMQ
                         {
                             events.Options.Linger = TimeSpan.Zero;
                             events.Connect(monitorEndpoint);
-                            var closed = false;
-                            monitor.Closed += (_, __) => closed = true;
+                            var monitorTask = monitor.StartAsync();
+                            var closed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                            monitor.Closed += (_, __) => closed.TrySetResult(true);
                             monitor.CloseFailed += (_, args) =>
-                                throw new InvalidOperationException($"TCP listener close failed: {args.ErrorCode}");
+                                closed.TrySetException(new InvalidOperationException($"TCP listener close failed: {args.ErrorCode}"));
 
                             socket.Bind(endpoint);
                             try
@@ -183,11 +184,12 @@ namespace RSMA.NetMQ
                             finally
                             {
                                 socket.Unbind(endpoint);
-                                var timer = Stopwatch.StartNew();
-                                while (!closed && timer.Elapsed < _stopTimeout)
-                                    events.Poll(_socketTimeout);
-                                if (!closed)
+                                var closedOrTimeout = await Task.WhenAny(closed.Task, Task.Delay(_stopTimeout)).ConfigureAwait(false);
+                                monitor.Stop();
+                                await monitorTask.ConfigureAwait(false);
+                                if (closedOrTimeout != closed.Task)
                                     throw new TimeoutException($"TCP listener did not confirm closure of {endpoint}.");
+                                await closed.Task.ConfigureAwait(false);
                             }
                         }
                     }
