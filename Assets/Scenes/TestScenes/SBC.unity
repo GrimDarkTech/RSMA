@@ -30259,11 +30259,12 @@ MonoBehaviour:
   velocityTopic: sensor/velocity
   armCommandTopic: command/arm
   startOnEnable: 1
+  autoStartSitl: 1
   sitl:
-    guestProfile: 1
-    virtualMachineName: RSMA-Ubuntu-SITL
-    vboxManagePath: 
+    guestProfile: 0
+    virtualMachineName: PX4-Autopilot
     networkMode: 0
+    displayMode: 1
     bridgeAdapterName: AIC8800D80 USB WiFi
     startupTimeoutSeconds: 60
     shutdownTimeoutSeconds: 30

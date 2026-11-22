@@ -56,6 +56,54 @@ namespace RSMA.Tests
         }
 
         [Test]
+        public void GlobalVirtualBoxSettingsApplyDefaultsToSbcConfiguration()
+        {
+            var configuration = new SbcSitlConfiguration();
+            configuration.ApplyGlobalDefaults(new SbcVirtualBoxGlobalSettings
+            {
+                defaultGuestProfile = SbcGuestProfile.Ubuntu2204,
+                defaultBridgeAdapterName = "Test adapter",
+                defaultStartupTimeoutSeconds = 12,
+                defaultShutdownTimeoutSeconds = 13,
+                defaultCommandTimeoutSeconds = 14
+            });
+
+            Assert.AreEqual(SbcGuestProfile.Ubuntu2204, configuration.guestProfile);
+            Assert.AreEqual("Test adapter", configuration.bridgeAdapterName);
+            Assert.AreEqual(12, configuration.startupTimeoutSeconds);
+            Assert.AreEqual(13, configuration.shutdownTimeoutSeconds);
+            Assert.AreEqual(14, configuration.commandTimeoutSeconds);
+        }
+
+        [Test]
+        public void GlobalSettingsControlSbcSitlLoggingAndDefaultToEnabled()
+        {
+            var settings = new SbcVirtualBoxGlobalSettings();
+            Assert.IsTrue(settings.enableSitlLogs);
+
+            settings.enableSitlLogs = false;
+            var json = JsonUtility.ToJson(settings);
+            var loaded = JsonUtility.FromJson<SbcVirtualBoxGlobalSettings>(json);
+            Assert.IsFalse(loaded.enableSitlLogs);
+
+            SbcSitlLog.SetEnabled(false);
+            Assert.IsFalse(SbcSitlLog.IsEnabled);
+            SbcSitlLog.SetEnabled(true);
+            Assert.IsTrue(SbcSitlLog.IsEnabled);
+        }
+
+        [Test]
+        public void VirtualBoxListOutputParsesMachineNamesAndIds()
+        {
+            var output = "\"RSMA SITL\" {11111111-2222-3333-4444-555555555555}\n\"Other\" {aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee}\n";
+            var machines = SbcVirtualBoxController.ParseMachineList(output);
+
+            Assert.AreEqual(2, machines.Count);
+            Assert.AreEqual("RSMA SITL", machines[0].Name);
+            Assert.AreEqual("11111111-2222-3333-4444-555555555555", machines[0].Id);
+        }
+
+        [Test]
         public void SitlConfigurationRejectsInvalidVmNameAndBridgeAdapter()
         {
             var configuration = new SbcSitlConfiguration { virtualMachineName = "" };
@@ -98,6 +146,26 @@ namespace RSMA.Tests
             Assert.AreEqual(4, runner.Arguments.Count);
             StringAssert.Contains("modifyvm \"RSMA SITL\" --nic1 bridged --bridgeadapter1", runner.Arguments[1]);
             StringAssert.Contains("startvm \"RSMA SITL\" --type headless", runner.Arguments[2]);
+        }
+
+        [Test]
+        public async Task VirtualBoxStartUsesGuiModeWhenConfigured()
+        {
+            var configuration = new SbcSitlConfiguration
+            {
+                virtualMachineName = "RSMA SITL",
+                displayMode = SbcVirtualBoxDisplayMode.Gui
+            };
+            var runner = new FakeVirtualBoxRunner(
+                Result("VMState=\"poweroff\"\n"),
+                Result("VM configured"),
+                Result("VM started"),
+                Result("VMState=\"running\"\n"));
+            var controller = new SbcVirtualBoxController(configuration, runner);
+
+            await controller.StartAsync();
+
+            StringAssert.Contains("startvm \"RSMA SITL\" --type gui", runner.Arguments[2]);
         }
 
         [Test]

@@ -1,11 +1,92 @@
 using System;
 using System.Diagnostics;
+using System.Collections.Generic;
+using System.IO;
 using System.Threading.Tasks;
 using System.Threading;
 using UnityEngine;
 
 namespace RSMA.SBC
 {
+    [Serializable]
+    public sealed class SbcVirtualBoxGlobalSettings
+    {
+        public const string FileName = "RSMA-SbcVirtualBoxSettings.json";
+
+        public string vboxManagePath = string.Empty;
+        public string defaultBridgeAdapterName = "";
+        public SbcGuestProfile defaultGuestProfile = SbcGuestProfile.Ubuntu2404;
+        public int defaultStartupTimeoutSeconds = 60;
+        public int defaultShutdownTimeoutSeconds = 30;
+        public int defaultCommandTimeoutSeconds = 10;
+        public bool enableSitlLogs = true;
+
+        public static string SettingsPath => Path.Combine(
+            Directory.GetParent(Application.dataPath).FullName,
+            "ProjectSettings",
+            FileName);
+
+        public static SbcVirtualBoxGlobalSettings Load()
+        {
+            try
+            {
+                if (File.Exists(SettingsPath))
+                {
+                    var json = File.ReadAllText(SettingsPath);
+                    var settings = JsonUtility.FromJson<SbcVirtualBoxGlobalSettings>(json)
+                        ?? new SbcVirtualBoxGlobalSettings();
+                    if (json.IndexOf("\"enableSitlLogs\"", StringComparison.Ordinal) < 0)
+                        settings.enableSitlLogs = true;
+                    SbcSitlLog.SetEnabled(settings.enableSitlLogs);
+                    return settings;
+                }
+            }
+            catch
+            {
+                SbcSitlLog.SetEnabled(true);
+            }
+            var defaults = new SbcVirtualBoxGlobalSettings();
+            SbcSitlLog.SetEnabled(defaults.enableSitlLogs);
+            return defaults;
+        }
+
+        public string ResolveExecutablePath()
+        {
+            if (!string.IsNullOrWhiteSpace(vboxManagePath))
+                return vboxManagePath;
+            return Application.platform == RuntimePlatform.WindowsEditor || Application.platform == RuntimePlatform.WindowsPlayer
+                ? @"C:\Program Files\Oracle\VirtualBox\VBoxManage.exe"
+                : "VBoxManage";
+        }
+    }
+
+    public static class SbcSitlLog
+    {
+        private static bool? _enabled;
+
+        public static bool IsEnabled => _enabled ?? (_enabled = SbcVirtualBoxGlobalSettings.Load().enableSitlLogs).Value;
+
+        public static void SetEnabled(bool enabled)
+        {
+            _enabled = enabled;
+        }
+
+        public static void Log(string message, UnityEngine.Object context = null)
+        {
+            if (IsEnabled) UnityEngine.Debug.Log(message, context);
+        }
+
+        public static void Warning(string message, UnityEngine.Object context = null)
+        {
+            if (IsEnabled) UnityEngine.Debug.LogWarning(message, context);
+        }
+
+        public static void Error(string message, UnityEngine.Object context = null)
+        {
+            if (IsEnabled) UnityEngine.Debug.LogError(message, context);
+        }
+    }
+
     public enum SbcGuestProfile
     {
         Ubuntu2204,
@@ -15,6 +96,12 @@ namespace RSMA.SBC
     public enum SbcVirtualBoxNetworkMode
     {
         Bridged
+    }
+
+    public enum SbcVirtualBoxDisplayMode
+    {
+        Headless,
+        Gui
     }
 
     public enum SbcVirtualMachineState
@@ -43,10 +130,10 @@ namespace RSMA.SBC
         [Tooltip("Registered VirtualBox machine name, not the display model name in the Unity scene.")]
         public string virtualMachineName = "RSMA-Ubuntu-SITL";
 
-        [Tooltip("Path to VBoxManage.exe. Leave empty to resolve it from the default VirtualBox installation.")]
-        public string vboxManagePath = string.Empty;
-
         public SbcVirtualBoxNetworkMode networkMode = SbcVirtualBoxNetworkMode.Bridged;
+
+        [Tooltip("VirtualBox window mode used by startvm. Headless runs without a VM window; GUI opens the VirtualBox display window.")]
+        public SbcVirtualBoxDisplayMode displayMode = SbcVirtualBoxDisplayMode.Headless;
 
         [Tooltip("Host-only identity of the bridged adapter selected in VirtualBox.")]
         public string bridgeAdapterName = "AIC8800D80 USB WiFi";
@@ -64,12 +151,26 @@ namespace RSMA.SBC
             ? "Ubuntu 22.04"
             : "Ubuntu 24.04";
 
+        public void ApplyGlobalDefaults(SbcVirtualBoxGlobalSettings settings)
+        {
+            if (settings == null)
+                throw new ArgumentNullException(nameof(settings));
+            guestProfile = settings.defaultGuestProfile;
+            if (!string.IsNullOrWhiteSpace(settings.defaultBridgeAdapterName))
+                bridgeAdapterName = settings.defaultBridgeAdapterName;
+            startupTimeoutSeconds = Math.Max(1, settings.defaultStartupTimeoutSeconds);
+            shutdownTimeoutSeconds = Math.Max(1, settings.defaultShutdownTimeoutSeconds);
+            commandTimeoutSeconds = Math.Max(1, settings.defaultCommandTimeoutSeconds);
+        }
+
         public void Validate()
         {
             if (!Enum.IsDefined(typeof(SbcGuestProfile), guestProfile))
                 throw new ArgumentOutOfRangeException(nameof(guestProfile));
             if (!Enum.IsDefined(typeof(SbcVirtualBoxNetworkMode), networkMode))
                 throw new ArgumentOutOfRangeException(nameof(networkMode));
+            if (!Enum.IsDefined(typeof(SbcVirtualBoxDisplayMode), displayMode))
+                throw new ArgumentOutOfRangeException(nameof(displayMode));
             if (networkMode != SbcVirtualBoxNetworkMode.Bridged)
                 throw new NotSupportedException("SITL requires VirtualBox Bridged networking.");
             if (string.IsNullOrWhiteSpace(virtualMachineName))
@@ -103,6 +204,18 @@ namespace RSMA.SBC
         }
     }
 
+    public sealed class SbcVirtualMachineInfo
+    {
+        public string Name { get; }
+        public string Id { get; }
+
+        public SbcVirtualMachineInfo(string name, string id)
+        {
+            Name = name;
+            Id = id;
+        }
+    }
+
     public interface ISbcVirtualBoxCommandRunner
     {
         Task<SbcVirtualBoxCommandResult> RunAsync(string executable, string arguments, CancellationToken cancellationToken);
@@ -115,6 +228,7 @@ namespace RSMA.SBC
             string arguments,
             CancellationToken cancellationToken)
         {
+            SbcSitlLog.Log($"[SBC SITL][VBoxManage] Executing '{executable}' with arguments: {arguments}");
             cancellationToken.ThrowIfCancellationRequested();
             using (var process = new Process())
             {
@@ -127,7 +241,15 @@ namespace RSMA.SBC
                     RedirectStandardOutput = true,
                     RedirectStandardError = true
                 };
-                process.Start();
+                try
+                {
+                    process.Start();
+                }
+                catch (Exception exception)
+                {
+                    SbcSitlLog.Error($"[SBC SITL][VBoxManage] Could not start '{executable}': {exception}");
+                    throw;
+                }
                 var outputTask = process.StandardOutput.ReadToEndAsync();
                 var errorTask = process.StandardError.ReadToEndAsync();
                 using (cancellationToken.Register(() =>
@@ -157,10 +279,15 @@ namespace RSMA.SBC
                     }
                 }
                 cancellationToken.ThrowIfCancellationRequested();
-                return new SbcVirtualBoxCommandResult(
+                var result = new SbcVirtualBoxCommandResult(
                     process.ExitCode,
                     await outputTask.ConfigureAwait(false),
                     await errorTask.ConfigureAwait(false));
+                if (result.Succeeded)
+                    SbcSitlLog.Log($"[SBC SITL][VBoxManage] ExitCode=0; stdout: {result.StandardOutput.Trim()}");
+                else
+                    SbcSitlLog.Error($"[SBC SITL][VBoxManage] ExitCode={result.ExitCode}; stderr: {result.StandardError.Trim()}; stdout: {result.StandardOutput.Trim()}");
+                return result;
             }
         }
     }
@@ -178,6 +305,36 @@ namespace RSMA.SBC
 
         public string GuestImageLabel => _configuration.GuestImageLabel;
 
+        public Task<IReadOnlyList<SbcVirtualMachineInfo>> ListVirtualMachinesAsync(CancellationToken cancellationToken = default)
+        {
+            return ListVirtualMachinesCoreAsync(cancellationToken);
+        }
+
+        public async Task<SbcVirtualMachineInfo> ImportVirtualMachineAsync(
+            string machineFilePath,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(machineFilePath))
+                throw new ArgumentException("A VirtualBox machine file is required.", nameof(machineFilePath));
+            if (!File.Exists(machineFilePath))
+                throw new FileNotFoundException("VirtualBox machine file was not found.", machineFilePath);
+            if (!string.Equals(Path.GetExtension(machineFilePath), ".vbox", StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("VirtualBox machine file must have a .vbox extension.", nameof(machineFilePath));
+
+            var result = await RunVBoxManageAsync($"registervm {Quote(machineFilePath)}", cancellationToken).ConfigureAwait(false);
+            if (!result.Succeeded)
+                throw CreateCommandException("registervm", result);
+
+            var machines = await ListVirtualMachinesCoreAsync(cancellationToken).ConfigureAwait(false);
+            var importedName = Path.GetFileNameWithoutExtension(machineFilePath);
+            foreach (var machine in machines)
+            {
+                if (string.Equals(machine.Name, importedName, StringComparison.OrdinalIgnoreCase))
+                    return machine;
+            }
+            throw new InvalidOperationException($"VirtualBox registered '{machineFilePath}' but it was not returned by list vms.");
+        }
+
         public Task<SbcVirtualMachineState> GetStateAsync(CancellationToken cancellationToken = default)
         {
             return QueryStateAsync(cancellationToken);
@@ -192,6 +349,39 @@ namespace RSMA.SBC
             if (!result.Succeeded)
                 throw CreateCommandException("showvminfo", result);
             return ParseState(result.StandardOutput);
+        }
+
+        private async Task<IReadOnlyList<SbcVirtualMachineInfo>> ListVirtualMachinesCoreAsync(CancellationToken cancellationToken)
+        {
+            var result = await RunVBoxManageAsync("list vms", cancellationToken).ConfigureAwait(false);
+            if (!result.Succeeded)
+                throw CreateCommandException("list vms", result);
+
+            return ParseMachineList(result.StandardOutput);
+        }
+
+        public static IReadOnlyList<SbcVirtualMachineInfo> ParseMachineList(string output)
+        {
+            var machines = new List<SbcVirtualMachineInfo>();
+            using (var reader = new StringReader(output ?? string.Empty))
+            {
+                string line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    var firstQuote = line.IndexOf('"');
+                    var lastQuote = line.LastIndexOf('"');
+                    if (firstQuote < 0 || lastQuote <= firstQuote)
+                        continue;
+                    var name = line.Substring(firstQuote + 1, lastQuote - firstQuote - 1);
+                    var openBrace = line.IndexOf('{', lastQuote);
+                    var closeBrace = line.IndexOf('}', openBrace + 1);
+                    var id = openBrace >= 0 && closeBrace > openBrace
+                        ? line.Substring(openBrace + 1, closeBrace - openBrace - 1)
+                        : string.Empty;
+                    machines.Add(new SbcVirtualMachineInfo(name, id));
+                }
+            }
+            return machines;
         }
 
         public async Task StartAsync(CancellationToken cancellationToken = default)
@@ -219,7 +409,7 @@ namespace RSMA.SBC
                 throw CreateCommandException("configure bridged adapter", networkResult);
 
             var result = await RunVBoxManageAsync(
-                $"startvm {Quote(_configuration.virtualMachineName)} --type headless",
+                $"startvm {Quote(_configuration.virtualMachineName)} --type {(_configuration.displayMode == SbcVirtualBoxDisplayMode.Gui ? "gui" : "headless")}",
                 cancellationToken).ConfigureAwait(false);
             if (!result.Succeeded)
                 throw CreateCommandException("startvm", result);
@@ -267,6 +457,7 @@ namespace RSMA.SBC
                         {
                             waitTimeout.Cancel();
                             ObserveTaskFailure(stateTask);
+                            SbcSitlLog.Error($"[SBC SITL] Timed out after {timeoutSeconds}s waiting for VM '{_configuration.virtualMachineName}' to become {expected}.");
                             throw new TimeoutException($"Timed out after {timeoutSeconds}s waiting for VirtualBox VM '{_configuration.virtualMachineName}' to enter {expected} state.");
                         }
 
@@ -323,11 +514,7 @@ namespace RSMA.SBC
 
         internal string BuildExecutablePath()
         {
-            if (!string.IsNullOrWhiteSpace(_configuration.vboxManagePath))
-                return _configuration.vboxManagePath;
-            return Application.platform == RuntimePlatform.WindowsEditor || Application.platform == RuntimePlatform.WindowsPlayer
-                ? @"C:\Program Files\Oracle\VirtualBox\VBoxManage.exe"
-                : "VBoxManage";
+            return SbcVirtualBoxGlobalSettings.Load().ResolveExecutablePath();
         }
 
         private Task<SbcVirtualBoxCommandResult> RunVBoxManageAsync(string arguments, CancellationToken cancellationToken)
@@ -343,14 +530,16 @@ namespace RSMA.SBC
             {
                 try
                 {
+                    var executablePath = BuildExecutablePath();
                     var commandTask = Task.Run(() => _runner.RunAsync(
-                        BuildExecutablePath(), arguments, commandTimeout.Token));
+                        executablePath, arguments, commandTimeout.Token));
                     var timeoutTask = Task.Delay(TimeSpan.FromSeconds(_configuration.commandTimeoutSeconds));
                     var completed = await Task.WhenAny(commandTask, timeoutTask).ConfigureAwait(false);
                     if (completed != commandTask)
                     {
                         commandTimeout.Cancel();
                         ObserveTaskFailure(commandTask);
+                        SbcSitlLog.Error($"[SBC SITL] VBoxManage timeout after {_configuration.commandTimeoutSeconds}s: '{executablePath}' {arguments}");
                         throw new TimeoutException($"VBoxManage command exceeded {_configuration.commandTimeoutSeconds}s: {arguments}");
                     }
 
@@ -358,7 +547,13 @@ namespace RSMA.SBC
                 }
                 catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
                 {
+                    SbcSitlLog.Error($"[SBC SITL] VBoxManage operation canceled by its command timeout: {arguments}");
                     throw new TimeoutException($"VBoxManage command exceeded {_configuration.commandTimeoutSeconds}s: {arguments}");
+                }
+                catch (Exception exception)
+                {
+                    SbcSitlLog.Error($"[SBC SITL] VBoxManage operation failed for '{arguments}': {exception}");
+                    throw;
                 }
             }
         }

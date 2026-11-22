@@ -92,6 +92,9 @@ namespace RSMA.SBC
         private bool startOnEnable;
 
         [SerializeField]
+        private bool autoStartSitl;
+
+        [SerializeField]
         private SbcSitlConfiguration sitl = new SbcSitlConfiguration();
 
         private bool _attachedToServer;
@@ -101,6 +104,9 @@ namespace RSMA.SBC
         private SbcSessionState _state = SbcSessionState.Stopped;
         private ArmCommand _lastArmCommand;
         private SbcSitlOperationState _sitlState = SbcSitlOperationState.Stopped;
+        private CancellationTokenSource _sitlLifecycleCancellation;
+        private Task _sitlLifecycleTask;
+        private Task _sitlLifecycleStopTask;
 
         public string NodeId => nodeId;
         public SbcSimulationMode Mode => mode;
@@ -108,6 +114,7 @@ namespace RSMA.SBC
         public SbcSitlConfiguration Sitl => sitl;
         public SbcSessionState State => _state;
         public SbcSitlOperationState SitlState => _sitlState;
+        public bool AutoStartSitl => autoStartSitl;
         public string LastError { get; private set; } = string.Empty;
         public string LastSitlError { get; private set; } = string.Empty;
         public ArmCommand LastArmCommand => _lastArmCommand;
@@ -119,10 +126,63 @@ namespace RSMA.SBC
         public event Action<ArmCommand> ArmCommandReceived;
         public event Action ConnectionLost;
 
+        public void SetAutoStartSitl(bool enabled)
+        {
+            autoStartSitl = enabled;
+        }
+
         private void OnEnable()
         {
+            if (!Application.isPlaying)
+                return;
+
+            SbcSitlLog.Log($"[SBC SITL] OnEnable device='{name}', scene='{gameObject.scene.name}', mode={mode}, autoStartSitl={autoStartSitl}, startOnEnable={startOnEnable}.", this);
+            if (autoStartSitl && mode != SbcSimulationMode.Sitl)
+                SbcSitlLog.Error($"[SBC SITL] Auto-start is enabled on '{name}', but mode is {mode}; SITL startup will be rejected.", this);
             if (startOnEnable)
+            {
+                SbcSitlLog.Log($"[SBC SITL] Starting NetMQ-only session for '{name}' because startOnEnable is enabled.", this);
                 StartSession();
+            }
+            else
+            {
+                SbcSitlLog.Log($"[SBC SITL] NetMQ-only start skipped for '{name}': startOnEnable is disabled.", this);
+            }
+        }
+
+        private void Start()
+        {
+            if (!Application.isPlaying)
+                return;
+
+            if (!autoStartSitl)
+            {
+                SbcSitlLog.Warning($"[SBC SITL] Auto-start skipped for device '{name}' in scene '{gameObject.scene.name}': Auto-start/stop VM is disabled on this SbcDevice component. Enable it in RSMA > SBC SITL while in EditMode, then save the scene.", this);
+                return;
+            }
+
+            _sitlLifecycleCancellation = new CancellationTokenSource();
+            _sitlLifecycleTask = StartAutoSitlAsync(_sitlLifecycleCancellation.Token);
+        }
+
+        private async Task StartAutoSitlAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                await StartSitlAsync(cancellationToken);
+            }
+            catch (Exception exception)
+            {
+                SbcSitlLog.Error($"[SBC SITL] Automatic startup failed for '{name}' in scene '{gameObject.scene.name}': {exception}", this);
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (!Application.isPlaying || !autoStartSitl)
+                return;
+
+            RequestAutoStop();
         }
 
         private void Update()
@@ -164,7 +224,44 @@ namespace RSMA.SBC
 
         private void OnDestroy()
         {
+            RequestAutoStop();
             StopSession();
+        }
+
+        private void RequestAutoStop()
+        {
+            if (!autoStartSitl || _sitlLifecycleStopTask != null)
+                return;
+            SbcSitlLog.Log($"[SBC SITL] Auto-stop requested for device '{name}', state={_sitlState}.", this);
+            _sitlLifecycleCancellation?.Cancel();
+            _sitlLifecycleStopTask = StopAutoStartedSitlAsync();
+        }
+
+        private async Task StopAutoStartedSitlAsync()
+        {
+            try
+            {
+                if (_sitlLifecycleTask != null)
+                    await _sitlLifecycleTask;
+            }
+            catch (Exception exception)
+            {
+                SbcSitlLog.Warning($"[SBC SITL] Auto-start task ended with an error before auto-stop: {exception}", this);
+            }
+
+            if (_sitlLifecycleTask != null)
+            {
+                try
+                {
+                    await StopSitlAsync();
+                    SbcSitlLog.Log($"[SBC SITL] Automatic VM shutdown completed for '{name}'.", this);
+                }
+                catch (Exception exception)
+                {
+                    LastSitlError = exception.Message;
+                    SbcSitlLog.Error($"[SBC SITL] Automatic VM shutdown failed for '{name}': {exception}", this);
+                }
+            }
         }
 
         public void StartSession()
@@ -221,11 +318,13 @@ namespace RSMA.SBC
 
         public async Task StartSitlAsync(CancellationToken cancellationToken = default)
         {
+            SbcSitlLog.Log($"[SBC SITL] StartSitlAsync entered for '{name}': mode={mode}, VM='{sitl.virtualMachineName}', global VBoxManage='{SbcVirtualBoxGlobalSettings.Load().ResolveExecutablePath()}'.", this);
             if (mode != SbcSimulationMode.Sitl)
                 throw new InvalidOperationException("SITL can only be started when the SBC mode is Sitl.");
             sitl.Validate();
             LastSitlError = string.Empty;
             SetSitlState(SbcSitlOperationState.Starting);
+            SbcSitlLog.Log($"[SBC SITL] Starting VM '{sitl.virtualMachineName}' for device '{name}'. VBoxManage='{SbcVirtualBoxGlobalSettings.Load().ResolveExecutablePath()}', bridge='{sitl.bridgeAdapterName}'.", this);
             try
             {
                 StartSession();
@@ -236,11 +335,13 @@ namespace RSMA.SBC
 
                 await new SbcVirtualBoxController(sitl).StartAsync(cancellationToken);
                 SetSitlState(SbcSitlOperationState.VmRunning);
+                SbcSitlLog.Log($"[SBC SITL] VM '{sitl.virtualMachineName}' reached Running state.", this);
             }
             catch (Exception exception)
             {
                 LastSitlError = exception.Message;
                 SetSitlState(SbcSitlOperationState.Faulted);
+                SbcSitlLog.Error($"[SBC SITL] Auto/manual start failed for VM '{sitl.virtualMachineName}': {exception}", this);
                 StopSession();
                 throw;
             }
@@ -253,16 +354,19 @@ namespace RSMA.SBC
             sitl.Validate();
             LastSitlError = string.Empty;
             SetSitlState(SbcSitlOperationState.Stopping);
+            SbcSitlLog.Log($"[SBC SITL] Sending graceful shutdown to VM '{sitl.virtualMachineName}'.", this);
             try
             {
                 await new SbcVirtualBoxController(sitl).StopAsync(cancellationToken);
                 StopSession();
                 SetSitlState(SbcSitlOperationState.Stopped);
+                SbcSitlLog.Log($"[SBC SITL] VM '{sitl.virtualMachineName}' stopped.", this);
             }
             catch (Exception exception)
             {
                 LastSitlError = exception.Message;
                 SetSitlState(SbcSitlOperationState.Faulted);
+                SbcSitlLog.Error($"[SBC SITL] Stop failed for VM '{sitl.virtualMachineName}': {exception}", this);
                 throw;
             }
         }

@@ -1,7 +1,6 @@
 using System;
 using System.Threading.Tasks;
 using RSMA.SBC;
-using SFB;
 using UnityEditor;
 using UnityEngine;
 
@@ -13,12 +12,13 @@ namespace RSMA.EditorTools
         private SbcVirtualMachineState _vmState = SbcVirtualMachineState.Unknown;
         private string _message = "Select an SbcDevice in the open scene.";
         private Task _pendingOperation;
+        private readonly System.Collections.Generic.List<SbcVirtualMachineInfo> _machines = new System.Collections.Generic.List<SbcVirtualMachineInfo>();
 
         [MenuItem("RSMA/SBC SITL")]
         public static void ShowWindow()
         {
             var window = GetWindow<SbcSitlWindow>("SBC SITL");
-            window.minSize = new Vector2(420f, 280f);
+            window.minSize = new Vector2(460f, 360f);
         }
 
         private void OnGUI()
@@ -32,36 +32,75 @@ namespace RSMA.EditorTools
                 return;
             }
 
-            var sitl = _device.Sitl;
-            var connection = _device.Connection;
-            EditorGUILayout.LabelField("VirtualBox", EditorStyles.boldLabel);
-            sitl.virtualMachineName = EditorGUILayout.TextField("VM name", sitl.virtualMachineName);
-            sitl.bridgeAdapterName = EditorGUILayout.TextField("Bridge adapter", sitl.bridgeAdapterName);
-            sitl.vboxManagePath = EditorGUILayout.TextField("VBoxManage path", sitl.vboxManagePath);
+            EditorGUILayout.LabelField($"Auto-start SITL: {(_device.AutoStartSitl ? "Enabled" : "Disabled")}", EditorStyles.miniLabel);
+            if (Application.isPlaying && !_device.AutoStartSitl)
+                EditorGUILayout.HelpBox("Automatic VM startup is disabled on this component. Enable Auto-start/stop VM in EditMode and save the scene.", MessageType.Warning);
 
-            EditorGUILayout.LabelField("RSMA LAN endpoint", EditorStyles.boldLabel);
-            connection.endpoint = EditorGUILayout.TextField("Host address", connection.endpoint);
-            EditorGUILayout.BeginHorizontal();
-            connection.commandPort = EditorGUILayout.IntField("Command", connection.commandPort);
-            connection.publishPort = EditorGUILayout.IntField("Publish", connection.publishPort);
-            connection.subscribePort = EditorGUILayout.IntField("Subscribe", connection.subscribePort);
-            EditorGUILayout.EndHorizontal();
+            DrawEditModeConfiguration();
+            if (Application.isPlaying)
+                DrawRuntimeControls();
+
+            if (_pendingOperation != null)
+                Repaint();
+        }
+
+        private void DrawEditModeConfiguration()
+        {
+            var serializedDevice = new SerializedObject(_device);
+            serializedDevice.Update();
+            var sitl = serializedDevice.FindProperty("sitl");
+            var connection = serializedDevice.FindProperty("connection");
+            var vmName = sitl.FindPropertyRelative("virtualMachineName");
+            using (new EditorGUI.DisabledScope(Application.isPlaying))
+            {
+                EditorGUILayout.LabelField("SBC configuration (EditMode)", EditorStyles.boldLabel);
+                EditorGUILayout.PropertyField(vmName, new GUIContent("Registered VM"));
+                EditorGUILayout.PropertyField(sitl.FindPropertyRelative("displayMode"), new GUIContent("VM window mode"));
+                EditorGUILayout.PropertyField(sitl.FindPropertyRelative("bridgeAdapterName"), new GUIContent("Bridge adapter"));
+                EditorGUILayout.PropertyField(serializedDevice.FindProperty("autoStartSitl"), new GUIContent("Auto-start/stop VM"));
+                EditorGUILayout.PropertyField(connection.FindPropertyRelative("endpoint"), new GUIContent("Host address"));
+                EditorGUILayout.PropertyField(connection.FindPropertyRelative("commandPort"), new GUIContent("Command port"));
+                EditorGUILayout.PropertyField(connection.FindPropertyRelative("publishPort"), new GUIContent("Publish port"));
+                EditorGUILayout.PropertyField(connection.FindPropertyRelative("subscribePort"), new GUIContent("Subscribe port"));
+
+                EditorGUILayout.BeginHorizontal();
+                if (GUILayout.Button("Refresh registered VMs"))
+                    BeginOperation(RefreshMachineListAsync());
+                if (GUILayout.Button("Add VM from .vbox file"))
+                    ImportMachine();
+                if (GUILayout.Button("Apply global defaults"))
+                {
+                    serializedDevice.ApplyModifiedProperties();
+                    Undo.RecordObject(_device, "Apply SBC SITL defaults");
+                    _device.Sitl.ApplyGlobalDefaults(SbcVirtualBoxGlobalSettings.Load());
+                    EditorUtility.SetDirty(_device);
+                    serializedDevice.Update();
+                }
+                EditorGUILayout.EndHorizontal();
+                if (_machines.Count > 0)
+                {
+                    var names = _machines.ConvertAll(machine => machine.Name).ToArray();
+                    var selected = Array.IndexOf(names, vmName.stringValue);
+                    if (selected < 0) selected = 0;
+                    vmName.stringValue = names[EditorGUILayout.Popup("Available VM", selected, names)];
+                }
+                serializedDevice.ApplyModifiedProperties();
+            }
+        }
+
+        private void DrawRuntimeControls()
+        {
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Runtime status", EditorStyles.boldLabel);
             EditorGUILayout.LabelField("Session", _device.State.ToString());
             EditorGUILayout.LabelField("SITL", _device.SitlState.ToString());
             EditorGUILayout.LabelField("VM", _vmState.ToString());
-
             if (!string.IsNullOrEmpty(_device.LastError))
                 EditorGUILayout.HelpBox(_device.LastError, MessageType.Error);
             if (!string.IsNullOrEmpty(_device.LastSitlError))
                 EditorGUILayout.HelpBox(_device.LastSitlError, MessageType.Error);
-            if (!string.IsNullOrEmpty(_message))
-                EditorGUILayout.HelpBox(_message, MessageType.Info);
 
-            var validConfiguration = TryValidateConfiguration(out var validationError);
-            if (!validConfiguration)
-                EditorGUILayout.HelpBox(validationError, MessageType.Warning);
-
-            using (new EditorGUI.DisabledScope(_pendingOperation != null || !Application.isPlaying || !validConfiguration))
+            using (new EditorGUI.DisabledScope(_pendingOperation != null))
             {
                 EditorGUILayout.BeginHorizontal();
                 if (GUILayout.Button("Refresh status"))
@@ -72,42 +111,31 @@ namespace RSMA.EditorTools
                     BeginOperation(StopAsync());
                 EditorGUILayout.EndHorizontal();
             }
-
-            using (new EditorGUI.DisabledScope(!Application.isPlaying))
-            {
-                if (GUILayout.Button("Choose VBoxManage.exe"))
-                {
-                    var paths = StandaloneFileBrowser.OpenFilePanel(
-                        "Select VBoxManage.exe",
-                        string.Empty,
-                        "exe",
-                        false);
-                    if (paths != null && paths.Length > 0)
-                    {
-                        _device.Sitl.vboxManagePath = paths[0];
-                        _message = "VBoxManage path updated.";
-                    }
-                }
-            }
-
-            if (_pendingOperation != null)
-                Repaint();
         }
 
-        private bool TryValidateConfiguration(out string error)
+        private async Task RefreshMachineListAsync()
         {
-            try
-            {
-                _device.ValidateConfiguration();
-                _device.Sitl.Validate();
-                error = string.Empty;
-                return true;
-            }
-            catch (Exception exception)
-            {
-                error = exception.Message;
-                return false;
-            }
+            var machines = await new SbcVirtualBoxController(_device.Sitl).ListVirtualMachinesAsync();
+            _machines.Clear();
+            _machines.AddRange(machines);
+            _message = $"Found {_machines.Count} registered VirtualBox VM(s).";
+        }
+
+        private void ImportMachine()
+        {
+            var path = EditorUtility.OpenFilePanel("Register VirtualBox machine", string.Empty, "vbox");
+            if (!string.IsNullOrEmpty(path))
+                BeginOperation(ImportMachineAsync(path));
+        }
+
+        private async Task ImportMachineAsync(string path)
+        {
+            var machine = await new SbcVirtualBoxController(_device.Sitl).ImportVirtualMachineAsync(path);
+            Undo.RecordObject(_device, "Select imported VirtualBox VM");
+            _device.Sitl.virtualMachineName = machine.Name;
+            _machines.Add(machine);
+            EditorUtility.SetDirty(_device);
+            _message = $"Registered and selected VM '{machine.Name}'.";
         }
 
         private async Task StartAsync()
