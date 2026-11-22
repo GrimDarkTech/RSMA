@@ -1,8 +1,9 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using NetMQ;
@@ -14,6 +15,7 @@ using RSMA.uDTP;
 using RSMA.uDTP.CDR;
 using RSMA.uDTP.Topics;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace RSMA.Tests
 {
@@ -321,8 +323,6 @@ namespace RSMA.Tests
                     linearVelocity = 1.25f,
                     angularVelocity = -0.5f
                 };
-                device.PublishVelocity(velocity);
-
                 var received = false;
                 var deadline = Stopwatch.StartNew();
                 var nextPublish = TimeSpan.Zero;
@@ -340,13 +340,15 @@ namespace RSMA.Tests
                         Assert.AreEqual(device.VelocityTopic, message[0].ConvertToString());
                         var header = TopicHeader.DecodeV1(message[1].ToByteArray());
                         Assert.AreEqual(UdtpV1Codec.RobotVelocityTypeId, header.topicTypeId);
-                        Assert.AreEqual(velocity.timestamp, UdtpV1Codec.TryDecode(header.topicTypeId, message[2].ToByteArray(), out var decoded)
-                            ? ((RobotVelocity)decoded).timestamp
-                            : -1);
+                        Assert.IsTrue(UdtpV1Codec.TryDecode(header.topicTypeId, message[2].ToByteArray(), out var decoded));
+                        var actual = (RobotVelocity)decoded;
+                        Assert.AreEqual(velocity.timestamp, actual.timestamp);
+                        Assert.AreEqual(velocity.linearVelocity, actual.linearVelocity);
+                        Assert.AreEqual(velocity.angularVelocity, actual.angularVelocity);
                         received = true;
                     }
                     if (!received)
-                        Thread.Sleep(10);
+                        yield return null;
                 }
                 Assert.IsTrue(received, "SBC velocity topic was not published by the Unity server.");
 
@@ -389,16 +391,17 @@ namespace RSMA.Tests
                 telemetry.ArmStateChanged += value => changed = value;
 
                 var command = new ArmCommand { timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), arm = 1 };
-                device.Connection.commandPort = GetFreePort();
-                device.Connection.publishPort = GetFreePort();
-                device.Connection.subscribePort = GetFreePort();
+                var ports = GetUniqueFreePorts(3);
+                device.Connection.commandPort = ports[0];
+                device.Connection.publishPort = ports[1];
+                device.Connection.subscribePort = ports[2];
                 device.StartSession();
                 Assert.AreEqual(SbcSessionState.Running, device.State);
                 Assert.IsTrue(await WaitForPortAsync(device.Connection.commandPort));
                 Assert.IsTrue(await WaitForPortAsync(device.Connection.publishPort));
                 Assert.IsTrue(await WaitForPortAsync(device.Connection.subscribePort));
                 DataBroker.UpdateFromNetwork(device.ArmCommandTopic,
-                    new TopicHeader { timestamp = 123, payloadSize = 16, topicTypeId = UdtpV1Codec.ArmCommandTypeId }.EncodeV1(),
+                    new TopicHeader { timestamp = command.timestamp, payloadSize = 16, topicTypeId = UdtpV1Codec.ArmCommandTypeId }.EncodeV1(),
                     UdtpV1Codec.Encode(command));
                 device.ProcessPendingCommands();
 
@@ -499,13 +502,32 @@ namespace RSMA.Tests
             }
         }
 
-        private static int GetFreePort()
+        [UnityTest]
+        public IEnumerator ServerCanRestartOnTheSamePortsAfterImmediateStop()
         {
-            var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
-            listener.Start();
-            var port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
-            listener.Stop();
-            return port;
+            const int iterations = 20;
+            var ports = GetUniqueFreePorts(3);
+            NetMQServer.Stop();
+            try
+            {
+                for (var iteration = 1; iteration <= iterations; iteration++)
+                {
+                    NetMQServer.Run(ports[0], ports[1], ports[2]);
+                    // Do not wait for Bind before stopping: startup may still be in progress.
+                    NetMQServer.Stop();
+                    Assert.IsFalse(NetMQServer.IsRunning, $"Immediate stop {iteration} did not stop the server.");
+                    Assert.IsFalse(NetMQServer.IsReady);
+
+                    NetMQServer.Run(ports[0], ports[1], ports[2]);
+                    yield return WaitForServerReady($"Restart {iteration}/{iterations}", ports);
+                    NetMQServer.Stop();
+                    Assert.IsFalse(NetMQServer.IsRunning, $"Shutdown {iteration} did not stop the server.");
+                }
+            }
+            finally
+            {
+                NetMQServer.Stop();
+            }
         }
 
         private static async Task StopServerWithTimeoutAsync()
