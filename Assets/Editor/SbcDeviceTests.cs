@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
@@ -120,6 +121,13 @@ namespace RSMA.Tests
         {
             var configuration = new SbcEndpointConfiguration { endpoint = "tcp://0.0.0.0" };
             Assert.Throws<ArgumentException>(() => configuration.Validate());
+        }
+
+        [Test]
+        public void HostEndpointOptionsKeepManualEndpointWhenInterfaceIsUnavailable()
+        {
+            var options = RSMA.EditorTools.SbcSitlWindow.GetHostEndpointOptions("tcp://203.0.113.77");
+            Assert.IsTrue(options.Any(option => option.Endpoint == "tcp://203.0.113.77"));
         }
 
         [Test]
