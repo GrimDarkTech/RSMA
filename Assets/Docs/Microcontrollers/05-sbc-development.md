@@ -187,6 +187,13 @@ NetMQ порта. `Apply global defaults` копирует общие guest/adap
 EditMode; Start/Stop/Refresh доступны только в PlayMode. Изменения конфигурации
 сохраняются вместе со сценой.
 
+Для физического SBC используется отдельное окно `RSMA > SBC HITL`. Оно содержит
+только `SbcDevice`/network configuration и тот же host endpoint selector; поля
+VirtualBox, список VM, `.vbox` import, bridge adapter и window mode в HITL окне не
+показываются. В PlayMode кнопки `Connect to host` и `Disconnect` управляют только
+Unity NetMQ session. Подача питания, загрузка Linux и выключение физического SBC
+остаются ответственностью оператора.
+
 При `Auto-start/stop VM` компонент запускает SITL при начале PlayMode и запрашивает
 graceful shutdown при завершении/отключении компонента. Это отдельная настройка от
 `startOnEnable`: последний запускает только Unity NetMQ session, не VirtualBox.

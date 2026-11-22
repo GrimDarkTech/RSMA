@@ -82,11 +82,8 @@ namespace RSMA.SBC
         [SerializeField]
         private SbcEndpointConfiguration connection = new SbcEndpointConfiguration();
 
-        [SerializeField]
-        private string velocityTopic = "sensor/velocity";
-
-        [SerializeField]
-        private string armCommandTopic = "command/arm";
+        private const string VelocityTopicSuffix = "sensor/velocity";
+        private const string ArmCommandTopicSuffix = "command/arm";
 
         [SerializeField]
         private bool startOnEnable;
@@ -115,11 +112,12 @@ namespace RSMA.SBC
         public SbcSessionState State => _state;
         public SbcSitlOperationState SitlState => _sitlState;
         public bool AutoStartSitl => autoStartSitl;
+        public bool StartSessionOnEnable => startOnEnable;
         public string LastError { get; private set; } = string.Empty;
         public string LastSitlError { get; private set; } = string.Empty;
         public ArmCommand LastArmCommand => _lastArmCommand;
-        public string VelocityTopic => BuildTopic(velocityTopic);
-        public string ArmCommandTopic => BuildTopic(armCommandTopic);
+        public string VelocityTopic => BuildTopic(VelocityTopicSuffix);
+        public string ArmCommandTopic => BuildTopic(ArmCommandTopicSuffix);
 
         public event Action<SbcSessionState> StateChanged;
         public event Action<SbcSitlOperationState> SitlStateChanged;
@@ -129,6 +127,18 @@ namespace RSMA.SBC
         public void SetAutoStartSitl(bool enabled)
         {
             autoStartSitl = enabled;
+        }
+
+        public void SetStartSessionOnEnable(bool enabled)
+        {
+            startOnEnable = enabled;
+        }
+
+        public void SetMode(SbcSimulationMode value)
+        {
+            mode = value;
+            if (mode == SbcSimulationMode.Hitl)
+                autoStartSitl = false;
         }
 
         private void OnEnable()
@@ -154,6 +164,13 @@ namespace RSMA.SBC
         {
             if (!Application.isPlaying)
                 return;
+
+            if (mode != SbcSimulationMode.Sitl)
+            {
+                if (autoStartSitl)
+                    SbcSitlLog.Warning($"[SBC HITL] Ignoring stale SITL auto-start flag on HITL device '{name}'. VirtualBox is not used in HITL mode.", this);
+                return;
+            }
 
             if (!autoStartSitl)
             {
@@ -230,7 +247,7 @@ namespace RSMA.SBC
 
         private void RequestAutoStop()
         {
-            if (!autoStartSitl || _sitlLifecycleStopTask != null)
+            if (mode != SbcSimulationMode.Sitl || !autoStartSitl || _sitlLifecycleStopTask != null)
                 return;
             SbcSitlLog.Log($"[SBC SITL] Auto-stop requested for device '{name}', state={_sitlState}.", this);
             _sitlLifecycleCancellation?.Cancel();
@@ -292,6 +309,48 @@ namespace RSMA.SBC
             }
         }
 
+        public async Task StartHitlSessionAsync(CancellationToken cancellationToken = default)
+        {
+            if (mode != SbcSimulationMode.Hitl)
+                throw new InvalidOperationException("HITL session can only be started when the SBC mode is Hitl.");
+            ValidateConfiguration();
+            LastError = string.Empty;
+            SetState(SbcSessionState.Starting);
+            var serverWasRunning = NetMQServer.IsRunning;
+            try
+            {
+                NetMQServer.Run(connection.commandPort, connection.publishPort, connection.subscribePort);
+                await WaitForServerEndpointAsync(connection, cancellationToken);
+                _attachedToServer = NetMQServer.IsRunning;
+                _ownsServerSession = _attachedToServer && !serverWasRunning;
+                SetState(SbcSessionState.Running);
+            }
+            catch (Exception exception)
+            {
+                if (!serverWasRunning && NetMQServer.IsRunning)
+                    await NetMQServer.StopInBackground();
+                _attachedToServer = false;
+                _ownsServerSession = false;
+                LastError = exception.Message;
+                SetState(SbcSessionState.Faulted);
+                throw;
+            }
+        }
+
+        public Task StartSitlAsync(CancellationToken cancellationToken = default)
+        {
+            if (mode != SbcSimulationMode.Sitl)
+                throw new InvalidOperationException("SITL VM operations are unavailable when the SBC mode is Hitl.");
+            return StartSitlAsyncCore(cancellationToken);
+        }
+
+        public void StopHitlSession()
+        {
+            if (mode != SbcSimulationMode.Hitl)
+                throw new InvalidOperationException("HITL session can only be stopped when the SBC mode is Hitl.");
+            StopSession();
+        }
+
         public void StopSession()
         {
             if (_ownsServerSession)
@@ -316,7 +375,7 @@ namespace RSMA.SBC
             _lastArmCommand = default;
         }
 
-        public async Task StartSitlAsync(CancellationToken cancellationToken = default)
+        private async Task StartSitlAsyncCore(CancellationToken cancellationToken = default)
         {
             SbcSitlLog.Log($"[SBC SITL] StartSitlAsync entered for '{name}': mode={mode}, VM='{sitl.virtualMachineName}', global VBoxManage='{SbcVirtualBoxGlobalSettings.Load().ResolveExecutablePath()}'.", this);
             if (mode != SbcSimulationMode.Sitl)
@@ -391,9 +450,6 @@ namespace RSMA.SBC
             if (string.IsNullOrWhiteSpace(nodeId) || nodeId.IndexOfAny(new[] { '/', '\\', '\0' }) >= 0)
                 throw new ArgumentException("SBC nodeId must be non-empty and must not contain '/', '\\' or NUL.", nameof(nodeId));
 
-            if (string.IsNullOrWhiteSpace(velocityTopic) || string.IsNullOrWhiteSpace(armCommandTopic))
-                throw new ArgumentException("SBC topic suffixes must be non-empty.");
-
             connection.Validate();
         }
 
@@ -432,6 +488,32 @@ namespace RSMA.SBC
                     CanConnect(uri.Host, configuration.subscribePort))
                     return;
                 Thread.Sleep(10);
+            }
+
+            throw new InvalidOperationException($"RSMA NetMQServer is not reachable at {configuration.endpoint} on ports {configuration.commandPort}, {configuration.publishPort}, {configuration.subscribePort}.");
+        }
+
+        private static Task WaitForServerEndpointAsync(SbcEndpointConfiguration configuration, CancellationToken cancellationToken)
+        {
+            if (!Uri.TryCreate(configuration.endpoint, UriKind.Absolute, out var uri))
+                throw new InvalidOperationException("SBC endpoint is invalid.");
+
+            return WaitForServerEndpointAsync(uri.Host, configuration, cancellationToken);
+        }
+
+        private static async Task WaitForServerEndpointAsync(string host, SbcEndpointConfiguration configuration, CancellationToken cancellationToken)
+        {
+            var deadline = DateTime.UtcNow + TimeSpan.FromMilliseconds(configuration.requestTimeoutMilliseconds);
+            while (DateTime.UtcNow < deadline)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var reachable = await Task.Run(() =>
+                    CanConnect(host, configuration.commandPort) &&
+                    CanConnect(host, configuration.publishPort) &&
+                    CanConnect(host, configuration.subscribePort), cancellationToken);
+                if (reachable)
+                    return;
+                await Task.Delay(10, cancellationToken);
             }
 
             throw new InvalidOperationException($"RSMA NetMQServer is not reachable at {configuration.endpoint} on ports {configuration.commandPort}, {configuration.publishPort}, {configuration.subscribePort}.");

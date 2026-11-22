@@ -1436,6 +1436,30 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 6937351958748797670, guid: bb4c5ea5711be464bb06439e3fa11c5b, type: 3}
+      propertyPath: mode
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6937351958748797670, guid: bb4c5ea5711be464bb06439e3fa11c5b, type: 3}
+      propertyPath: connection.endpoint
+      value: tcp://192.168.2.91
+      objectReference: {fileID: 0}
+    - target: {fileID: 8785034051814439761, guid: bb4c5ea5711be464bb06439e3fa11c5b, type: 3}
+      propertyPath: virtualMcu
+      value: 
+      objectReference: {fileID: 6064054868377645817}
+    - target: {fileID: 8785034051814439761, guid: bb4c5ea5711be464bb06439e3fa11c5b, type: 3}
+      propertyPath: pinBindings.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8785034051814439761, guid: bb4c5ea5711be464bb06439e3fa11c5b, type: 3}
+      propertyPath: pinBindings.Array.data[0].logicalPin
+      value: 13
+      objectReference: {fileID: 0}
+    - target: {fileID: 8785034051814439761, guid: bb4c5ea5711be464bb06439e3fa11c5b, type: 3}
+      propertyPath: pinBindings.Array.data[0].virtualMcuPin
+      value: 13
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

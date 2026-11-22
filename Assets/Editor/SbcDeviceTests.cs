@@ -124,6 +124,41 @@ namespace RSMA.Tests
         }
 
         [Test]
+        public void HitlModeDoesNotExposeSitlAutoStartControl()
+        {
+            var gameObject = new GameObject("HITL mode test");
+            try
+            {
+                var device = gameObject.AddComponent<SbcDevice>();
+                device.SetAutoStartSitl(true);
+                device.SetMode(SbcSimulationMode.Hitl);
+
+                Assert.AreEqual(SbcSimulationMode.Hitl, device.Mode);
+                Assert.IsFalse(device.AutoStartSitl);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
+        }
+
+        [Test]
+        public void HitlModeRejectsVirtualBoxStartup()
+        {
+            var gameObject = new GameObject("HITL does not start VirtualBox");
+            try
+            {
+                var device = gameObject.AddComponent<SbcDevice>();
+                device.SetMode(SbcSimulationMode.Hitl);
+                Assert.Throws<InvalidOperationException>(() => device.StartSitlAsync());
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
+        }
+
+        [Test]
         public void HostEndpointOptionsKeepManualEndpointWhenInterfaceIsUnavailable()
         {
             var options = RSMA.EditorTools.SbcSitlWindow.GetHostEndpointOptions("tcp://203.0.113.77");

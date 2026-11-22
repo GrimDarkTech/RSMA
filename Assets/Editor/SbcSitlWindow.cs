@@ -50,6 +50,18 @@ namespace RSMA.EditorTools
                 return;
             }
 
+            if (_device.Mode != SbcSimulationMode.Sitl)
+            {
+                EditorGUILayout.HelpBox("This device is configured for HITL. Use RSMA > SBC HITL for its settings.", MessageType.Warning);
+                if (GUILayout.Button("Set mode to SITL"))
+                {
+                    Undo.RecordObject(_device, "Set SBC mode to SITL");
+                    _device.SetMode(SbcSimulationMode.Sitl);
+                    EditorUtility.SetDirty(_device);
+                }
+                return;
+            }
+
             EditorGUILayout.LabelField($"Auto-start SITL: {(_device.AutoStartSitl ? "Enabled" : "Disabled")}", EditorStyles.miniLabel);
             if (Application.isPlaying && !_device.AutoStartSitl)
                 EditorGUILayout.HelpBox("Automatic VM startup is disabled on this component. Enable Auto-start/stop VM in EditMode and save the scene.", MessageType.Warning);
