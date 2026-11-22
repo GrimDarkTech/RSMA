@@ -8,6 +8,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
+using System.Net;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -170,11 +172,6 @@ namespace RSMA.NetMQ
                         {
                             events.Options.Linger = TimeSpan.Zero;
                             var monitorTask = monitor.StartAsync();
-                            var closed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-                            monitor.Closed += (_, __) => closed.TrySetResult(true);
-                            monitor.CloseFailed += (_, args) =>
-                                closed.TrySetException(new InvalidOperationException($"TCP listener close failed: {args.ErrorCode}"));
-
                             socket.Bind(endpoint);
                             try
                             {
@@ -183,12 +180,11 @@ namespace RSMA.NetMQ
                             finally
                             {
                                 socket.Unbind(endpoint);
-                                var closedOrTimeout = await Task.WhenAny(closed.Task, Task.Delay(_stopTimeout)).ConfigureAwait(false);
+                                var portReleased = await WaitForTcpPortReleaseAsync(port).ConfigureAwait(false);
                                 monitor.Stop();
                                 await monitorTask.ConfigureAwait(false);
-                                if (closedOrTimeout != closed.Task)
+                                if (!portReleased)
                                     throw new TimeoutException($"TCP listener did not confirm closure of {endpoint}.");
-                                await closed.Task.ConfigureAwait(false);
                             }
                         }
                     }
@@ -197,6 +193,39 @@ namespace RSMA.NetMQ
                 {
                     session.RequestStop();
                     Debug.LogError($"NetMQ {name} endpoint on port {port} failed: {exception}");
+                }
+            });
+        }
+
+        private static async Task<bool> WaitForTcpPortReleaseAsync(int port)
+        {
+            var deadline = DateTime.UtcNow + _stopTimeout;
+            while (DateTime.UtcNow < deadline)
+            {
+                if (await IsTcpPortAvailableAsync(port).ConfigureAwait(false))
+                    return true;
+                await Task.Delay(10).ConfigureAwait(false);
+            }
+            return false;
+        }
+
+        private static Task<bool> IsTcpPortAvailableAsync(int port)
+        {
+            return Task.Run(() =>
+            {
+                var listener = new TcpListener(IPAddress.Any, port);
+                try
+                {
+                    listener.Start();
+                    return true;
+                }
+                catch (SocketException)
+                {
+                    return false;
+                }
+                finally
+                {
+                    listener.Stop();
                 }
             });
         }
