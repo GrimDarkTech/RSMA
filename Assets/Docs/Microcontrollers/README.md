@@ -10,6 +10,7 @@
 - [Платы, runtime и диагностика](03-runtime-and-boards.md) — RSFW, board profiles, жизненный цикл, trace и fault handling.
 - [Сборка и проверка](04-build-and-test.md) — как собрать firmware и запускать native, .NET и Unity тесты.
 - [SBC: целевая архитектура](05-sbc-development.md) — границы, API, протоколы и план следующего направления.
+- В `05-sbc-development.md` также зафиксированы текущие окна `RSMA/SBC VirtualBox Settings` и `RSMA/SBC SITL`, VM window mode, auto-start/stop, управление логами и статус проверок NetMQ lifecycle.
 - [Связи MCU, GPIO и SBC](06-mcu-gpio-connections.md) — практическая настройка legacy MCU, virtual MCU, LED, датчиков и SBC GPIO boundary.
 
 ## Источники истины

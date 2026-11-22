@@ -66,12 +66,12 @@ Linux SBC application / device service
         +-- health, reconnect, permissions, diagnostics
 ```
 
-В RSMA Unity-side уже есть NetMQ server path и `DataBroker`; guest-to-Unity
-Bridged LAN smoke-test подтверждён, но это не доказывает завершённую автоматизацию
-VM lifecycle, физический HITL или готовность SBC device management. Путь
-должен оставаться layered: transport не должен знать Unity
-GameObject, а RSMA scene actuator/sensor не должен напрямую управлять Linux
-device files.
+В RSMA Unity-side есть NetMQ server path и `DataBroker`; guest-to-Unity
+Bridged LAN smoke-test подтверждён. В Editor также реализовано управление
+VirtualBox SITL и конфигурация SBC-компонента. Это не доказывает физический HITL
+или готовность Linux hardware providers. Путь должен оставаться layered:
+transport не должен знать Unity GameObject, а RSMA scene actuator/sensor не должен
+напрямую управлять Linux device files.
 
 ## Уже существующий RSMA/uDTP boundary
 
@@ -137,9 +137,11 @@ velocity/arm topics. Компонент не создаёт отдельный Z
   для диагностики и прикладного контроллера.
 
 Командный handler вызывается только из Unity `Update`/`ProcessPendingCommands`;
-NetMQ worker не меняет GameObject. SITL/HITL mode пока является явной частью
-configuration and diagnostics, but управление VM and network-session GUI относятся
-к этапам 5–6 и намеренно не входят в этот vertical slice.
+NetMQ worker не меняет GameObject. `SbcDevice` хранит per-device конфигурацию:
+зарегистрированное имя VM, режим окна VirtualBox, bridge adapter, сетевой endpoint
+и порты, а также checkbox `Auto-start/stop VM`. Это состояние сериализуется в
+сценовом компоненте. Глобальный путь к `VBoxManage.exe` и общие defaults хранятся
+отдельно в `ProjectSettings/RSMA-SbcVirtualBoxSettings.json`.
 
 Сцена `Assets/Scenes/TestScenes/SBC.unity` содержит импортированную модель
 Raspberry Pi 5 (`raspberry-pi-5.1`) с `SbcDevice` и `SbcSceneTelemetry`. Adapter
@@ -160,24 +162,43 @@ LED`, а не только наличие ссылок в YAML сцены.
 
 ## SITL/HITL baseline
 
-Целевая первая SITL-схема использует VirtualBox через `VBoxManage` и сетевой
-адаптер Bridged. Guest profiles — `Ubuntu 22.04` и `Ubuntu 24.04`; VM получает
-собственный адрес в общей локальной WiFi/Ethernet-сети и подключается к host RSMA
-по его LAN-адресу. NAT и `10.0.2.2` не являются частью целевой схемы.
-`SbcSitlConfiguration` требует Bridged, а `SbcVirtualBoxController` перед стартом
-выключенной VM применяет bridge adapter; сохранённое состояние сбрасывается перед
-изменением адаптера. Unity GUI управления SITL, автоматизация VM lifecycle и
-регистрация целевой `RSMA-Ubuntu-SITL` остаются следующими работами.
+SITL использует VirtualBox через `VBoxManage` и Bridged adapter. Guest profiles —
+Ubuntu 22.04 и 24.04; VM получает собственный адрес в локальной WiFi/Ethernet-сети
+и подключается к host RSMA по его LAN-адресу. NAT и `10.0.2.2` не являются целевой
+схемой. Перед запуском выключенной VM контроллер применяет bridged adapter;
+сохранённое состояние VirtualBox сбрасывается перед изменением адаптера.
 
-Управление SITL является частью Unity GUI, а не обязательным внешним
-host-side script. По паттерну файловых инструментов RSMA, включая
-`RSMA/Assets/Scripts/GUI/MCFirmware.cs`, оператор задаёт имя VM, путь к
-`VBoxManage`, host/SBC адреса, порты и таймауты. Пути к необходимым исполняемым
-файлам, образам, проектам и каталогам выбираются через установленный
-`StandaloneFileBrowser`; GUI обязан валидировать значения до операции Start.
-Для удалённого guest client указывается достижимый LAN-адрес host RSMA; loopback
-`127.0.0.1` применим только для локальных тестов. Запуск VM не выполняется
-автоматически при загрузке сцены.
+### Меню и пользовательский путь SITL
+
+Глобальные настройки VirtualBox открываются в Unity Editor через
+`RSMA > SBC VirtualBox Settings`. Они доступны только в EditMode и включают путь
+к `VBoxManage.exe`, guest profile и defaults для adapter/timeouts. Изменения
+записываются кнопкой `Save settings` в
+`ProjectSettings/RSMA-SbcVirtualBoxSettings.json`; при открытии окно загружает
+файл, если он существует. `Enable SBC SITL logs` управляет диагностическими
+сообщениями с префиксом `[SBC SITL]`; по умолчанию logging включён.
+
+Настройки конкретного устройства находятся в `RSMA > SBC SITL`. Оператор выбирает
+`SbcDevice`, обновляет список зарегистрированных VirtualBox VM или регистрирует
+машину из `.vbox` файла, выбирает VM, задаёт bridge adapter, host endpoint и три
+NetMQ порта. `Apply global defaults` копирует общие guest/adapter/timeout defaults
+в выбранный компонент. `VM window mode` задаёт запуск без окна (`Headless`, default)
+или с окном VirtualBox (`GUI`). Эти поля доступны для редактирования только в
+EditMode; Start/Stop/Refresh доступны только в PlayMode. Изменения конфигурации
+сохраняются вместе со сценой.
+
+При `Auto-start/stop VM` компонент запускает SITL при начале PlayMode и запрашивает
+graceful shutdown при завершении/отключении компонента. Это отдельная настройка от
+`startOnEnable`: последний запускает только Unity NetMQ session, не VirtualBox.
+Ручной путь: настроить и сохранить SBC в EditMode, открыть PlayMode, затем при
+необходимости использовать `Start SITL`, `Refresh status` и `Stop SITL` в окне.
+При выборе GUI VM должна иметь доступный интерактивный desktop на host; Headless
+остаётся подходящим режимом для фонового прогона.
+
+Валидация конфигурации выполняется до вызова VBoxManage. Командный runner имеет
+timeout; startup/shutdown polling ограничен deadline. Ошибки, stdout/stderr,
+exit code и переходы lifecycle попадают в Unity Console, если глобальное
+логирование SITL включено.
 
 Ubuntu guest `192.168.2.128/24` работает через Bridged LAN и подключается к host
 `192.168.2.91`. Python client checkout находится в
@@ -211,28 +232,45 @@ VM stop lifecycle и HITL не проверялись. Воспроизводи�
 NetMQ sockets и Python/C++ tests против standalone C# server остаются отдельными
 уровнями проверки.
 
-### Следующий SITL increment: пункты 1–4
+### Текущий статус реализации
 
-В текущую реализацию добавлены:
+Реализованы следующие части вертикального среза:
 
 - Unity PlayMode fixture для typed `ArmCommand`, проверки scene handler на main
   thread и `Running -> Faulted/disarmed -> Running` при остановке и повторном
   запуске `NetMQServer`.
 - `SbcDevice` отслеживает server loss, очищает stale command topic, переводит
-  telemetry в disarmed и автоматически присоединяется к восстановленному серверу
-  только когда его три endpoint снова доступны.
+  telemetry в disarmed и присоединяется к восстановленному серверу, когда его
+  endpoint снова доступны.
 - Python smoke-test имеет `--expect-outage` для внешне управляемого server outage
   и восстановления; `--test-reconnect` проверяет только reconnect клиента.
-- Editor window `RSMA/SBC SITL` предоставляет Start/Stop/Refresh status,
-  редактирование VM/bridge/host/ports, выбор `VBoxManage.exe` через
-  StandaloneFileBrowser, validation и отображение ошибок. VM запускается только
-  явной кнопкой в Play Mode.
+- Editor windows `RSMA/SBC VirtualBox Settings` и `RSMA/SBC SITL` разделяют
+  глобальные и per-device настройки, регистрацию/выбор VirtualBox VM, настройку
+  `Headless/GUI`, auto-start/stop и ручные runtime-команды.
+- NetMQ endpoints принадлежат session worker tasks. Shutdown сигнализирует session,
+  ждёт завершения workers ограниченное время, затем endpoint делает `Unbind`; перед
+  повторным bind проверяется фактическое освобождение TCP-порта. Повторный запуск
+  запрещён, пока предыдущая session не завершилась.
+- Unity PlayMode fixtures используют ограниченные ожидания и тестируют остановку,
+  restart, invalid ports, typed topics и SBC reconnect.
 
-Эти изменения требуют успешной перекомпиляции и ограниченного Unity PlayMode
-прогона после refresh открытого Editor; server-outage сценарий и GUI-driven VM
-lifecycle ещё не считаются проверенными до этого прогона. После изменения
-клиентский endpoint должен оставаться LAN-адресом host, например
-`tcp://192.168.2.91`, а не `0.0.0.0`.
+После неудачного merge восстановлены NetMQ session lifecycle и повреждённые SBC
+tests. Найденная причина повторяющихся shutdown failures — endpoint monitor не
+подключался к своему inproc endpoint: двойное подключение через ручной `Connect`
+и `NetMQMonitor.StartAsync()` вызывало duplicate-key exception. Ручной `Connect`
+удалён; после `Unbind` освобождение проверяется повторным bind на TCP port, а не
+только ожиданием monitor `Closed` event.
+
+Проверено компиляцией `Assembly-CSharp`, `Assembly-CSharp-Editor`, EditMode и
+PlayMode test projects; `git diff --check` проходит. Полный Unity Test Runner после
+последнего исправления monitor/port-release необходимо запустить повторно: сборка
+test assemblies сама по себе не подтверждает runtime прохождение stress-test
+`ServerCanRestartOnTheSamePortsAfterImmediateStop`. Guest-to-Unity smoke-test,
+описанный выше, является историческим результатом отдельного прогона и не заменяет
+эту проверку.
+
+Для удалённого guest client endpoint остаётся достижимым LAN-адресом host, например
+`tcp://192.168.2.91`, а не `0.0.0.0` или `127.0.0.1`.
 
 API клиента следует строить вокруг capabilities и typed operations, а не
 переносить Unity-классы или низкоуровневые OS descriptors через сеть.
