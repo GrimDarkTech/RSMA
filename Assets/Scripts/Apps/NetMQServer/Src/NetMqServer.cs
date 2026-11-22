@@ -169,7 +169,6 @@ namespace RSMA.NetMQ
                         using (var monitor = new NetMQMonitor(events, monitorEndpoint, false))
                         {
                             events.Options.Linger = TimeSpan.Zero;
-                            events.Connect(monitorEndpoint);
                             var monitorTask = monitor.StartAsync();
                             var closed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
                             monitor.Closed += (_, __) => closed.TrySetResult(true);
