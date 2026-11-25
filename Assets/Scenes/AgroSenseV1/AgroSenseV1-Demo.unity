@@ -421,6 +421,55 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
+--- !u!1 &550715466
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 550715468}
+  - component: {fileID: 550715467}
+  m_Layer: 0
+  m_Name: TestObject
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &550715467
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 550715466}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 63e5125e02221314393dba110b0f0b2d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VirtualSensorTest
+  drone: {fileID: 1938708353}
+  rangeFinder: {fileID: 0}
+  cameraPublisher: {fileID: 0}
+  reportIntervalSeconds: 5
+  writeCsv: 1
+--- !u!4 &550715468
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 550715466}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 182.89848, y: 1.85476, z: 319.98328}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1158172794
 GameObject:
   m_ObjectHideFlags: 0
@@ -585,6 +634,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3654359910419655204, guid: b6f4a131827ced440ba4ed44c76b09b7, type: 3}
+      propertyPath: publishHILState
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 4336180876152435199, guid: b6f4a131827ced440ba4ed44c76b09b7, type: 3}
       propertyPath: m_Name
       value: AgroSenseV1
@@ -646,6 +699,30 @@ PrefabInstance:
       propertyPath: m_Name
       value: RSMA-GUI
       objectReference: {fileID: 0}
+    - target: {fileID: 4942237807917052545, guid: aa90ec7322ef98e47a719c1d5f00da8c, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4942237807917052545, guid: aa90ec7322ef98e47a719c1d5f00da8c, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4942237807917052545, guid: aa90ec7322ef98e47a719c1d5f00da8c, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6362825747046260114, guid: aa90ec7322ef98e47a719c1d5f00da8c, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6362825747046260114, guid: aa90ec7322ef98e47a719c1d5f00da8c, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6362825747046260114, guid: aa90ec7322ef98e47a719c1d5f00da8c, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -656,6 +733,17 @@ Rigidbody:
   m_CorrespondingSourceObject: {fileID: 5012154028362663401, guid: b6f4a131827ced440ba4ed44c76b09b7, type: 3}
   m_PrefabInstance: {fileID: 1470062048}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &1938708353 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3654359910419655204, guid: b6f4a131827ced440ba4ed44c76b09b7, type: 3}
+  m_PrefabInstance: {fileID: 1470062048}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 636dd6d04352043459e3f2355f5b1065, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PX4Quadrocopter
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -667,3 +755,4 @@ SceneRoots:
   - {fileID: 1753972892}
   - {fileID: 1344786785}
   - {fileID: 473986267}
+  - {fileID: 550715468}

@@ -24,7 +24,7 @@ namespace RSMA.PX4
 
         public static Vector3 BodyUnityToBodyFRD(Vector3 localUnityVec)
         {
-            return new Vector3(-localUnityVec.z, localUnityVec.x, -localUnityVec.y);
+            return new Vector3(localUnityVec.z, localUnityVec.x, -localUnityVec.y);
         }
 
         public static Vector3 AngularVelocityToBodyFRD(Vector3 localAngularVelUnity)
@@ -40,7 +40,7 @@ namespace RSMA.PX4
             return new Quaternion(
                 -unityRot.z,
                 -unityRot.x,
-                -unityRot.y,
+                unityRot.y,
                 unityRot.w
             );
         }

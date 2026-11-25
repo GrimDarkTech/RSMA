@@ -1441,8 +1441,20 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6937351958748797670, guid: bb4c5ea5711be464bb06439e3fa11c5b, type: 3}
+      propertyPath: sitl.displayMode
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6937351958748797670, guid: bb4c5ea5711be464bb06439e3fa11c5b, type: 3}
       propertyPath: connection.endpoint
       value: tcp://192.168.2.91
+      objectReference: {fileID: 0}
+    - target: {fileID: 6937351958748797670, guid: bb4c5ea5711be464bb06439e3fa11c5b, type: 3}
+      propertyPath: sitl.bridgeAdapterName
+      value: AIC8800D80 USB WiFi
+      objectReference: {fileID: 0}
+    - target: {fileID: 6937351958748797670, guid: bb4c5ea5711be464bb06439e3fa11c5b, type: 3}
+      propertyPath: sitl.cpuExecutionCapPercent
+      value: 100
       objectReference: {fileID: 0}
     - target: {fileID: 8785034051814439761, guid: bb4c5ea5711be464bb06439e3fa11c5b, type: 3}
       propertyPath: virtualMcu
