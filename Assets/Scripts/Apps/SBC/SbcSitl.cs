@@ -15,7 +15,9 @@ namespace RSMA.SBC
 
         public string vboxManagePath = string.Empty;
         public string defaultBridgeAdapterName = "";
-        public SbcGuestProfile defaultGuestProfile = SbcGuestProfile.Ubuntu2404;
+        public int defaultVirtualCpuCount = 2;
+        public int defaultMemoryMegabytes = 4096;
+        public int defaultCpuExecutionCapPercent = 100;
         public int defaultStartupTimeoutSeconds = 60;
         public int defaultShutdownTimeoutSeconds = 30;
         public int defaultCommandTimeoutSeconds = 10;
@@ -87,17 +89,6 @@ namespace RSMA.SBC
         }
     }
 
-    public enum SbcGuestProfile
-    {
-        Ubuntu2204,
-        Ubuntu2404
-    }
-
-    public enum SbcVirtualBoxNetworkMode
-    {
-        Bridged
-    }
-
     public enum SbcVirtualBoxDisplayMode
     {
         Headless,
@@ -125,18 +116,23 @@ namespace RSMA.SBC
     [Serializable]
     public sealed class SbcSitlConfiguration
     {
-        public SbcGuestProfile guestProfile = SbcGuestProfile.Ubuntu2404;
-
         [Tooltip("Registered VirtualBox machine name, not the display model name in the Unity scene.")]
         public string virtualMachineName = "RSMA-Ubuntu-SITL";
 
-        public SbcVirtualBoxNetworkMode networkMode = SbcVirtualBoxNetworkMode.Bridged;
+        [Min(1)]
+        public int virtualCpuCount = 2;
+
+        [Min(512)]
+        public int memoryMegabytes = 4096;
+
+        [Range(1, 100)]
+        public int cpuExecutionCapPercent = 100;
 
         [Tooltip("VirtualBox window mode used by startvm. Headless runs without a VM window; GUI opens the VirtualBox display window.")]
         public SbcVirtualBoxDisplayMode displayMode = SbcVirtualBoxDisplayMode.Headless;
 
-        [Tooltip("Host-only identity of the bridged adapter selected in VirtualBox.")]
-        public string bridgeAdapterName = "AIC8800D80 USB WiFi";
+        [Tooltip("Host network interface bridged to the SITL VM. Leave empty and pick a host adapter in RSMA > SBC SITL, or apply global defaults.")]
+        public string bridgeAdapterName = "";
 
         [Min(1)]
         public int startupTimeoutSeconds = 60;
@@ -147,44 +143,47 @@ namespace RSMA.SBC
         [Min(1)]
         public int commandTimeoutSeconds = 10;
 
-        public string GuestImageLabel => guestProfile == SbcGuestProfile.Ubuntu2204
-            ? "Ubuntu 22.04"
-            : "Ubuntu 24.04";
-
         public void ApplyGlobalDefaults(SbcVirtualBoxGlobalSettings settings)
         {
             if (settings == null)
                 throw new ArgumentNullException(nameof(settings));
-            guestProfile = settings.defaultGuestProfile;
             if (!string.IsNullOrWhiteSpace(settings.defaultBridgeAdapterName))
                 bridgeAdapterName = settings.defaultBridgeAdapterName;
+            virtualCpuCount = Math.Max(1, settings.defaultVirtualCpuCount);
+            memoryMegabytes = Math.Max(512, settings.defaultMemoryMegabytes);
+            cpuExecutionCapPercent = Math.Max(1, Math.Min(100, settings.defaultCpuExecutionCapPercent));
             startupTimeoutSeconds = Math.Max(1, settings.defaultStartupTimeoutSeconds);
             shutdownTimeoutSeconds = Math.Max(1, settings.defaultShutdownTimeoutSeconds);
             commandTimeoutSeconds = Math.Max(1, settings.defaultCommandTimeoutSeconds);
         }
 
-        public void Validate()
+        public void ValidateIdentity()
         {
-            if (!Enum.IsDefined(typeof(SbcGuestProfile), guestProfile))
-                throw new ArgumentOutOfRangeException(nameof(guestProfile));
-            if (!Enum.IsDefined(typeof(SbcVirtualBoxNetworkMode), networkMode))
-                throw new ArgumentOutOfRangeException(nameof(networkMode));
-            if (!Enum.IsDefined(typeof(SbcVirtualBoxDisplayMode), displayMode))
-                throw new ArgumentOutOfRangeException(nameof(displayMode));
-            if (networkMode != SbcVirtualBoxNetworkMode.Bridged)
-                throw new NotSupportedException("SITL requires VirtualBox Bridged networking.");
             if (string.IsNullOrWhiteSpace(virtualMachineName))
                 throw new ArgumentException("VirtualBox VM name must be non-empty.", nameof(virtualMachineName));
             if (virtualMachineName.IndexOfAny(new[] { '\r', '\n', '\0' }) >= 0)
                 throw new ArgumentException("VirtualBox VM name contains an invalid character.", nameof(virtualMachineName));
+        }
+
+        public void Validate()
+        {
+            if (!Enum.IsDefined(typeof(SbcVirtualBoxDisplayMode), displayMode))
+                throw new ArgumentOutOfRangeException(nameof(displayMode));
+            ValidateIdentity();
             if (string.IsNullOrWhiteSpace(bridgeAdapterName) || bridgeAdapterName.IndexOfAny(new[] { '\r', '\n', '\0' }) >= 0)
-                throw new ArgumentException("A valid VirtualBox bridge adapter name is required.", nameof(bridgeAdapterName));
+                throw new ArgumentException("A VirtualBox bridge adapter name is required. Select a host adapter in RSMA > SBC SITL.", nameof(bridgeAdapterName));
             if (startupTimeoutSeconds < 1)
                 throw new ArgumentOutOfRangeException(nameof(startupTimeoutSeconds));
             if (shutdownTimeoutSeconds < 1)
                 throw new ArgumentOutOfRangeException(nameof(shutdownTimeoutSeconds));
             if (commandTimeoutSeconds < 1)
                 throw new ArgumentOutOfRangeException(nameof(commandTimeoutSeconds));
+            if (virtualCpuCount < 1)
+                throw new ArgumentOutOfRangeException(nameof(virtualCpuCount));
+            if (memoryMegabytes < 512)
+                throw new ArgumentOutOfRangeException(nameof(memoryMegabytes));
+            if (cpuExecutionCapPercent < 1 || cpuExecutionCapPercent > 100)
+                throw new ArgumentOutOfRangeException(nameof(cpuExecutionCapPercent));
         }
     }
 
@@ -213,6 +212,22 @@ namespace RSMA.SBC
         {
             Name = name;
             Id = id;
+        }
+    }
+
+    public sealed class SbcBridgedInterfaceInfo
+    {
+        public string Name { get; }
+        public string Guid { get; }
+        public bool IsUp { get; }
+        public bool IsWireless { get; }
+
+        public SbcBridgedInterfaceInfo(string name, string guid, bool isUp, bool isWireless)
+        {
+            Name = name ?? string.Empty;
+            Guid = guid ?? string.Empty;
+            IsUp = isUp;
+            IsWireless = isWireless;
         }
     }
 
@@ -303,8 +318,6 @@ namespace RSMA.SBC
             _runner = runner ?? new SystemSbcVirtualBoxCommandRunner();
         }
 
-        public string GuestImageLabel => _configuration.GuestImageLabel;
-
         public Task<IReadOnlyList<SbcVirtualMachineInfo>> ListVirtualMachinesAsync(CancellationToken cancellationToken = default)
         {
             return ListVirtualMachinesCoreAsync(cancellationToken);
@@ -342,7 +355,7 @@ namespace RSMA.SBC
 
         private async Task<SbcVirtualMachineState> QueryStateAsync(CancellationToken cancellationToken)
         {
-            _configuration.Validate();
+            _configuration.ValidateIdentity();
             var result = await RunVBoxManageAsync(
                 $"showvminfo {Quote(_configuration.virtualMachineName)} --machinereadable",
                 cancellationToken).ConfigureAwait(false);
@@ -384,6 +397,77 @@ namespace RSMA.SBC
             return machines;
         }
 
+        public Task<IReadOnlyList<SbcBridgedInterfaceInfo>> ListBridgedInterfacesAsync(CancellationToken cancellationToken = default)
+        {
+            return ListBridgedInterfacesCoreAsync(cancellationToken);
+        }
+
+        private async Task<IReadOnlyList<SbcBridgedInterfaceInfo>> ListBridgedInterfacesCoreAsync(CancellationToken cancellationToken)
+        {
+            var result = await RunVBoxManageAsync("list bridgedifs", cancellationToken).ConfigureAwait(false);
+            if (!result.Succeeded)
+                throw CreateCommandException("list bridgedifs", result);
+            return ParseBridgedInterfaces(result.StandardOutput);
+        }
+
+        public static IReadOnlyList<SbcBridgedInterfaceInfo> ParseBridgedInterfaces(string output)
+        {
+            var interfaces = new List<SbcBridgedInterfaceInfo>();
+            if (string.IsNullOrWhiteSpace(output))
+                return interfaces;
+
+            string name = null;
+            string guid = null;
+            string status = null;
+            string wireless = null;
+
+            void AddCurrent()
+            {
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    interfaces.Add(new SbcBridgedInterfaceInfo(
+                        name,
+                        guid,
+                        string.Equals(status, "Up", StringComparison.OrdinalIgnoreCase),
+                        string.Equals(wireless, "Yes", StringComparison.OrdinalIgnoreCase)));
+                }
+                name = null;
+                guid = null;
+                status = null;
+                wireless = null;
+            }
+
+            using (var reader = new StringReader(output))
+            {
+                string line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    if (string.IsNullOrWhiteSpace(line))
+                    {
+                        AddCurrent();
+                        continue;
+                    }
+
+                    var separator = line.IndexOf(':');
+                    if (separator <= 0)
+                        continue;
+
+                    var key = line.Substring(0, separator).Trim();
+                    var value = line.Substring(separator + 1).Trim();
+                    switch (key)
+                    {
+                        case "Name": name = value; break;
+                        case "GUID": guid = value; break;
+                        case "Status": status = value; break;
+                        case "Wireless": wireless = value; break;
+                    }
+                }
+            }
+
+            AddCurrent();
+            return interfaces;
+        }
+
         public async Task StartAsync(CancellationToken cancellationToken = default)
         {
             _configuration.Validate();
@@ -403,7 +487,7 @@ namespace RSMA.SBC
             }
 
             var networkResult = await RunVBoxManageAsync(
-                $"modifyvm {Quote(_configuration.virtualMachineName)} --nic1 bridged --bridgeadapter1 {Quote(_configuration.bridgeAdapterName)}",
+                $"modifyvm {Quote(_configuration.virtualMachineName)} --nic1 bridged --bridgeadapter1 {Quote(_configuration.bridgeAdapterName)} --cpus {_configuration.virtualCpuCount} --memory {_configuration.memoryMegabytes} --cpuexecutioncap {_configuration.cpuExecutionCapPercent}",
                 cancellationToken).ConfigureAwait(false);
             if (!networkResult.Succeeded)
                 throw CreateCommandException("configure bridged adapter", networkResult);
@@ -420,7 +504,7 @@ namespace RSMA.SBC
 
         public async Task StopAsync(CancellationToken cancellationToken = default)
         {
-            _configuration.Validate();
+            _configuration.ValidateIdentity();
             var state = await GetStateAsync(cancellationToken).ConfigureAwait(false);
             if (state == SbcVirtualMachineState.PoweredOff || state == SbcVirtualMachineState.Saved)
                 return;

@@ -410,7 +410,7 @@ namespace RSMA.SBC
         {
             if (mode != SbcSimulationMode.Sitl)
                 throw new InvalidOperationException("SITL can only be stopped when the SBC mode is Sitl.");
-            sitl.Validate();
+            sitl.ValidateIdentity();
             LastSitlError = string.Empty;
             SetSitlState(SbcSitlOperationState.Stopping);
             SbcSitlLog.Log($"[SBC SITL] Sending graceful shutdown to VM '{sitl.virtualMachineName}'.", this);

@@ -41,21 +41,24 @@ namespace RSMA.Tests
         }
 
         [Test]
-        public void SitlConfigurationSupportsUbuntuProfilesAndVirtualBoxStates()
+        public void SitlConfigurationValidatesMachineResourcesAndVirtualBoxStates()
         {
             var configuration = new SbcSitlConfiguration
             {
-                guestProfile = SbcGuestProfile.Ubuntu2204,
-                virtualMachineName = "RSMA-Ubuntu-SITL"
+                virtualMachineName = "RSMA-Ubuntu-SITL",
+                virtualCpuCount = 4,
+                memoryMegabytes = 8192,
+                cpuExecutionCapPercent = 75,
+                bridgeAdapterName = "Test adapter"
             };
             configuration.Validate();
-            Assert.AreEqual("Ubuntu 22.04", configuration.GuestImageLabel);
+            Assert.AreEqual(4, configuration.virtualCpuCount);
+            Assert.AreEqual(8192, configuration.memoryMegabytes);
+            Assert.AreEqual(75, configuration.cpuExecutionCapPercent);
             Assert.AreEqual(SbcVirtualMachineState.PoweredOff,
                 SbcVirtualBoxController.ParseState("VMState=\"poweroff\"\n"));
             Assert.AreEqual(SbcVirtualMachineState.Running,
                 SbcVirtualBoxController.ParseState("VMState=\"running\"\n"));
-            configuration.guestProfile = SbcGuestProfile.Ubuntu2404;
-            Assert.AreEqual("Ubuntu 24.04", configuration.GuestImageLabel);
         }
 
         [Test]
@@ -64,15 +67,19 @@ namespace RSMA.Tests
             var configuration = new SbcSitlConfiguration();
             configuration.ApplyGlobalDefaults(new SbcVirtualBoxGlobalSettings
             {
-                defaultGuestProfile = SbcGuestProfile.Ubuntu2204,
                 defaultBridgeAdapterName = "Test adapter",
+                defaultVirtualCpuCount = 4,
+                defaultMemoryMegabytes = 8192,
+                defaultCpuExecutionCapPercent = 80,
                 defaultStartupTimeoutSeconds = 12,
                 defaultShutdownTimeoutSeconds = 13,
                 defaultCommandTimeoutSeconds = 14
             });
 
-            Assert.AreEqual(SbcGuestProfile.Ubuntu2204, configuration.guestProfile);
             Assert.AreEqual("Test adapter", configuration.bridgeAdapterName);
+            Assert.AreEqual(4, configuration.virtualCpuCount);
+            Assert.AreEqual(8192, configuration.memoryMegabytes);
+            Assert.AreEqual(80, configuration.cpuExecutionCapPercent);
             Assert.AreEqual(12, configuration.startupTimeoutSeconds);
             Assert.AreEqual(13, configuration.shutdownTimeoutSeconds);
             Assert.AreEqual(14, configuration.commandTimeoutSeconds);
@@ -104,6 +111,91 @@ namespace RSMA.Tests
             Assert.AreEqual(2, machines.Count);
             Assert.AreEqual("RSMA SITL", machines[0].Name);
             Assert.AreEqual("11111111-2222-3333-4444-555555555555", machines[0].Id);
+        }
+
+        [Test]
+        public void BridgedInterfacesParseNamesStatusAndWirelessFlag()
+        {
+            const string output =
+                "Name:        AIC8800D80 USB WiFi\n" +
+                "GUID:        11111111-2222-3333-4444-555555555555\n" +
+                "DHCP:        Enabled\n" +
+                "IPAddress:   192.168.2.91\n" +
+                "NetworkMask: 255.255.255.0\n" +
+                "HardwareAddress: 00:11:22:33:44:55\n" +
+                "MediumType:  Ethernet\n" +
+                "Wireless:    Yes\n" +
+                "Status:      Up\n" +
+                "\n" +
+                "Name:        Realtek PCIe GbE Family Controller\n" +
+                "GUID:        aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\n" +
+                "DHCP:        Disabled\n" +
+                "HardwareAddress: 66:77:88:99:aa:bb\n" +
+                "MediumType:  Ethernet\n" +
+                "Wireless:    No\n" +
+                "Status:      Down\n" +
+                "\n";
+
+            var interfaces = SbcVirtualBoxController.ParseBridgedInterfaces(output);
+
+            Assert.AreEqual(2, interfaces.Count);
+            Assert.AreEqual("AIC8800D80 USB WiFi", interfaces[0].Name);
+            Assert.AreEqual("11111111-2222-3333-4444-555555555555", interfaces[0].Guid);
+            Assert.IsTrue(interfaces[0].IsUp);
+            Assert.IsTrue(interfaces[0].IsWireless);
+            Assert.AreEqual("Realtek PCIe GbE Family Controller", interfaces[1].Name);
+            Assert.IsFalse(interfaces[1].IsUp);
+            Assert.IsFalse(interfaces[1].IsWireless);
+        }
+
+        [Test]
+        public void BridgedInterfacesParserToleratesMissingOutput()
+        {
+            Assert.AreEqual(0, SbcVirtualBoxController.ParseBridgedInterfaces(string.Empty).Count);
+            Assert.AreEqual(0, SbcVirtualBoxController.ParseBridgedInterfaces(null).Count);
+        }
+
+        [Test]
+        public async Task VirtualBoxListsBridgedInterfacesThroughVBoxManage()
+        {
+            var configuration = new SbcSitlConfiguration { virtualMachineName = "RSMA-Ubuntu-SITL" };
+            var runner = new FakeVirtualBoxRunner(
+                Result("Name:        AIC8800D80 USB WiFi\nGUID:        1111\nWireless:    Yes\nStatus:      Up\n\n"));
+            var controller = new SbcVirtualBoxController(configuration, runner);
+
+            var interfaces = await controller.ListBridgedInterfacesAsync();
+
+            Assert.AreEqual("list bridgedifs", runner.Arguments[0]);
+            Assert.AreEqual(1, interfaces.Count);
+            Assert.AreEqual("AIC8800D80 USB WiFi", interfaces[0].Name);
+        }
+
+        [Test]
+        public void SitlConfigurationRequiresBridgeAdapterForStartButNotForIdentity()
+        {
+            var configuration = new SbcSitlConfiguration { virtualMachineName = "RSMA-Ubuntu-SITL" };
+            Assert.AreEqual(string.Empty, configuration.bridgeAdapterName);
+            configuration.ValidateIdentity();
+            Assert.Throws<ArgumentException>(() => configuration.Validate());
+
+            configuration.bridgeAdapterName = "Test adapter";
+            configuration.Validate();
+        }
+
+        [Test]
+        public async Task VirtualBoxStopDoesNotRequireBridgeAdapter()
+        {
+            var configuration = new SbcSitlConfiguration { virtualMachineName = "RSMA-Ubuntu-SITL" };
+            var runner = new FakeVirtualBoxRunner(
+                Result("VMState=\"running\"\n"),
+                Result("Power button sent"),
+                Result("VMState=\"poweroff\"\n"));
+            var controller = new SbcVirtualBoxController(configuration, runner);
+
+            await controller.StopAsync();
+
+            Assert.AreEqual(3, runner.Arguments.Count);
+            StringAssert.Contains("controlvm \"RSMA-Ubuntu-SITL\" acpipowerbutton", runner.Arguments[1]);
         }
 
         [Test]
@@ -166,19 +258,27 @@ namespace RSMA.Tests
         }
 
         [Test]
-        public void SitlRequiresBridgedNetworkMode()
+        public void SitlConfigurationRejectsInvalidResourceLimits()
         {
-            var configuration = new SbcSitlConfiguration
-            {
-                networkMode = SbcVirtualBoxNetworkMode.Bridged
-            };
+            var configuration = new SbcSitlConfiguration { virtualCpuCount = 0, bridgeAdapterName = "Test adapter" };
+            Assert.Throws<ArgumentOutOfRangeException>(() => configuration.Validate());
+
+            configuration.virtualCpuCount = 2;
+            configuration.memoryMegabytes = 0;
+            Assert.Throws<ArgumentOutOfRangeException>(() => configuration.Validate());
+
+            configuration.memoryMegabytes = 4096;
+            configuration.cpuExecutionCapPercent = 101;
+            Assert.Throws<ArgumentOutOfRangeException>(() => configuration.Validate());
+
+            configuration.cpuExecutionCapPercent = 100;
             configuration.Validate();
         }
 
         [Test]
         public async Task VirtualBoxStartWaitsUntilGuestIsRunning()
         {
-            var configuration = new SbcSitlConfiguration { virtualMachineName = "RSMA SITL" };
+            var configuration = new SbcSitlConfiguration { virtualMachineName = "RSMA SITL", bridgeAdapterName = "Test adapter" };
             var runner = new FakeVirtualBoxRunner(
                 Result("VMState=\"poweroff\"\n"),
                 Result("VM configured"),
@@ -190,6 +290,7 @@ namespace RSMA.Tests
 
             Assert.AreEqual(4, runner.Arguments.Count);
             StringAssert.Contains("modifyvm \"RSMA SITL\" --nic1 bridged --bridgeadapter1", runner.Arguments[1]);
+            StringAssert.Contains("--cpus 2 --memory 4096 --cpuexecutioncap 100", runner.Arguments[1]);
             StringAssert.Contains("startvm \"RSMA SITL\" --type headless", runner.Arguments[2]);
         }
 
@@ -199,7 +300,8 @@ namespace RSMA.Tests
             var configuration = new SbcSitlConfiguration
             {
                 virtualMachineName = "RSMA SITL",
-                displayMode = SbcVirtualBoxDisplayMode.Gui
+                displayMode = SbcVirtualBoxDisplayMode.Gui,
+                bridgeAdapterName = "Test adapter"
             };
             var runner = new FakeVirtualBoxRunner(
                 Result("VMState=\"poweroff\"\n"),
@@ -216,7 +318,7 @@ namespace RSMA.Tests
         [Test]
         public async Task VirtualBoxDiscardsSavedStateBeforeApplyingBridge()
         {
-            var configuration = new SbcSitlConfiguration { virtualMachineName = "RSMA SITL" };
+            var configuration = new SbcSitlConfiguration { virtualMachineName = "RSMA SITL", bridgeAdapterName = "Test adapter" };
             var runner = new FakeVirtualBoxRunner(
                 Result("VMState=\"saved\"\n"),
                 Result("Saved state discarded"),
@@ -256,7 +358,8 @@ namespace RSMA.Tests
             {
                 virtualMachineName = "RSMA-Ubuntu-SITL",
                 startupTimeoutSeconds = 1,
-                commandTimeoutSeconds = 1
+                commandTimeoutSeconds = 1,
+                bridgeAdapterName = "Test adapter"
             };
             var runner = new FakeVirtualBoxRunner(
                 Result("VMState=\"poweroff\"\n"),
@@ -288,7 +391,8 @@ namespace RSMA.Tests
             {
                 virtualMachineName = "RSMA-Ubuntu-SITL",
                 startupTimeoutSeconds = 1,
-                commandTimeoutSeconds = 1
+                commandTimeoutSeconds = 1,
+                bridgeAdapterName = "Test adapter"
             };
             var controller = new SbcVirtualBoxController(configuration, new HangingVirtualBoxRunner());
             var startTask = controller.StartAsync();
@@ -308,7 +412,7 @@ namespace RSMA.Tests
         [Test]
         public void VirtualBoxStartupTimeoutIsValidated()
         {
-            var configuration = new SbcSitlConfiguration { startupTimeoutSeconds = 0 };
+            var configuration = new SbcSitlConfiguration { startupTimeoutSeconds = 0, bridgeAdapterName = "Test adapter" };
             Assert.Throws<ArgumentOutOfRangeException>(() => configuration.Validate());
         }
 

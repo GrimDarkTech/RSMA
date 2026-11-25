@@ -20,6 +20,11 @@ namespace RSMA.EditorTools
         private readonly System.Collections.Generic.List<SbcVirtualMachineInfo> _machines = new System.Collections.Generic.List<SbcVirtualMachineInfo>();
         private readonly List<SbcHostEndpointOption> _hostEndpoints = new List<SbcHostEndpointOption>();
         private string _hostEndpointStatus = string.Empty;
+        private readonly List<SbcBridgedInterfaceInfo> _bridgedInterfaces = new List<SbcBridgedInterfaceInfo>();
+        private string _bridgeAdapterStatus = string.Empty;
+        private bool _showManualBridgeAdapter;
+        private bool _bridgeAdaptersRequested;
+        private MessageType _messageType = MessageType.Info;
 
         [MenuItem("RSMA/SBC SITL")]
         public static void ShowWindow()
@@ -41,12 +46,16 @@ namespace RSMA.EditorTools
             if (selectedDevice != _device)
             {
                 _device = selectedDevice;
+                _bridgedInterfaces.Clear();
+                _bridgeAdapterStatus = string.Empty;
+                _showManualBridgeAdapter = false;
+                _bridgeAdaptersRequested = false;
                 RefreshHostEndpoints();
             }
 
             if (_device == null)
             {
-                EditorGUILayout.HelpBox(_message, MessageType.Info);
+                EditorGUILayout.HelpBox(_message, _messageType);
                 return;
             }
 
@@ -66,9 +75,19 @@ namespace RSMA.EditorTools
             if (Application.isPlaying && !_device.AutoStartSitl)
                 EditorGUILayout.HelpBox("Automatic VM startup is disabled on this component. Enable Auto-start/stop VM in EditMode and save the scene.", MessageType.Warning);
 
+            if (!Application.isPlaying && !_bridgeAdaptersRequested)
+            {
+                _bridgeAdaptersRequested = true;
+                if (_bridgedInterfaces.Count == 0 && _pendingOperation == null)
+                    BeginOperation(RefreshBridgeAdaptersAsync());
+            }
+
             DrawEditModeConfiguration();
             if (Application.isPlaying)
                 DrawRuntimeControls();
+
+            if (!string.IsNullOrEmpty(_message))
+                EditorGUILayout.HelpBox(_message, _messageType);
 
             if (_pendingOperation != null)
                 Repaint();
@@ -84,9 +103,24 @@ namespace RSMA.EditorTools
             using (new EditorGUI.DisabledScope(Application.isPlaying))
             {
                 EditorGUILayout.LabelField("SBC configuration (EditMode)", EditorStyles.boldLabel);
-                EditorGUILayout.PropertyField(vmName, new GUIContent("Registered VM"));
+                if (_machines.Count > 0)
+                {
+                    var names = _machines.ConvertAll(machine => machine.Name).ToArray();
+                    var selected = Array.IndexOf(names, vmName.stringValue);
+                    if (selected < 0) selected = 0;
+                    vmName.stringValue = names[EditorGUILayout.Popup("Available VM", selected, names)];
+                }
+                else
+                {
+                    EditorGUILayout.PropertyField(vmName, new GUIContent("Registered VM"));
+                    EditorGUILayout.HelpBox("Refresh the registered VM list or add a machine from a .vbox file.", MessageType.Info);
+                }
+                EditorGUILayout.LabelField("Network mode", "Bridged (required)");
                 EditorGUILayout.PropertyField(sitl.FindPropertyRelative("displayMode"), new GUIContent("VM window mode"));
-                EditorGUILayout.PropertyField(sitl.FindPropertyRelative("bridgeAdapterName"), new GUIContent("Bridge adapter"));
+                DrawBridgeAdapter(sitl.FindPropertyRelative("bridgeAdapterName"));
+                EditorGUILayout.PropertyField(sitl.FindPropertyRelative("virtualCpuCount"), new GUIContent("Virtual CPUs"));
+                EditorGUILayout.PropertyField(sitl.FindPropertyRelative("memoryMegabytes"), new GUIContent("Memory (MB)"));
+                EditorGUILayout.PropertyField(sitl.FindPropertyRelative("cpuExecutionCapPercent"), new GUIContent("CPU execution cap (%)"));
                 EditorGUILayout.PropertyField(serializedDevice.FindProperty("autoStartSitl"), new GUIContent("Auto-start/stop VM"));
                 DrawHostEndpoint(connection.FindPropertyRelative("endpoint"));
                 EditorGUILayout.PropertyField(connection.FindPropertyRelative("commandPort"), new GUIContent("Command port"));
@@ -107,13 +141,6 @@ namespace RSMA.EditorTools
                     serializedDevice.Update();
                 }
                 EditorGUILayout.EndHorizontal();
-                if (_machines.Count > 0)
-                {
-                    var names = _machines.ConvertAll(machine => machine.Name).ToArray();
-                    var selected = Array.IndexOf(names, vmName.stringValue);
-                    if (selected < 0) selected = 0;
-                    vmName.stringValue = names[EditorGUILayout.Popup("Available VM", selected, names)];
-                }
                 serializedDevice.ApplyModifiedProperties();
             }
         }
@@ -145,6 +172,84 @@ namespace RSMA.EditorTools
 
             if (!string.IsNullOrEmpty(_hostEndpointStatus))
                 EditorGUILayout.HelpBox(_hostEndpointStatus, MessageType.Info);
+        }
+
+        private void DrawBridgeAdapter(SerializedProperty adapter)
+        {
+            if (_bridgedInterfaces.Count == 0)
+            {
+                EditorGUILayout.PropertyField(adapter, new GUIContent("Bridge adapter"));
+                if (GUILayout.Button("Refresh host adapters"))
+                    BeginOperation(RefreshBridgeAdaptersAsync());
+                EditorGUILayout.HelpBox(_bridgeAdapterStatus.Length == 0
+                    ? "Refresh the host adapter list to pick a VirtualBox bridged interface for this SITL VM."
+                    : _bridgeAdapterStatus, MessageType.Info);
+                return;
+            }
+
+            if (_showManualBridgeAdapter)
+            {
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.PropertyField(adapter, new GUIContent("Bridge adapter"));
+                if (GUILayout.Button("Select from detected adapters", GUILayout.Width(190f)))
+                    _showManualBridgeAdapter = false;
+                EditorGUILayout.EndHorizontal();
+            }
+            else
+            {
+                var matchedIndex = _bridgedInterfaces.FindIndex(bridgedInterface =>
+                    string.Equals(bridgedInterface.Name, adapter.stringValue, StringComparison.OrdinalIgnoreCase));
+
+                // Index 0 mirrors the stored value so the popup never silently rewrites a stale entry.
+                var labels = new List<string>(_bridgedInterfaces.Count + 1)
+                {
+                    adapter.stringValue.Length == 0
+                        ? "(not selected)"
+                        : matchedIndex >= 0
+                            ? adapter.stringValue
+                            : $"(not detected) {adapter.stringValue}"
+                };
+                foreach (var bridgedInterface in _bridgedInterfaces)
+                    labels.Add(DescribeBridgeAdapter(bridgedInterface));
+
+                var currentIndex = matchedIndex >= 0 ? matchedIndex + 1 : 0;
+                var selectedIndex = EditorGUILayout.Popup("Bridge adapter", currentIndex, labels.ToArray());
+                if (selectedIndex != currentIndex && selectedIndex > 0)
+                    adapter.stringValue = _bridgedInterfaces[selectedIndex - 1].Name;
+
+                EditorGUILayout.BeginHorizontal();
+                if (GUILayout.Button("Manual entry", GUILayout.Width(110f)))
+                    _showManualBridgeAdapter = true;
+                if (GUILayout.Button("Refresh host adapters"))
+                    BeginOperation(RefreshBridgeAdaptersAsync());
+                EditorGUILayout.EndHorizontal();
+
+                if (adapter.stringValue.Length > 0 && matchedIndex < 0)
+                {
+                    EditorGUILayout.HelpBox(
+                        $"'{adapter.stringValue}' is not reported by 'VBoxManage list bridgedifs'. Refresh the list or select another adapter.",
+                        MessageType.Warning);
+                }
+            }
+
+            if (!string.IsNullOrEmpty(_bridgeAdapterStatus))
+                EditorGUILayout.HelpBox(_bridgeAdapterStatus, MessageType.Info);
+        }
+
+        private static string DescribeBridgeAdapter(SbcBridgedInterfaceInfo bridgedInterface)
+        {
+            var label = bridgedInterface.IsWireless ? $"{bridgedInterface.Name} (Wi-Fi)" : bridgedInterface.Name;
+            return bridgedInterface.IsUp ? label : $"{label} [down]";
+        }
+
+        private async Task RefreshBridgeAdaptersAsync()
+        {
+            var interfaces = await new SbcVirtualBoxController(_device.Sitl).ListBridgedInterfacesAsync();
+            _bridgedInterfaces.Clear();
+            _bridgedInterfaces.AddRange(interfaces);
+            _bridgeAdapterStatus = interfaces.Count == 0
+                ? "VBoxManage reported no bridged host interfaces. Check the VirtualBox installation and the wired/Wi-Fi adapter state."
+                : $"Detected {interfaces.Count} bridged host interface(s).";
         }
 
         private void RefreshHostEndpoints(string currentEndpoint = null)
@@ -308,12 +413,16 @@ namespace RSMA.EditorTools
         private void BeginOperation(Task operation)
         {
             _message = "Operation in progress...";
+            _messageType = MessageType.Info;
             _pendingOperation = operation;
             operation.ContinueWith(completed =>
             {
                 _pendingOperation = null;
                 if (completed.IsFaulted)
+                {
                     _message = completed.Exception?.GetBaseException().Message ?? "SITL operation failed.";
+                    _messageType = MessageType.Error;
+                }
                 Repaint();
             }, TaskScheduler.FromCurrentSynchronizationContext());
         }

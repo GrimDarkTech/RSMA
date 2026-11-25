@@ -14,7 +14,7 @@ namespace RSMA.EditorTools
         public static void ShowWindow()
         {
             var window = GetWindow<SbcVirtualBoxSettingsWindow>("SBC VirtualBox Settings");
-            window.minSize = new Vector2(460f, 240f);
+            window.minSize = new Vector2(460f, 220f);
             window.LoadSettings();
         }
 
@@ -34,18 +34,20 @@ namespace RSMA.EditorTools
             EditorGUILayout.LabelField("Global VirtualBox settings", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox("These values are shared by all SBC devices and are stored in ProjectSettings.", MessageType.Info);
 
-            _settings.vboxManagePath = EditorGUILayout.TextField("VBoxManage.exe", _settings.vboxManagePath);
-            _settings.defaultGuestProfile = (SbcGuestProfile)EditorGUILayout.EnumPopup("Default guest OS", _settings.defaultGuestProfile);
-            _settings.defaultBridgeAdapterName = EditorGUILayout.TextField("Default bridge adapter", _settings.defaultBridgeAdapterName);
+            using (new EditorGUI.DisabledScope(true))
+                EditorGUILayout.TextField("VBoxManage", _settings.ResolveExecutablePath());
+            _settings.defaultVirtualCpuCount = EditorGUILayout.IntField("Default vCPUs", _settings.defaultVirtualCpuCount);
+            _settings.defaultMemoryMegabytes = EditorGUILayout.IntField("Default memory (MB)", _settings.defaultMemoryMegabytes);
+            _settings.defaultCpuExecutionCapPercent = EditorGUILayout.IntSlider("Default CPU cap (%)", _settings.defaultCpuExecutionCapPercent, 1, 100);
             _settings.defaultStartupTimeoutSeconds = EditorGUILayout.IntField("Default startup timeout", _settings.defaultStartupTimeoutSeconds);
             _settings.defaultShutdownTimeoutSeconds = EditorGUILayout.IntField("Default shutdown timeout", _settings.defaultShutdownTimeoutSeconds);
             _settings.defaultCommandTimeoutSeconds = EditorGUILayout.IntField("Default command timeout", _settings.defaultCommandTimeoutSeconds);
             _settings.enableSitlLogs = EditorGUILayout.Toggle("Enable SBC SITL logs", _settings.enableSitlLogs);
 
             EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("Choose VBoxManage.exe"))
+            if (GUILayout.Button("Choose VBoxManage"))
             {
-                var path = EditorUtility.OpenFilePanel("Select VBoxManage.exe", string.Empty, "exe");
+                var path = EditorUtility.OpenFilePanel("Select VBoxManage", string.Empty, "exe");
                 if (!string.IsNullOrEmpty(path))
                     _settings.vboxManagePath = path;
             }
@@ -70,6 +72,9 @@ namespace RSMA.EditorTools
             _settings.defaultStartupTimeoutSeconds = Mathf.Max(1, _settings.defaultStartupTimeoutSeconds);
             _settings.defaultShutdownTimeoutSeconds = Mathf.Max(1, _settings.defaultShutdownTimeoutSeconds);
             _settings.defaultCommandTimeoutSeconds = Mathf.Max(1, _settings.defaultCommandTimeoutSeconds);
+            _settings.defaultVirtualCpuCount = Mathf.Max(1, _settings.defaultVirtualCpuCount);
+            _settings.defaultMemoryMegabytes = Mathf.Max(512, _settings.defaultMemoryMegabytes);
+            _settings.defaultCpuExecutionCapPercent = Mathf.Clamp(_settings.defaultCpuExecutionCapPercent, 1, 100);
             var directory = Path.GetDirectoryName(SbcVirtualBoxGlobalSettings.SettingsPath);
             Directory.CreateDirectory(directory);
             File.WriteAllText(SbcVirtualBoxGlobalSettings.SettingsPath, JsonUtility.ToJson(_settings, true));

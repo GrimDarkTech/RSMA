@@ -162,17 +162,20 @@ LED`, а не только наличие ссылок в YAML сцены.
 
 ## SITL/HITL baseline
 
-SITL использует VirtualBox через `VBoxManage` и Bridged adapter. Guest profiles —
-Ubuntu 22.04 и 24.04; VM получает собственный адрес в локальной WiFi/Ethernet-сети
-и подключается к host RSMA по его LAN-адресу. NAT и `10.0.2.2` не являются целевой
-схемой. Перед запуском выключенной VM контроллер применяет bridged adapter;
-сохранённое состояние VirtualBox сбрасывается перед изменением адаптера.
+SITL использует зарегистрированную VirtualBox VM через `VBoxManage` и обязательный
+Bridged adapter. Дистрибутив Linux определяется установленной в выбранной VM
+гостевой ОС и не является настройкой RSMA. VM получает собственный адрес в локальной
+WiFi/Ethernet-сети и подключается к host RSMA по его LAN-адресу. NAT и `10.0.2.2`
+не являются целевой схемой. Перед запуском выключенной VM контроллер применяет
+Bridged adapter, число vCPU, объём RAM и CPU execution cap; сохранённое состояние
+VirtualBox сбрасывается перед изменением параметров.
 
 ### Меню и пользовательский путь SITL
 
 Глобальные настройки VirtualBox открываются в Unity Editor через
 `RSMA > SBC VirtualBox Settings`. Они доступны только в EditMode и включают путь
-к `VBoxManage.exe`, guest profile и defaults для adapter/timeouts. Изменения
+к `VBoxManage.exe`, bridge adapter, defaults для vCPU/RAM/CPU cap и таймаутов.
+Эти defaults
 записываются кнопкой `Save settings` в
 `ProjectSettings/RSMA-SbcVirtualBoxSettings.json`; при открытии окно загружает
 файл, если он существует. `Enable SBC SITL logs` управляет диагностическими
@@ -180,12 +183,23 @@ Ubuntu 22.04 и 24.04; VM получает собственный адрес в 
 
 Настройки конкретного устройства находятся в `RSMA > SBC SITL`. Оператор выбирает
 `SbcDevice`, обновляет список зарегистрированных VirtualBox VM или регистрирует
-машину из `.vbox` файла, выбирает VM, задаёт bridge adapter, host endpoint и три
-NetMQ порта. `Apply global defaults` копирует общие guest/adapter/timeout defaults
+машину из `.vbox` файла, выбирает VM из списка, задаёт vCPU, RAM,
+CPU execution cap, host endpoint и три NetMQ порта. Сетевой режим всегда Bridged.
+`Apply global defaults` копирует общие resource/adapter/timeout defaults
 в выбранный компонент. `VM window mode` задаёт запуск без окна (`Headless`, default)
 или с окном VirtualBox (`GUI`). Эти поля доступны для редактирования только в
 EditMode; Start/Stop/Refresh доступны только в PlayMode. Изменения конфигурации
 сохраняются вместе со сценой.
+
+`Bridge adapter` выбирается из списка, который окно получает через
+`VBoxManage list bridgedifs` при открытии и по кнопке `Refresh host adapters`;
+недоступные интерфейсы помечаются `[down]`, Wi-Fi — `(Wi-Fi)`. Ручной ввод остаётся
+через `Manual entry` для нестандартных имён. Значение по умолчанию пустое, а
+сохранённое имя, отсутствующее в текущем списке хоста, показывается как
+`(not detected)` с предупреждением, но не перезаписывается молча. Имя адаптера
+обязательно только для запуска VM: остановка и `Refresh status` работают
+по одному имени VM (`SbcSitlConfiguration.ValidateIdentity`), поэтому неверный
+адаптер не блокирует выключение запущенной машины.
 
 Для физического SBC используется отдельное окно `RSMA > SBC HITL`. Оно содержит
 только `SbcDevice`/network configuration и тот же host endpoint selector; поля
